@@ -3640,7 +3640,7 @@ $('#labName').value=lab.name||'Mein Projekt';
 // Gesamtsicherung
 $('#bkBtn').onclick=()=>{ const p=$('#bkPanel'); p.hidden=!p.hidden; };
 $('#bkSave').onclick=()=>{ saveLab(); const d=new Date(); const stamp=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  const extra={}; ['uct-sg-v1','uct-learn-v1','uct-learn-v1-ui','uct-path-v1','uct-plc-v1','uct-lang','uct-settings'].forEach(k=>{ try{ const v=localStorage.getItem(k); if(v!=null) extra[k]=v; }catch(e){} });
+  const extra={}; ['uct-sg-v1','uct-learn-v1','uct-learn-v1-ui','uct-path-v1','uct-plc-v1','uct-lang','uct-settings','uct-wires-v1'].forEach(k=>{ try{ const v=localStorage.getItem(k); if(v!=null) extra[k]=v; }catch(e){} });
   saveFile('uC-Trainer-Sicherung-'+stamp+'.json',JSON.stringify({app:'uC-Trainer',kind:'backup',v:2,data:DATA,extra})); };
 $('#bkLoad').onclick=async()=>{
   const f=await pickFile('.json,application/json'); if(!f) return;
@@ -6128,6 +6128,252 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
   }
 })();
 </script>
+<!-- ===== Labor: Von Hand verkabeln (Steckbrett-Modus) ===== -->
+<style>
+.wm-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0}
+.wm-seg{display:inline-flex;border:1px solid var(--line2);border-radius:999px;overflow:hidden;background:var(--panel)}
+.wm-seg button{border:0;background:none;color:var(--muted);padding:7px 14px;font-weight:600;cursor:pointer;font-size:13px}
+.wm-seg button.on{background:linear-gradient(180deg,var(--accent),var(--accent2));color:var(--ink)}
+.wm-bar .hint{font-size:12.5px;color:var(--muted)}
+#wireWs{position:relative;display:none;overflow:visible !important;background:#0a0f13 radial-gradient(circle at 1px 1px,#1a242c 1px,transparent 0) 0 0/18px 18px;border:1px solid var(--line2);border-radius:16px;padding:14px;margin-bottom:10px;overflow:hidden}
+#wireWs.on{display:grid;grid-template-columns:auto minmax(0,1fr);gap:18px 60px;align-items:start}
+@media (max-width:759px){#wireWs.on{grid-template-columns:1fr}}
+#wireSvg{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:3;overflow:visible}
+#wireSvg path{fill:none;stroke-width:3.4;stroke-linecap:round;pointer-events:stroke;cursor:pointer;filter:drop-shadow(0 1px 1px rgba(0,0,0,.6))}
+#wireSvg path.sel{stroke-width:6}
+.wb{position:relative;z-index:2;border-radius:12px;padding:10px 0;font-family:var(--mono);color:#e6f5f7;box-shadow:0 10px 24px -10px rgba(0,0,0,.7)}
+.wb.uno{background:linear-gradient(160deg,#0f6470,#0a434b);border:1px solid #1f8693;width:250px}
+.wb.esp{background:linear-gradient(160deg,#25292e,#15181b);border:1px solid #3c4249;width:250px}
+.wb .tt{text-align:center;font-weight:700;font-size:13px;margin:0 0 6px}
+.wb .chip{margin:6px auto 8px;width:120px;height:48px;border-radius:4px;background:#111;border:1px solid #333;color:#999;font-size:10px;display:grid;place-items:center}
+.wb.esp .chip{background:linear-gradient(#bcc2c8,#9aa1a8);color:#333;border-color:#777;height:56px}
+.wb .usb{margin:0 auto 6px;width:54px;height:16px;border-radius:3px;background:#b9c0c6}
+.wb .cols{display:grid;grid-template-columns:1fr 1fr;gap:0 6px}
+.wp{display:flex;align-items:center;gap:6px;font-size:11.5px;height:24px;padding:0 6px;cursor:pointer;user-select:none;-webkit-user-select:none}
+.wp.r{flex-direction:row-reverse;text-align:right}
+.wp .d{width:14px;height:14px;border-radius:3px;background:#1b1b1b;border:2px solid #c9a227;flex:none;box-shadow:inset 0 0 0 2px #000}
+.wp.pw .d{border-color:#ff6b5e}.wp.gn .d{border-color:#9aa4ad}.wp.nc .d{border-color:#555}
+.wp.nc{opacity:.55}
+.wp:hover .d,.wt:hover .d{transform:scale(1.15)}
+.wp.sel .d,.wt.sel .d{background:var(--accent);box-shadow:0 0 0 3px var(--glow)}
+.wp.bad .d,.wt.bad .d{background:#ff5a4e;box-shadow:0 0 0 3px rgba(255,90,78,.45)}
+.wp.has .d,.wt.has .d{background:#e8eef3}
+.wcs{position:relative;z-index:2;display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}
+.wc{background:var(--panel);border:1px solid var(--line2);border-radius:12px;padding:8px 10px}
+.wc .hd{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:700;margin-bottom:4px}
+.wc .hd svg{width:22px;height:22px}
+.wt{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:4px 2px;cursor:pointer;user-select:none;-webkit-user-select:none;border-radius:6px}
+.wt .d{width:14px;height:14px;border-radius:50%;background:#2a2f33;border:2px solid #c9a227;flex:none;transition:transform .1s}
+.wt.pw .d{border-color:#ff6b5e}.wt.gn .d{border-color:#9aa4ad}
+.wt small{color:var(--muted);margin-left:auto;font-family:var(--mono);font-size:11px}
+.wm-res{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.wm-res .r{border-radius:10px;padding:8px 11px;font-size:13.5px}
+.wm-res .r.e{background:#2a1214;border:1px solid #6b2a2e;color:#ffc9c5}
+.wm-res .r.w{background:#241d0e;border:1px solid #5b4a1a;color:#f5dc9c}
+.wm-res .r.ok{background:#0f2a20;border:1px solid #1d5a3f;color:#a9f0c9}
+.wm-tool{position:absolute;z-index:6;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:4px;display:none;box-shadow:0 10px 24px rgba(0,0,0,.6)}
+.wm-tool.on{display:flex;gap:4px}
+.wm-tool button{background:var(--panel2);border:1px solid var(--line2);color:var(--text);border-radius:8px;padding:6px 10px;font-size:12.5px;cursor:pointer}
+#view-labor.manual .cpin select{pointer-events:none;opacity:.55}
+#view-labor.manual .circuit .wires{display:none}
+#view-labor.manual .circuit .pcbcol{display:none}
+#view-labor.manual .circuit{grid-template-columns:1fr !important;min-height:0}
+</style>
+<script>
+(function(){
+  const $=s=>document.querySelector(s);
+  const E=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  if(!$('#circuit')||typeof labStart!=='function') return;
+  const KEY='uct-wires-v1';
+  let W; try{ W=JSON.parse(localStorage.getItem(KEY))||{}; }catch(e){ W={}; }
+  const saveW=()=>{ try{ localStorage.setItem(KEY,JSON.stringify(W)); }catch(e){} };
+  const st=()=>{ const id=cd.id; W[id]=W[id]||{manual:false,wires:[]}; return W[id]; };
+
+  /* ---------- Board-Pins ---------- */
+  const P=(id,label,role,pin)=>({id,label,role,pin});
+  const UNO={L:[P('IOREF','IOREF','nc'),P('RESET','RESET','nc'),P('3V3','3.3V','v33'),P('5V','5V','v5'),P('GND1','GND','gnd'),P('GND2','GND','gnd'),P('VIN','VIN','vin'),
+                ...[0,1,2,3,4,5].map(i=>P('A'+i,'A'+i,'io',14+i))],
+             R:[P('AREF','AREF','nc'),P('GND3','GND','gnd'),...[13,12,11,10,9,8,7,6,5,4,3,2,1,0].map(n=>P('D'+n,(n===1?'1 TX':n===0?'0 RX':[3,5,6,9,10,11].includes(n)?'~'+n:''+n),'io',n))]};
+  const ESP={L:[P('EN','EN','nc'),P('G36','VP 36','io',36),P('G39','VN 39','io',39),...[34,35,32,33,25,26,27,14,12,13].map(n=>P('G'+n,'D'+n,'io',n)),P('GNDL','GND','gnd'),P('VIN','VIN 5V','vin')],
+             R:[...[23,22].map(n=>P('G'+n,'D'+n,'io',n)),P('G1','TX0','io',1),P('G3','RX0','io',3),...[21,19,18,5].map(n=>P('G'+n,'D'+n,'io',n)),P('G17','TX2 17','io',17),P('G16','RX2 16','io',16),...[4,2,15].map(n=>P('G'+n,'D'+n,'io',n)),P('GNDR','GND','gnd'),P('3V3','3V3','v33')]};
+  const board=()=>cd.board==='esp32'?ESP:UNO;
+  const bpin=id=>{ const B=board(); return B.L.concat(B.R).find(p=>p.id===id); };
+
+  /* ---------- Bauteil-Anschlüsse ---------- */
+  const NEED5=['servo','relay','hcsr04','strip'];
+  function terms(c){
+    const D=COMP[c.type]||{pins:[]}, sig=D.pins.map(pd=>({id:pd.k,label:pd.label,role:'sig',k:pd.k,kind:pd.kind}));
+    switch(c.type){
+      case 'led': return [{id:'a',label:'Anode (+)',role:'sig',k:'a',kind:'out'},{id:'k',label:'Kathode (−)',role:'gnd'}];
+      case 'rgb': return sig.concat([{id:'k',label:'Kathode (−)',role:'gnd'}]);
+      case 'buzzer': return [{id:'s',label:'+',role:'sig',k:'s',kind:'out'},{id:'g',label:'−',role:'gnd'}];
+      case 'button': return [{id:'s',label:'Bein 1',role:'sig',k:'s',kind:'in'},{id:'t2',label:'Bein 2',role:'gv'}];
+      case 'switch': return [{id:'v',label:'Außen 1 (VCC)',role:'vcc'},sig[0],{id:'g',label:'Außen 2 (GND)',role:'gnd'}];
+      case 'touch': return sig;
+      case 'strip12': return sig.concat([{id:'g',label:'GND',role:'gnd'}]);
+      case 'servo': return [{id:'v',label:'+ (rot)',role:'vcc'},sig[0],{id:'g',label:'− (braun)',role:'gnd'}];
+      default: return [{id:'v',label:'VCC',role:'vcc'}].concat(sig,[{id:'g',label:'GND',role:'gnd'}]);
+    }
+  }
+
+  /* ---------- Arbeitsfläche ---------- */
+  const circ=$('#circuit');
+  const bar=document.createElement('div'); bar.className='wm-bar';
+  bar.innerHTML=`<span class="wm-seg"><button data-wm="auto">⚡ Automatisch</button><button data-wm="hand">🔌 Von Hand verkabeln</button></span><span class="hint" id="wmHint"></span><span style="flex:1"></span><button class="btn mini" id="wmAuto" title="Kabel nach den aktuellen Pins vorschlagen">🪄 Vorverkabeln</button><button class="btn mini" id="wmClear">✂ Alle Kabel lösen</button><button class="btn mini primary" id="wmCheck">✔ Prüfen</button>`;
+  const ws=document.createElement('div'); ws.id='wireWs';
+  const res=document.createElement('div'); res.className='wm-res';
+  circ.parentNode.insertBefore(bar,circ); circ.parentNode.insertBefore(ws,circ); circ.parentNode.insertBefore(res,circ);
+  let sel=null, selWire=-1;
+
+  function termEl(id){ return ws.querySelector(`[data-t="${CSS.escape(id)}"]`); }
+  function render(){
+    const S=st(), B=board(), esp=cd.board==='esp32';
+    $('#view-labor').classList.toggle('manual',S.manual);
+    bar.querySelectorAll('[data-wm]').forEach(b=>b.classList.toggle('on',(b.dataset.wm==='hand')===S.manual));
+    ['wmAuto','wmClear','wmCheck'].forEach(i=>$('#'+i).style.display=S.manual?'':'none');
+    $('#wmHint').textContent=S.manual?'Tippe einen Anschluss an, dann den zweiten – fertig ist das Kabel. Kabel antippen zum Löschen.':'Pins werden über die Auswahl an den Bauteilen zugeordnet.';
+    ws.classList.toggle('on',S.manual); if(!S.manual){ res.innerHTML=''; return; }
+    // Kabel zu gelöschten Bauteilen entfernen
+    const ids=new Set(cd.comps.map(c=>c.id)); S.wires=S.wires.filter(w=>w.every(t=>t.startsWith('B:')?!!bpin(t.slice(2)):ids.has(t.split(':')[1])));
+    const pinRow=(p,side)=>`<div class="wp ${side==='R'?'r':''} ${p.role==='gnd'?'gn':p.role==='io'?'':p.role==='nc'?'nc':'pw'}" data-t="B:${p.id}"><span class="d"></span><span>${E(p.label)}</span></div>`;
+    ws.innerHTML=`<svg id="wireSvg"></svg>
+      <div class="wb ${esp?'esp':'uno'}"><div class="tt">${esp?'ESP32 DevKit V1':'Arduino Uno R3'}</div>${esp?'<div class="usb"></div>':''}<div class="chip">${esp?'ESP-WROOM-32':'ATmega328P'}</div>
+        <div class="cols"><div>${B.L.map(p=>pinRow(p,'L')).join('')}</div><div>${B.R.map(p=>pinRow(p,'R')).join('')}</div></div></div>
+      <div class="wcs">${cd.comps.length?cd.comps.map(c=>`<div class="wc"><div class="hd">${(COMP[c.type]||{}).icon||''}<span>${E((COMP[c.type]||{}).name||c.type)}</span></div>${terms(c).map(t=>`<div class="wt ${t.role==='gnd'?'gn':t.role==='vcc'?'pw':''}" data-t="C:${c.id}:${t.id}"><span class="d"></span><span>${E(t.label)}</span></div>`).join('')}</div>`).join(''):'<div class="hint" style="color:var(--muted);padding:20px">Füge oben über „＋ Bauteil hinzufügen“ Bauteile hinzu.</div>'}</div>
+      <div class="wm-tool" id="wmTool"><button id="wmDelW">🗑 Kabel löschen</button></div>`;
+    ws.querySelectorAll('[data-t]').forEach(el=>el.onclick=e=>{ e.stopPropagation(); tap(el.dataset.t); });
+    ws.onclick=()=>{ sel=null; selWire=-1; mark(); drawWires(); };
+    mark(); requestAnimationFrame(drawWires);
+  }
+  function mark(){
+    const S=st(), used=new Set(S.wires.flat());
+    ws.querySelectorAll('[data-t]').forEach(el=>{ el.classList.toggle('sel',el.dataset.t===sel); el.classList.toggle('has',used.has(el.dataset.t)); });
+  }
+  function tap(id){
+    const S=st(); res.innerHTML=''; ws.querySelectorAll('.bad').forEach(x=>x.classList.remove('bad'));
+    if(id.startsWith('B:')&&bpin(id.slice(2)).role==='nc'){ toast('Diesen Anschluss bitte nicht verwenden.'); return; }
+    if(!sel){ sel=id; selWire=-1; mark(); drawWires(); return; }
+    if(sel===id){ sel=null; mark(); drawWires(); return; }
+    if(!S.wires.some(w=>(w[0]===sel&&w[1]===id)||(w[0]===id&&w[1]===sel))) S.wires.push([sel,id]);
+    sel=null; saveW(); mark(); drawWires();
+  }
+  function colorFor(w){
+    const role=t=>{ if(t.startsWith('B:')) return bpin(t.slice(2)).role; const [,cid,tid]=t.split(':'); const c=cd.comps.find(x=>x.id===cid); const T=c&&terms(c).find(x=>x.id===tid); return T?T.role:'sig'; };
+    const r=w.map(role);
+    if(r.includes('gnd')) return '#2b2f33';
+    if(r.includes('v5')||r.includes('vin')) return '#e5382e';
+    if(r.includes('v33')) return '#ff9a2e';
+    const pal=['#3b8cff','#30d158','#ffd60a','#bf5af2','#64d2ff','#ff6fae','#ffffff'];
+    let h=0; for(const ch of w.join('')) h=(h*31+ch.charCodeAt(0))>>>0; return pal[h%pal.length];
+  }
+  function drawWires(){
+    const svg=$('#wireSvg'); if(!svg) return; const S=st(); const R0=ws.getBoundingClientRect(), z=parseFloat(document.body.style.zoom)||1;
+    const pt=id=>{ const el=termEl(id); if(!el) return null; const d=el.querySelector('.d').getBoundingClientRect(); return [(d.left+d.width/2-R0.left)/z,(d.top+d.height/2-R0.top)/z]; };
+    svg.setAttribute('width',ws.scrollWidth); svg.setAttribute('height',ws.scrollHeight);
+    svg.innerHTML=S.wires.map((w,i)=>{ const a=pt(w[0]),b=pt(w[1]); if(!a||!b) return ''; const dx=Math.max(40,Math.abs(b[0]-a[0])*.45);
+      const s1=w[0].startsWith('B:')&&termEl(w[0]).classList.contains('r')?1:-1, s0=a[0]<b[0]?1:-1;
+      const bc=(id,o)=>termEl(id).classList.contains('r')?Math.max(60,dx):-Math.min(34,dx); const c1=w[0].startsWith('B:')?bc(w[0]):s0*dx, c2=w[1].startsWith('B:')?bc(w[1]):-s0*dx;
+      return `<path data-w="${i}" class="${i===selWire?'sel':''}" stroke="${colorFor(w)}" d="M${a[0]} ${a[1]} C${a[0]+c1} ${a[1]} ${b[0]+c2} ${b[1]} ${b[0]} ${b[1]}"/>`; }).join('');
+    svg.querySelectorAll('path').forEach(p=>p.addEventListener('click',e=>{ e.stopPropagation(); selWire=+p.dataset.w; sel=null; mark(); drawWires(); const t=$('#wmTool'); const r=ws.getBoundingClientRect(); t.style.left=((e.clientX-r.left)/z+8)+'px'; t.style.top=((e.clientY-r.top)/z+8)+'px'; t.classList.add('on'); $('#wmDelW').onclick=ev=>{ ev.stopPropagation(); S.wires.splice(selWire,1); selWire=-1; t.classList.remove('on'); saveW(); mark(); drawWires(); }; }));
+    if(selWire<0){ const t=$('#wmTool'); if(t) t.classList.remove('on'); }
+  }
+
+  /* ---------- Prüfen ---------- */
+  function nets(){
+    const S=st(), par={}; const f=x=>{ par[x]=par[x]||x; return par[x]===x?x:(par[x]=f(par[x])); };
+    S.wires.forEach(([a,b])=>{ par[f(a)]=f(b); });
+    const G={}; Object.keys(par).forEach(x=>{ const r=f(x); (G[r]=G[r]||[]).push(x); });
+    const of=id=>par[id]?G[f(id)]:[id];
+    return {of,groups:Object.values(G)};
+  }
+  const esc5=b=>b==='esp32';
+  function validate(){
+    const S=st(), N=nets(), out=[], bad=new Set(), esp=cd.board==='esp32', pinOf={};
+    const boardIn=net=>net.filter(t=>t.startsWith('B:')).map(t=>bpin(t.slice(2)));
+    // Kurzschlüsse & direkte Verbindungen
+    N.groups.forEach(g=>{ const bp=boardIn(g), roles=bp.map(p=>p.role);
+      const pw=roles.some(r=>['v5','v33','vin'].includes(r)), gn=roles.includes('gnd'), io=bp.filter(p=>p.role==='io');
+      if(pw&&gn){ out.push(['e','⚡ Kurzschluss: Versorgung ('+bp.filter(p=>p.role!=='gnd'&&p.role!=='io').map(p=>p.label).join(', ')+') ist direkt mit GND verbunden.']); g.forEach(t=>bad.add(t)); }
+      if(io.length&&(pw||gn)&&!g.some(t=>t.startsWith('C:'))){ out.push(['e',`Pin ${io.map(p=>p.label).join(', ')} ist direkt mit ${pw?'der Versorgung':'GND'} verbunden – beim Schalten gibt es einen Kurzschluss.`]); g.forEach(t=>bad.add(t)); }
+      if(io.length>1){ out.push(['w',`Die Pins ${io.map(p=>p.label).join(' und ')} sind miteinander verbunden.`]); }
+      if(bp.some(p=>p.role==='v5')&&bp.some(p=>p.role==='v33')){ out.push(['e','5V und 3.3V sind miteinander verbunden.']); g.forEach(t=>bad.add(t)); }
+    });
+    cd.comps.forEach(c=>{
+      const name=(COMP[c.type]||{}).name||c.type;
+      terms(c).forEach(t=>{
+        const id=`C:${c.id}:${t.id}`, net=N.of(id), bp=boardIn(net), roles=bp.map(p=>p.role), io=bp.filter(p=>p.role==='io');
+        const say=(k,m)=>{ out.push([k,`${name} – ${t.label}: ${m}`]); if(k==='e') bad.add(id); };
+        if(net.length<2){ if(t.role!=='gv') say('e','nicht angeschlossen.'); else say('e','nicht angeschlossen (an GND oder VCC).'); return; }
+        if(t.role==='sig'){
+          if(!io.length){ say('e', roles.length?'hängt an '+bp.map(p=>p.label).join(', ')+' statt an einem Signal-Pin.':'ist mit keinem Board-Pin verbunden.'); return; }
+          if(io.length>1){ say('e','ist mit mehreren Pins verbunden.'); return; }
+          const p=io[0].pin, allowed=typeof pinsFor==='function'?pinsFor(cd.board,t.kind):null;
+          if(esp&&[1,3].includes(p)){ say('e','TX0/RX0 werden für USB gebraucht – anderen Pin nehmen.'); return; }
+          if(esp&&p>=34&&p<=39&&['out','pwm','io'].includes(t.kind)){ say('e',`GPIO ${p} kann nur Eingang sein.`); return; }
+          if(allowed&&!allowed.includes(p)){ say('e',`${io[0].label} passt nicht – dieser Anschluss braucht einen ${({adc:'Analog',pwm:'PWM',sda:'SDA',scl:'SCL',touch:'Touch'})[t.kind]||'passenden'}-Pin.`); return; }
+          if(!esp&&(p===0||p===1)) say('w','Pin 0/1 wird auch für USB/Serial benutzt.');
+          if(roles.some(r=>r!=='io')) say('e','ist zusätzlich mit Versorgung/GND verbunden.');
+          (pinOf[c.id]=pinOf[c.id]||{})[t.k]=p;
+        }
+        if(t.role==='gnd'&&!roles.includes('gnd')) say('e','muss mit GND verbunden werden.');
+        if(t.role==='vcc'){
+          if(!roles.some(r=>['v5','v33','vin'].includes(r))) say('e','braucht Versorgungsspannung ('+(esp?'3V3 oder VIN':'5V oder 3.3V')+').');
+          else if(esp&&roles.includes('vin')&&!NEED5.includes(c.type)) say('w','bekommt 5 V (VIN). Gibt der Sensor 5 V aus, kann das den ESP32-Pin beschädigen – besser 3V3.');
+          else if(NEED5.includes(c.type)&&roles.includes('v33')) say('w','braucht eigentlich 5 V – an 3,3 V arbeitet es oft nicht zuverlässig.');
+        }
+        if(t.role==='gv'){
+          if(roles.includes('gnd')) (pinOf[c.id]=pinOf[c.id]||{}).__wire='gegen GND';
+          else if(roles.some(r=>['v5','v33','vin'].includes(r))) (pinOf[c.id]=pinOf[c.id]||{}).__wire='gegen VCC + 10k Pull-down';
+          else say('e','muss an GND (dann INPUT_PULLUP) oder an VCC (dann Pull-down) angeschlossen werden.');
+        }
+      });
+      if(c.type==='led'&&c.props&&c.props.res===false) out.push(['e',`${name}: Ohne Vorwiderstand brennt sie durch – Haken „mit 220 Ω Vorwiderstand“ setzen.`]);
+      if(c.type==='hcsr04'&&esp) out.push(['w','HC-SR04: Echo gibt 5 V aus – am ESP32 über Spannungsteiler (1 kΩ / 2 kΩ) anschließen.']);
+    });
+    return {out,bad,pinOf};
+  }
+  function show(r,started){
+    ws.querySelectorAll('.bad').forEach(x=>x.classList.remove('bad'));
+    r.bad.forEach(id=>{ const el=termEl(id); if(el) el.classList.add('bad'); });
+    const e=r.out.filter(x=>x[0]==='e'), w=r.out.filter(x=>x[0]==='w');
+    res.innerHTML=(e.length?`<div class="r e"><b>${e.length} Fehler – ${started?'':'nicht gestartet. '}Bitte korrigieren:</b></div>`:`<div class="r ok">✅ Verkabelung in Ordnung${w.length?' – mit Hinweisen':''}.${started?' Programm läuft.':''}</div>`)+e.map(x=>`<div class="r e">❌ ${E(x[1])}</div>`).join('')+w.map(x=>`<div class="r w">⚠️ ${E(x[1])}</div>`).join('');
+  }
+  function apply(r){
+    cd.comps.forEach(c=>{ const m=r.pinOf[c.id]; if(!m) return; Object.entries(m).forEach(([k,v])=>{ if(k==='__wire') c.props.wire=v; else c.pins[k]=v; }); });
+    renderComps(); saveLab();
+  }
+  const origRun=labStart;
+  $('#labRun').onclick=()=>{
+    const S=st(); if(!S.manual) return origRun();
+    const r=validate(); const errs=r.out.filter(x=>x[0]==='e');
+    if(errs.length){ show(r,false); res.scrollIntoView({behavior:'smooth',block:'nearest'}); return; }
+    apply(r); show(r,true); origRun();
+  };
+  $('#wmCheck').onclick=()=>{ const r=validate(); show(r,false); if(!r.out.some(x=>x[0]==='e')) apply(r); };
+  $('#wmClear').onclick=()=>{ if(!confirm('Alle Kabel lösen?')) return; st().wires=[]; saveW(); render(); };
+  $('#wmAuto').onclick=()=>{
+    const S=st(), B=board(), all=B.L.concat(B.R), byPin=p=>all.find(x=>x.role==='io'&&x.pin===p), gnd=all.find(x=>x.role==='gnd'), v=all.find(x=>x.role===(cd.board==='esp32'?'v33':'v5')), v5=all.find(x=>x.role===(cd.board==='esp32'?'vin':'v5'));
+    S.wires=[];
+    cd.comps.forEach(c=>terms(c).forEach(t=>{ const id=`C:${c.id}:${t.id}`;
+      if(t.role==='sig'){ const bp=byPin(c.pins[t.k]); if(bp) S.wires.push(['B:'+bp.id,id]); }
+      if(t.role==='gnd') S.wires.push(['B:'+gnd.id,id]);
+      if(t.role==='vcc') S.wires.push(['B:'+(NEED5.includes(c.type)?v5:v).id,id]);
+      if(t.role==='gv') S.wires.push(['B:'+(c.props.wire==='gegen GND'?gnd:v).id,id]);
+    }));
+    res.innerHTML=''; saveW(); render(); toast('Vorverkabelt – prüf die Kabel und drück ▶ Start.');
+  };
+  bar.querySelectorAll('[data-wm]').forEach(b=>b.onclick=()=>{ const S=st(); S.manual=b.dataset.wm==='hand'; if(S.manual&&!S.wires.length&&cd.comps.length) toast('Tipp: „🪄 Vorverkabeln“ übernimmt die aktuellen Pins als Start.'); saveW(); render(); });
+
+  // neu zeichnen, wenn sich Bauteile/Board/Gerät ändern
+  let t=null; const re=()=>{ clearTimeout(t); t=setTimeout(render,60); };
+  new MutationObserver(re).observe($('#comps'),{childList:true});
+  $('#labBoard').addEventListener('change',()=>{ res.innerHTML=''; re(); });
+  $('#devTabs').addEventListener('click',re);
+  window.addEventListener('resize',()=>requestAnimationFrame(drawWires));
+  const so=showView; showView=function(v){ so(v); if(v==='labor') setTimeout(render,30); };
+  render();
+})();
+</script>
 <!-- ===== KI-Assistent (Offline-Coach + optional Claude) ===== -->
 <style>
 #aiFab{position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom));z-index:65;width:56px;height:56px;border-radius:18px;border:0;cursor:pointer;background:linear-gradient(135deg,var(--accent),var(--accent2));color:var(--ink);box-shadow:0 10px 26px -8px var(--glow),0 4px 10px rgba(0,0,0,.4);display:grid;place-items:center}
@@ -6420,7 +6666,7 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
 </div>
 <script>
 (function(){
-  var APP_VERSION = '2.0.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+  var APP_VERSION = '2.1.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
   window.UCT_VERSION = APP_VERSION;
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register('sw.js').catch(function(){});
