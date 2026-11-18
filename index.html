@@ -311,6 +311,7 @@ h3{margin:18px 0 8px;font-size:16px}
       <button data-v="labor">Labor</button>
       <button data-v="quiz">Quiz</button>
       <button data-v="struktogramm">Struktogramm</button>
+      <button data-v="lernen">Lernen</button>
       <button data-v="referenz">Referenz</button>
     </nav>
     <button class="btn bk" id="bkBtn">💾 Sichern</button>
@@ -452,6 +453,47 @@ h3{margin:18px 0 8px;font-size:16px}
         <button class="btn mini" id="sgExample">📘 Beispiel laden</button>
       </div>
       <div class="sg-out" id="sgOut" hidden></div>
+    </div>
+  </section>
+
+  <section class="view" id="view-lernen">
+    <div class="ln-tabs" role="tablist">
+      <button class="on" data-lt="karten">🃏 Begriffe lernen</button>
+      <button data-lt="glossar">📖 Glossar</button>
+      <button data-lt="guide">✅ Coding-Guideline</button>
+    </div>
+
+    <div class="ln-pane on" id="ln-karten">
+      <div class="card ln-setup">
+        <div class="ln-row">
+          <label>Thema <select id="lnCat"></select></label>
+          <label>Modus <select id="lnMode">
+            <option value="card">Karteikarte</option>
+            <option value="quiz">Auswahl (4 Antworten)</option>
+          </select></label>
+          <label>Richtung <select id="lnDir">
+            <option value="t2d">Begriff → Erklärung</option>
+            <option value="d2t">Erklärung → Begriff</option>
+          </select></label>
+        </div>
+        <div class="ln-boxes" id="lnBoxes"></div>
+      </div>
+      <div class="card ln-stage" id="lnStage"></div>
+    </div>
+
+    <div class="ln-pane" id="ln-glossar">
+      <div class="card">
+        <input id="lnSearch" type="search" placeholder="Begriff suchen …" autocomplete="off" spellcheck="false">
+        <div id="lnGloss"></div>
+      </div>
+    </div>
+
+    <div class="ln-pane" id="ln-guide">
+      <div class="ln-guide-intro card">
+        <h2>Coding-Guideline für Arduino &amp; ESP32</h2>
+        <p>Regeln für lesbaren, sicheren und wartbaren Code – für Übungen, Projektarbeit und Prüfung. Jede Regel mit <b class="bad">✗ schlecht</b> und <b class="good">✓ gut</b>.</p>
+      </div>
+      <div class="ln-guide" id="lnGuide"></div>
     </div>
   </section>
 
@@ -3606,7 +3648,7 @@ $('#bkLoad').onclick=async()=>{
 /* ---------- nav ---------- */
 function showView(v){
   if(v==='sandbox') v='labor';
-  if(!['aufgaben','labor','quiz','struktogramm','referenz'].includes(v)) v='aufgaben';
+  if(!['aufgaben','labor','quiz','struktogramm','lernen','referenz'].includes(v)) v='aufgaben';
   if(v==='labor') setTimeout(scheduleWires,30);
   document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id==='view-'+v));
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
@@ -3901,6 +3943,272 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
   window.addEventListener('resize',()=>{});
 })();
 </script>
+<!-- ===== Lernen: Begriffe (Karteikarten), Glossar, Coding-Guideline ===== -->
+<style>
+.ln-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.ln-tabs button{background:var(--panel);border:1px solid var(--line2);color:var(--muted);padding:8px 14px;border-radius:20px;cursor:pointer;font-weight:500}
+.ln-tabs button.on{color:#04201d;background:var(--teal);border-color:var(--teal)}
+.ln-pane{display:none}.ln-pane.on{display:block}
+.ln-setup{margin-bottom:12px}
+.ln-row{display:flex;flex-wrap:wrap;gap:10px}
+.ln-row label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted);flex:1 1 180px}
+.ln-boxes{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;align-items:center;font-size:12.5px;color:var(--muted)}
+.ln-box{font-family:var(--mono);border:1px solid var(--line2);border-radius:6px;padding:3px 8px}
+.ln-box b{color:var(--text)}
+.ln-box.b5{border-color:var(--green);color:var(--green)}
+.ln-stage{min-height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center}
+.ln-card{width:100%;max-width:620px;min-height:200px;background:var(--panel2);border:1px solid var(--line2);border-radius:14px;padding:22px;display:flex;flex-direction:column;justify-content:center;gap:10px;cursor:pointer;user-select:none;-webkit-user-select:none}
+.ln-card .cat{font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted)}
+.ln-card .ln-q{font-size:22px;font-weight:600;line-height:1.35}
+.ln-card .ln-q.long{font-size:16.5px;font-weight:500}
+.ln-card .ln-a{border-top:1px dashed var(--line2);padding-top:12px;font-size:16px;color:var(--text);line-height:1.5}
+.ln-card .ln-a.term{font-size:22px;font-weight:600;color:var(--teal)}
+.ln-card .tap{font-size:12.5px;color:var(--muted)}
+.ln-btns{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.ln-btns .btn{min-width:150px;padding:12px 16px;font-size:15px}
+.btn.no{border-color:var(--red);color:var(--red)}
+.btn.yes{border-color:var(--green);color:var(--green)}
+.ln-opts{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;max-width:620px}
+@media (max-width:600px){.ln-opts{grid-template-columns:1fr}}
+.ln-opts button{background:var(--panel2);border:1px solid var(--line2);color:var(--text);border-radius:10px;padding:12px;font-size:14.5px;text-align:left;cursor:pointer;line-height:1.4}
+.ln-opts button.ok{border-color:var(--green);background:#123326}
+.ln-opts button.bad{border-color:var(--red);background:#3a1714}
+.ln-meta{font-size:12.5px;color:var(--muted)}
+#lnSearch{width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--line2);border-radius:8px;padding:10px 12px;font-size:15px;margin-bottom:10px}
+.ln-g{border-bottom:1px solid var(--line);padding:10px 2px}
+.ln-g:last-child{border-bottom:0}
+.ln-g b{color:var(--teal)}
+.ln-g .c{font-size:11px;color:var(--muted);margin-left:6px;text-transform:uppercase;letter-spacing:1px}
+.ln-g p{margin:3px 0 0;font-size:14px}
+.ln-guide-intro{margin-bottom:12px}.ln-guide-intro h2{margin:0 0 4px}.ln-guide-intro p{margin:0;color:var(--muted)}
+.ln-guide{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:12px}
+@media (max-width:600px){.ln-guide{grid-template-columns:1fr}}
+.ln-guide .card h3{margin:0 0 6px;font-size:16px}
+.ln-guide .card p{margin:0 0 8px;font-size:14px;color:var(--muted)}
+.ln-guide pre{background:#0a0f13;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-family:var(--mono);font-size:12.5px;overflow:auto;margin:4px 0 8px;line-height:1.5}
+.ln-guide pre.bad{border-left:3px solid var(--red)}.ln-guide pre.good{border-left:3px solid var(--green)}
+b.bad{color:var(--red)}b.good{color:var(--green)}
+.ln-guide .lbl{font-size:12px;font-weight:600}
+</style>
+<script>
+(function(){
+  const $=s=>document.querySelector(s);
+  const E=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const HL=c=>(typeof hl==='function'?hl(c):E(c));
+
+  /* ================= Begriffe ================= */
+  const G=[
+    // Grundlagen
+    ['Mikrocontroller','Grundlagen','Ein Chip mit Prozessor, Arbeitsspeicher, Programmspeicher und Ein-/Ausgängen auf einem Bauteil. Er führt ein einziges Programm dauerhaft aus, z. B. ATmega328P (Arduino Uno) oder ESP32.'],
+    ['Sketch','Grundlagen','So heißt ein Arduino-Programm. Es besteht mindestens aus den Funktionen setup() und loop().'],
+    ['setup()','Grundlagen','Wird nach dem Einschalten oder Reset genau einmal ausgeführt. Hier werden Pins, Serial und Bibliotheken initialisiert.'],
+    ['loop()','Grundlagen','Wird nach setup() endlos immer wieder ausgeführt. Hier steht das eigentliche Programm.'],
+    ['Firmware','Grundlagen','Das Programm, das fest im Flash-Speicher des Mikrocontrollers liegt und nach dem Einschalten automatisch startet.'],
+    ['Flash-Speicher','Grundlagen','Nichtflüchtiger Programmspeicher: Der Inhalt bleibt ohne Strom erhalten. Uno: 32 KB.'],
+    ['SRAM','Grundlagen','Flüchtiger Arbeitsspeicher für Variablen zur Laufzeit. Der Inhalt geht ohne Strom verloren. Uno: nur 2 KB.'],
+    ['EEPROM','Grundlagen','Kleiner nichtflüchtiger Datenspeicher für Werte, die einen Neustart überleben sollen (z. B. Einstellungen). Begrenzte Zahl von Schreibzyklen.'],
+    ['Bootloader','Grundlagen','Kleines Startprogramm im Mikrocontroller, das ein neues Programm über USB/Seriell entgegennimmt und in den Flash schreibt.'],
+    ['Kompilieren','Grundlagen','Übersetzen des Quellcodes (C++) in Maschinencode, den der Mikrocontroller ausführen kann. Dabei werden Syntaxfehler gefunden.'],
+    ['Taktfrequenz','Grundlagen','Geschwindigkeit, mit der der Prozessor Befehle abarbeitet. Uno: 16 MHz, ESP32: bis 240 MHz.'],
+    // Programmierung
+    ['Variable','Programmierung','Benannter Speicherplatz für einen Wert, der sich während des Programms ändern kann, z. B. int zaehler = 0;'],
+    ['Konstante','Programmierung','Wert, der sich nicht ändern darf, z. B. const int LED_PIN = 13; Der Compiler verhindert versehentliches Überschreiben.'],
+    ['Datentyp','Programmierung','Legt fest, welche Art von Wert eine Variable speichert und wie viel Speicher sie braucht, z. B. bool, byte, int, long, float.'],
+    ['int','Programmierung','Ganzzahl mit Vorzeichen. Auf dem Uno 16 Bit (−32 768 bis 32 767), auf dem ESP32 32 Bit.'],
+    ['unsigned long','Programmierung','32-Bit-Ganzzahl ohne Vorzeichen (0 bis 4 294 967 295). Richtiger Typ für Zeitwerte von millis().'],
+    ['bool','Programmierung','Wahrheitswert: nur true oder false. Ideal für Zustände wie „LED an“.'],
+    ['float','Programmierung','Gleitkommazahl mit Nachkommastellen, z. B. 3.14. Auf dem Uno langsam und nur ca. 6–7 Stellen genau.'],
+    ['Array','Programmierung','Feld mit mehreren Werten gleichen Datentyps, über einen Index ab 0 erreichbar, z. B. int pins[3] = {2, 3, 4}; pins[0] ist 2.'],
+    ['Funktion','Programmierung','Benannter Programmteil, der eine Aufgabe erledigt und mehrfach aufgerufen werden kann. Kann Parameter haben und einen Rückgabewert liefern.'],
+    ['Parameter','Programmierung','Wert, der einer Funktion beim Aufruf übergeben wird, z. B. die 13 in digitalWrite(13, HIGH).'],
+    ['Rückgabewert','Programmierung','Ergebnis, das eine Funktion mit return zurückliefert, z. B. liefert analogRead() eine Zahl von 0 bis 1023.'],
+    ['Gültigkeitsbereich (Scope)','Programmierung','Bereich, in dem eine Variable bekannt ist. Lokale Variablen gibt es nur innerhalb ihrer Funktion bzw. ihres Blocks, globale im ganzen Programm.'],
+    ['Operator','Programmierung','Zeichen für eine Rechen- oder Vergleichsoperation, z. B. +, -, ==, !=, <, &&, ||, !'],
+    ['== vs. =','Programmierung','= weist einen Wert zu, == vergleicht zwei Werte. Häufiger Fehler: if (x = 5) statt if (x == 5).'],
+    ['Inkrement','Programmierung','Erhöhen eines Werts um 1, geschrieben als i++ oder ++i. Gegenteil: Dekrement (i--).'],
+    ['Kommentar','Programmierung','Erklärender Text im Code, den der Compiler ignoriert: // einzeilig oder /* mehrzeilig */.'],
+    ['Bibliothek (Library)','Programmierung','Fertiger Code für bestimmte Aufgaben oder Bauteile, eingebunden mit #include, z. B. #include <Servo.h>.'],
+    ['#define','Programmierung','Präprozessor-Anweisung: ersetzt vor dem Kompilieren einen Namen durch Text. Für Konstanten ist const meist besser, weil typsicher.'],
+    ['Zustandsautomat','Programmierung','Programmstruktur mit festen Zuständen (z. B. ROT, GELB, GRUEN) und Übergängen zwischen ihnen – oft mit switch/case umgesetzt.'],
+    ['Flankenerkennung','Programmierung','Erkennen des Moments, in dem ein Signal wechselt (LOW→HIGH = steigende Flanke), statt nur den Zustand abzufragen. Dafür den alten Zustand speichern.'],
+    ['millis()','Programmierung','Liefert die Millisekunden seit dem Start. Ermöglicht Zeitsteuerung ohne zu blockieren (nicht-blockierend), läuft nach ca. 49,7 Tagen über.'],
+    ['delay()','Programmierung','Hält das Programm für die angegebene Zeit in ms an. Währenddessen werden keine Taster abgefragt – der Code blockiert.'],
+    ['Interrupt','Programmierung','Unterbrechung: Ein Ereignis (z. B. Flanke an einem Pin) startet sofort eine Interrupt-Service-Routine (ISR), egal wo das Programm gerade ist.'],
+    ['volatile','Programmierung','Schlüsselwort für Variablen, die in einer ISR verändert werden. Sagt dem Compiler, dass er den Wert immer neu aus dem Speicher lesen muss.'],
+    // Hardware / Elektro
+    ['Digitaler Pin','Hardware & Elektro','Ein- oder Ausgang mit nur zwei Zuständen: HIGH (Versorgungsspannung) oder LOW (0 V).'],
+    ['HIGH / LOW','Hardware & Elektro','Logische Pegel: HIGH ≈ 5 V beim Uno bzw. 3,3 V beim ESP32, LOW ≈ 0 V.'],
+    ['pinMode()','Hardware & Elektro','Legt fest, ob ein Pin als Eingang (INPUT, INPUT_PULLUP) oder Ausgang (OUTPUT) arbeitet.'],
+    ['Pull-up-Widerstand','Hardware & Elektro','Zieht einen offenen Eingang auf HIGH, damit er einen definierten Zustand hat. Taster schaltet dann nach GND → gedrückt = LOW.'],
+    ['Pull-down-Widerstand','Hardware & Elektro','Zieht einen offenen Eingang auf LOW. Taster schaltet nach VCC → gedrückt = HIGH.'],
+    ['INPUT_PULLUP','Hardware & Elektro','Aktiviert den internen Pull-up-Widerstand des Mikrocontrollers – kein externer Widerstand nötig. Logik invertiert: gedrückt = LOW.'],
+    ['Floating (offener Eingang)','Hardware & Elektro','Unbeschalteter Eingang ohne Pull-up/-down: Er nimmt zufällige Werte an, weil er Störungen auffängt.'],
+    ['Prellen','Hardware & Elektro','Mechanische Kontakte federn beim Schalten nach und erzeugen mehrere schnelle Wechsel. Abhilfe: Entprellen per Software (Wartezeit) oder RC-Glied.'],
+    ['Vorwiderstand','Hardware & Elektro','Begrenzt den Strom durch eine LED. R = (U_Versorgung − U_LED) / I_LED, z. B. (5 V − 2 V) / 0,015 A = 200 Ω → nächster Normwert 220 Ω.'],
+    ['Ohmsches Gesetz','Hardware & Elektro','U = R · I. Spannung ist Widerstand mal Strom.'],
+    ['Spannungsteiler','Hardware & Elektro','Zwei Widerstände in Reihe teilen eine Spannung: U_aus = U_ein · R2 / (R1 + R2). Z. B. um 5-V-Signale für den 3,3-V-ESP32 anzupassen.'],
+    ['Analoger Eingang (ADC)','Hardware & Elektro','Analog-Digital-Wandler: misst eine Spannung und wandelt sie in eine Zahl. Uno: 10 Bit (0–1023), ESP32: 12 Bit (0–4095).'],
+    ['Auflösung','Hardware & Elektro','Anzahl der Stufen eines Wandlers: 2^Bits. 10 Bit = 1024 Stufen → bei 5 V ca. 4,9 mV pro Stufe.'],
+    ['PWM','Hardware & Elektro','Pulsweitenmodulation: schnelles Ein-/Ausschalten mit veränderbarem Tastgrad, um z. B. LEDs zu dimmen oder Motoren zu steuern. Arduino: analogWrite(pin, 0–255).'],
+    ['Tastgrad (Duty Cycle)','Hardware & Elektro','Anteil der Einschaltzeit an der Periodendauer eines PWM-Signals in Prozent. 50 % = halbe Zeit an.'],
+    ['GND','Hardware & Elektro','Masse, Bezugspotenzial 0 V. Alle Bauteile einer Schaltung brauchen eine gemeinsame Masse.'],
+    ['VCC / VIN','Hardware & Elektro','VCC: Versorgungsspannung der Logik (5 V bzw. 3,3 V). VIN: Eingang für eine externe Spannungsquelle vor dem Spannungsregler.'],
+    ['Logikpegel 3,3 V / 5 V','Hardware & Elektro','Der ESP32 arbeitet mit 3,3 V und verträgt keine 5 V an seinen Pins. Bei 5-V-Signalen Pegelwandler oder Spannungsteiler verwenden.'],
+    ['Freilaufdiode','Hardware & Elektro','Diode parallel zu einer Spule (Relais, Motor), die beim Abschalten die Induktionsspannung abbaut und den Transistor schützt.'],
+    ['Transistor als Schalter','Hardware & Elektro','Der Pin steuert über einen Basis-/Gate-Widerstand einen Transistor, der größere Ströme schaltet als der Pin selbst liefern kann.'],
+    ['Relais','Hardware & Elektro','Elektromechanischer Schalter: Eine Spule bewegt einen Kontakt. Trennt Steuer- und Laststromkreis galvanisch.'],
+    ['Servo','Hardware & Elektro','Motor mit eingebauter Positionsregelung, der per PWM-Signal auf einen Winkel (typisch 0–180°) gestellt wird.'],
+    // Kommunikation / ESP32
+    ['Serielle Schnittstelle (UART)','Kommunikation & ESP32','Überträgt Daten Bit für Bit über TX/RX. Mit Serial.begin(9600) starten, Ausgabe im seriellen Monitor.'],
+    ['Baudrate','Kommunikation & ESP32','Übertragungsgeschwindigkeit der seriellen Schnittstelle in Bit/s, z. B. 9600 oder 115200. Muss auf beiden Seiten gleich sein.'],
+    ['I²C','Kommunikation & ESP32','Bus mit zwei Leitungen (SDA = Daten, SCL = Takt). Mehrere Geräte über Adressen ansprechbar, z. B. Displays und Sensoren.'],
+    ['SPI','Kommunikation & ESP32','Schneller Bus mit MOSI, MISO, SCK und einer CS-Leitung pro Gerät, z. B. für SD-Karten und Displays.'],
+    ['GPIO','Kommunikation & ESP32','General Purpose Input/Output: frei verwendbarer Ein-/Ausgangspin. Beim ESP32 werden Pins als GPIO-Nummern angegeben.'],
+    ['WLAN-Station / Access Point','Kommunikation & ESP32','Station (STA): Der ESP32 verbindet sich mit einem vorhandenen WLAN. Access Point (AP): Er öffnet selbst ein WLAN.'],
+    ['IP-Adresse','Kommunikation & ESP32','Adresse eines Geräts im Netzwerk, z. B. 192.168.1.42. Über sie ist der Webserver des ESP32 im Browser erreichbar.'],
+    ['Webserver','Kommunikation & ESP32','Programm, das auf Anfragen eines Browsers (HTTP) antwortet und Webseiten oder Daten ausliefert – auf dem ESP32 z. B. mit der WebServer-Bibliothek.'],
+    ['HTTP GET / POST','Kommunikation & ESP32','GET fordert Daten an (Seite aufrufen), POST sendet Daten an den Server (z. B. Formular).'],
+    ['JSON','Kommunikation & ESP32','Textformat für strukturierte Daten, z. B. {"temp": 21.5}. Wird oft zwischen ESP32 und App/Webseite ausgetauscht.'],
+    ['MQTT','Kommunikation & ESP32','Leichtgewichtiges Nachrichtenprotokoll für IoT: Geräte veröffentlichen (publish) und abonnieren (subscribe) Themen über einen Broker.'],
+    ['Bluetooth Low Energy (BLE)','Kommunikation & ESP32','Stromsparende Bluetooth-Variante. Daten liegen in Services und Characteristics. Auch iPad/iPhone können sich damit verbinden.'],
+    // Struktogramm
+    ['Struktogramm','Struktogramm & Ablauf','Grafische Darstellung eines Algorithmus nach Nassi-Shneiderman (DIN 66261) aus ineinander geschachtelten Strukturblöcken.'],
+    ['Programmablaufplan (PAP)','Struktogramm & Ablauf','Darstellung eines Ablaufs mit Symbolen und Pfeilen nach DIN 66001 (Rechteck = Operation, Raute = Verzweigung).'],
+    ['Sequenz','Struktogramm & Ablauf','Anweisungen werden der Reihe nach von oben nach unten ausgeführt.'],
+    ['Verzweigung (Selektion)','Struktogramm & Ablauf','Abhängig von einer Bedingung wird der Ja- oder der Nein-Zweig ausgeführt. In C++: if / else.'],
+    ['Fallauswahl','Struktogramm & Ablauf','Mehrfachverzweigung abhängig vom Wert einer Variablen. In C++: switch / case mit break, sonst-Fall = default.'],
+    ['Kopfgesteuerte Schleife','Struktogramm & Ablauf','Bedingung wird vor jedem Durchlauf geprüft – der Rumpf läuft eventuell nie. In C++: while oder for.'],
+    ['Fußgesteuerte Schleife','Struktogramm & Ablauf','Bedingung wird nach dem Durchlauf geprüft – der Rumpf läuft mindestens einmal. In C++: do { … } while (…);'],
+    ['Zählschleife','Struktogramm & Ablauf','Kopfgesteuerte Schleife mit fester Anzahl Durchläufe: for (int i = 0; i < 10; i++)'],
+    ['Endlosschleife','Struktogramm & Ablauf','Schleife ohne Abbruchbedingung. Bei Arduino übernimmt loop() diese Rolle.'],
+    ['Algorithmus','Struktogramm & Ablauf','Eindeutige, endliche Folge von Schritten zur Lösung einer Aufgabe.']
+  ];
+  const T=G.map((g,i)=>({id:'g'+i+'-'+g[0].replace(/\W+/g,'').slice(0,12),term:g[0],cat:g[1],def:g[2]}));
+  const CATS=[...new Set(T.map(t=>t.cat))];
+
+  /* ---------- Fortschritt (Leitner, 5 Fächer) ---------- */
+  const KEY='uct-learn-v1';
+  let L; try{ L=JSON.parse(localStorage.getItem(KEY))||{}; }catch(e){ L={}; }
+  L.box=L.box||{}; L.seen=L.seen||{}; L.n=L.n||0;
+  const saveL=()=>{ try{ localStorage.setItem(KEY,JSON.stringify(L)); }catch(e){} };
+  const box=id=>L.box[id]||1;
+  const INTERVAL=[0,1,3,7,15,30]; // Karten in Fach k kommen frühestens nach so vielen Runden wieder
+
+  const pool=()=>{ const c=$('#lnCat').value; return c==='*'?T:T.filter(t=>t.cat===c); };
+  function pick(){
+    const P=pool(); if(!P.length) return null;
+    const due=P.filter(t=>(L.n-(L.seen[t.id]??-99))>=INTERVAL[box(t.id)]);
+    const src=due.length?due:P;
+    const minBox=Math.min(...src.map(t=>box(t.id)));
+    const cand=src.filter(t=>box(t.id)===minBox && t.id!==last);
+    const arr=cand.length?cand:src;
+    return arr[Math.floor(Math.random()*arr.length)];
+  }
+  let cur=null,last=null,revealed=false;
+  function answer(ok){
+    L.n++; L.seen[cur.id]=L.n; L.box[cur.id]=ok?Math.min(5,box(cur.id)+1):1; saveL(); last=cur.id; next();
+  }
+  function renderBoxes(){
+    const P=pool(), c=[0,0,0,0,0,0]; P.forEach(t=>c[box(t.id)]++);
+    $('#lnBoxes').innerHTML='Fach:'+[1,2,3,4,5].map(k=>`<span class="ln-box${k===5?' b5':''}">${k}: <b>${c[k]}</b></span>`).join('')+
+      `<span style="margin-left:auto">${c[5]} von ${P.length} sicher</span> <button class="btn mini" id="lnReset">Zurücksetzen</button>`;
+    $('#lnReset').onclick=()=>{ if(!confirm('Lernfortschritt für dieses Thema zurücksetzen?')) return; P.forEach(t=>{ delete L.box[t.id]; delete L.seen[t.id]; }); saveL(); next(); };
+  }
+  function next(){ cur=pick(); revealed=false; renderBoxes(); render(); }
+  function render(){
+    const st=$('#lnStage'); if(!cur){ st.innerHTML='<p>Keine Begriffe in diesem Thema.</p>'; return; }
+    const d2t=$('#lnDir').value==='d2t', q=d2t?cur.def:cur.term, a=d2t?cur.term:cur.def;
+    if($('#lnMode').value==='card'){
+      st.innerHTML=`<div class="ln-card" id="lnCard"><div class="cat">${E(cur.cat)} · Fach ${box(cur.id)}</div><div class="ln-q${d2t?' long':''}">${E(q)}</div>`+
+        (revealed?`<div class="ln-a${d2t?' term':''}">${E(a)}</div>`:`<div class="tap">Antwort im Kopf überlegen – dann antippen zum Aufdecken</div>`)+`</div>`+
+        (revealed?`<div class="ln-btns"><button class="btn no" id="lnNo">✗ Nochmal</button><button class="btn yes" id="lnYes">✓ Gewusst</button></div>`:'');
+      $('#lnCard').onclick=()=>{ if(!revealed){ revealed=true; render(); } };
+      if(revealed){ $('#lnNo').onclick=()=>answer(false); $('#lnYes').onclick=()=>answer(true); }
+    } else {
+      const others=pool().filter(t=>t.id!==cur.id); const src=others.length>=3?others:T.filter(t=>t.id!==cur.id);
+      const opts=[cur]; while(opts.length<4&&opts.length<src.length+1){ const o=src[Math.floor(Math.random()*src.length)]; if(!opts.includes(o)) opts.push(o); }
+      opts.sort(()=>Math.random()-.5);
+      st.innerHTML=`<div class="ln-card" style="cursor:default"><div class="cat">${E(cur.cat)} · Fach ${box(cur.id)}</div><div class="ln-q${d2t?' long':''}">${E(q)}</div></div>`+
+        `<div class="ln-opts">${opts.map(o=>`<button data-id="${o.id}">${E(d2t?o.term:o.def)}</button>`).join('')}</div><div class="ln-meta" id="lnFb"></div>`;
+      st.querySelectorAll('.ln-opts button').forEach(b=>b.onclick=()=>{
+        if(st.dataset.done==='1') return; st.dataset.done='1';
+        const ok=b.dataset.id===cur.id;
+        st.querySelectorAll('.ln-opts button').forEach(x=>{ if(x.dataset.id===cur.id) x.classList.add('ok'); });
+        if(!ok) b.classList.add('bad');
+        $('#lnFb').innerHTML=(ok?'✓ Richtig!':'✗ Leider falsch.')+' <button class="btn mini" id="lnNext">Weiter →</button>';
+        $('#lnNext').onclick=()=>{ st.dataset.done='0'; answer(ok); };
+      });
+      st.dataset.done='0';
+    }
+  }
+
+  /* ---------- Glossar ---------- */
+  function renderGloss(){
+    const q=$('#lnSearch').value.trim().toLowerCase();
+    const list=T.filter(t=>!q||t.term.toLowerCase().includes(q)||t.def.toLowerCase().includes(q)).sort((a,b)=>a.term.localeCompare(b.term,'de'));
+    $('#lnGloss').innerHTML=list.length?list.map(t=>`<div class="ln-g"><b>${E(t.term)}</b><span class="c">${E(t.cat)}</span><p>${E(t.def)}</p></div>`).join(''):'<p class="ln-meta">Nichts gefunden.</p>';
+  }
+
+  /* ================= Coding-Guideline ================= */
+  const R=[
+    {h:'1. Aussagekräftige Namen',p:'Namen sagen, was etwas ist oder tut. Variablen und Funktionen in camelCase, Konstanten in GROSSBUCHSTABEN.',
+     bad:'int x = 0;\nvoid f() { x++; }',
+     good:'int tasterZaehler = 0;\nvoid zaehleTasterdruck() {\n  tasterZaehler++;\n}'},
+    {h:'2. Keine „magischen Zahlen“',p:'Pins und feste Werte einmal oben als Konstante festlegen. Ändert sich der Pin, änderst du nur eine Zeile.',
+     bad:'pinMode(7, OUTPUT);\ndigitalWrite(7, HIGH);\ndelay(1500);',
+     good:'const uint8_t LED_PIN = 7;\nconst unsigned long BLINK_MS = 1500;\n\npinMode(LED_PIN, OUTPUT);'},
+    {h:'3. Fester Aufbau des Sketches',p:'Reihenfolge: Kopfkommentar → #include → Konstanten → globale Variablen → setup() → loop() → eigene Funktionen.',
+     good:'// Projekt: Ampel  | Board: Uno | Autor: Leo | 11/2026\n#include <Servo.h>\n\nconst uint8_t ROT_PIN = 4;\nint zustand = 0;\n\nvoid setup() { /* Initialisierung */ }\nvoid loop()  { /* Ablauf */ }\n\nvoid schalteAmpel() { /* … */ }'},
+    {h:'4. Eine Aufgabe pro Funktion',p:'loop() soll lesbar sein wie ein Inhaltsverzeichnis. Teilaufgaben in eigene, kurze Funktionen auslagern.',
+     bad:'void loop() {\n  // 80 Zeilen Sensor, Logik und Ausgabe gemischt …\n}',
+     good:'void loop() {\n  leseSensoren();\n  berechneZustand();\n  steuereAusgaenge();\n}'},
+    {h:'5. millis() statt delay()',p:'delay() blockiert – während der Wartezeit reagiert nichts. Mit millis() bleibt das Programm reaktionsfähig.',
+     bad:'digitalWrite(LED_PIN, HIGH);\ndelay(1000);  // Taster wird 1 s ignoriert\ndigitalWrite(LED_PIN, LOW);',
+     good:'unsigned long letzteZeit = 0;\n\nif (millis() - letzteZeit >= BLINK_MS) {\n  letzteZeit = millis();\n  ledAn = !ledAn;\n  digitalWrite(LED_PIN, ledAn);\n}'},
+    {h:'6. Passende Datentypen',p:'Kleinsten sinnvollen Typ wählen und Zeitwerte immer als unsigned long. Achtung: int ist auf dem Uno 16 Bit, auf dem ESP32 32 Bit.',
+     bad:'int start = millis();   // läuft nach 32 s über (Uno)',
+     good:'unsigned long start = millis();\nuint8_t helligkeit = 128;   // 0–255\nbool ledAn = false;'},
+    {h:'7. Immer geschweifte Klammern & Einrückung',p:'Auch bei nur einer Anweisung { } setzen und konsequent einrücken (2 Leerzeichen). Verhindert Fehler beim späteren Erweitern.',
+     bad:'if (temp > 30)\n  lueftung = true;\n  alarm();   // läuft IMMER!',
+     good:'if (temp > 30) {\n  lueftung = true;\n  alarm();\n}'},
+    {h:'8. Kommentare erklären das Warum',p:'Was der Code tut, sieht man am Code. Kommentiere Absicht, Einheiten und Besonderheiten.',
+     bad:'i++;  // i um 1 erhöhen',
+     good:'// 20 ms warten: Taster prellt laut Datenblatt bis zu 10 ms\nconst unsigned long ENTPRELL_MS = 20;'},
+    {h:'9. Eingänge sauber beschalten & entprellen',p:'Nie offene (floating) Eingänge. INPUT_PULLUP nutzen, gedrückt = LOW. Mechanische Taster entprellen.',
+     good:'pinMode(TASTER_PIN, INPUT_PULLUP);\n\nbool gedrueckt = (digitalRead(TASTER_PIN) == LOW);'},
+    {h:'10. Globale Variablen sparsam, ISR-Variablen volatile',p:'Nur global, was wirklich in mehreren Funktionen gebraucht wird. Variablen, die eine Interrupt-Routine ändert, als volatile deklarieren und die ISR kurz halten.',
+     good:'volatile bool impulsErkannt = false;\n\nvoid IRAM_ATTR onImpuls() {   // ESP32; beim Uno ohne IRAM_ATTR\n  impulsErkannt = true;        // nur Flag setzen\n}'},
+    {h:'11. Debug-Ausgaben abschaltbar',p:'Serial-Ausgaben über einen Schalter steuern, damit sie im fertigen Programm nicht stören.',
+     good:'#define DEBUG 1\n#if DEBUG\n  #define LOG(x) Serial.println(x)\n#else\n  #define LOG(x)\n#endif\n\nLOG("Sensor gestartet");'},
+    {h:'12. Speicher schonen (Uno)',p:'Feste Texte mit F() im Flash lassen. String-Objekte in loop() vermeiden – sie zerstückeln den nur 2 KB großen Arbeitsspeicher.',
+     bad:'Serial.println("Temperatur in Grad Celsius:");\nString s = "Wert: " + String(wert);',
+     good:'Serial.println(F("Temperatur in Grad Celsius:"));\nSerial.print(F("Wert: "));\nSerial.println(wert);'},
+    {h:'13. Hardware-Grenzen im Code beachten',p:'Pins nicht überlasten (Uno: ~20 mA pro Pin empfohlen) und beim ESP32 3,3-V-Pegel beachten – GPIO 34–39 sind nur Eingänge. Lasten über Transistor/Relais schalten.',
+     good:'// ESP32: GPIO 34 nur Eingang (ADC), keine 5 V anlegen!\nconst uint8_t POTI_PIN = 34;\n// Motor über MOSFET an GPIO 25, nie direkt am Pin\nconst uint8_t MOTOR_PIN = 25;'},
+    {h:'14. Erst planen, dann programmieren',p:'Ablauf zuerst als Struktogramm oder Zustandsdiagramm entwerfen. Zustände als enum statt loser Zahlen.',
+     bad:'int zustand = 2;  // was war 2 nochmal?',
+     good:'enum Ampel { ROT, ROT_GELB, GRUEN, GELB };\nAmpel zustand = ROT;\n\nswitch (zustand) {\n  case ROT: /* … */ break;\n  // …\n}'},
+    {h:'15. Sicherer Zustand bei Start und Fehler',p:'Ausgänge in setup() sofort in einen definierten, sicheren Zustand bringen (z. B. Motor aus). Bei Sensorfehlern sicher reagieren statt weiterzumachen.',
+     good:'void setup() {\n  pinMode(MOTOR_PIN, OUTPUT);\n  digitalWrite(MOTOR_PIN, LOW);   // erst mal aus\n}\n\nif (isnan(temp)) {   // Sensor liefert nichts\n  heizungAus();\n  return;\n}'}
+  ];
+  function renderGuide(){
+    $('#lnGuide').innerHTML=R.map(r=>`<div class="card"><h3>${E(r.h)}</h3><p>${E(r.p)}</p>`+
+      (r.bad?`<div class="lbl" style="color:var(--red)">✗ schlecht</div><pre class="bad">${HL(r.bad)}</pre>`:'')+
+      (r.good?`<div class="lbl" style="color:var(--green)">✓ gut</div><pre class="good">${HL(r.good)}</pre>`:'')+`</div>`).join('');
+  }
+
+  /* ---------- Verdrahtung ---------- */
+  $('#lnCat').innerHTML=`<option value="*">Alle Themen (${T.length})</option>`+CATS.map(c=>`<option value="${E(c)}">${E(c)} (${T.filter(t=>t.cat===c).length})</option>`).join('');
+  try{ const pref=JSON.parse(localStorage.getItem(KEY+'-ui'))||{}; ['lnCat','lnMode','lnDir'].forEach(k=>{ if(pref[k]) $('#'+k).value=pref[k]; }); }catch(e){}
+  ['lnCat','lnMode','lnDir'].forEach(k=>$('#'+k).onchange=()=>{ try{ localStorage.setItem(KEY+'-ui',JSON.stringify({lnCat:$('#lnCat').value,lnMode:$('#lnMode').value,lnDir:$('#lnDir').value})); }catch(e){} last=null; next(); });
+  document.querySelectorAll('[data-lt]').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('[data-lt]').forEach(x=>x.classList.toggle('on',x===b));
+    document.querySelectorAll('.ln-pane').forEach(p=>p.classList.toggle('on',p.id==='ln-'+b.dataset.lt));
+  });
+  $('#lnSearch').oninput=renderGloss;
+  next(); renderGloss(); renderGuide();
+})();
+</script>
 <!-- ===== App-Update (µC-Trainer als iPad-App) ===== -->
 <style>
 #upd{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translate(-50%,150%);z-index:9999;
@@ -3921,7 +4229,7 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
 </div>
 <script>
 (function(){
-  var APP_VERSION = '1.1.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+  var APP_VERSION = '1.2.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register('sw.js').catch(function(){});
   var box = document.getElementById('upd');
