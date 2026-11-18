@@ -1,4 +1,4 @@
 {
-  "version": "1.4.0",
-  "notes": "Neu: Werkzeuge (Elektro-Rechner, Projekt-Ideen), Prüfungsmodus, Fehler-Detektiv, Wiederholen, Struktogramm → Labor und erweiterte Sicherung."
+  "version": "1.5.0",
+  "notes": "Neu: SPS-Simulator mit KOP und FUP, 6 Vorlagen (Selbsthaltung, Timer, Zähler, Wendeschütz …) und Lernpfad-Kapitel „SPS-Grundlagen“."
 }

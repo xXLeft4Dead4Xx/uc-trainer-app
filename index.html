@@ -311,6 +311,7 @@ h3{margin:18px 0 8px;font-size:16px}
       <button data-v="labor">Labor</button>
       <button data-v="quiz">Quiz</button>
       <button data-v="struktogramm">Struktogramm</button>
+      <button data-v="sps">SPS</button>
       <button data-v="lernen">Lernen</button>
       <button data-v="werkzeuge">Werkzeuge</button>
       <button data-v="referenz">Referenz</button>
@@ -499,6 +500,7 @@ h3{margin:18px 0 8px;font-size:16px}
     </div>
   </section>
 
+  <section class="view" id="view-sps"></section>
   <section class="view" id="view-werkzeuge"></section>
   <section class="view" id="view-referenz">
     <div class="ref" id="ref"></div>
@@ -3654,7 +3656,7 @@ $('#bkLoad').onclick=async()=>{
 /* ---------- nav ---------- */
 function showView(v){
   if(v==='sandbox') v='labor';
-  if(!['aufgaben','labor','quiz','struktogramm','lernen','werkzeuge','referenz'].includes(v)) v='aufgaben';
+  if(!['aufgaben','labor','quiz','struktogramm','sps','lernen','werkzeuge','referenz'].includes(v)) v='aufgaben';
   if(v==='labor') setTimeout(scheduleWires,30);
   document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id==='view-'+v));
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
@@ -3800,8 +3802,8 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
   function svgFor(forExport){
     const d=doc(), body=d.body, tl=wrap(d.title||'Struktogramm',W-2*P), th=tl.length*LH+2*P;
     const H=th+hList(body,W);
-    const st=`<style>.b{fill:#fff;stroke:#111;stroke-width:1.4}.l{stroke:#111;stroke-width:1.2}text{font:${FONT};fill:#111}.sm{font-size:12px;fill:#333}.ph{fill:#999;font-size:12.5px}.sel{fill:rgba(25,181,165,.18);stroke:#19b5a5;stroke-width:3}.t{font-weight:700}</style>`;
-    let s=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 ${W+4} ${H+4}" width="${W+4}" height="${H+4}">${st}`;
+    const st=`<style>.sgsvg .b{fill:#fff;stroke:#111;stroke-width:1.4}.sgsvg .l{stroke:#111;stroke-width:1.2}.sgsvg text{font:${FONT};fill:#111}.sgsvg .sm{font-size:12px;fill:#333}.sgsvg .ph{fill:#999;font-size:12.5px}.sgsvg .sel{fill:rgba(25,181,165,.18);stroke:#19b5a5;stroke-width:3}.sgsvg .t{font-weight:700}</style>`;
+    let s=`<svg class="sgsvg" xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 ${W+4} ${H+4}" width="${W+4}" height="${H+4}">${st}`;
     s+=`<rect x="-2" y="-2" width="${W+4}" height="${H+4}" fill="#fff"/>`;
     s+=`<g>${rect(0,0,W,th)}${tl.map((l,i)=>`<text x="${P}" y="${P+LH*(i+1)-5}" class="t">${esc(l)}</text>`).join('')}</g>`;
     const keep=sel; if(forExport) sel=null;
@@ -4444,6 +4446,31 @@ button.pf-stat{font:inherit;color:inherit;cursor:pointer;text-align:left}
       {t:'mc',q:'ESP32: Die LED an GPIO 35 bleibt aus. Warum?',c:'pinMode(35, OUTPUT);\ndigitalWrite(35, HIGH);',o:['GPIO 34–39 sind nur Eingänge','35 ist ein PWM-Pin','Der ESP32 braucht 5 V','HIGH ist beim ESP32 LOW'],a:0,e:'Einen anderen GPIO nehmen, z. B. 25 oder 26.'}
     ]}
   ]});
+  U.push({id:'u8',ic:'🏭',h:'SPS-Grundlagen',s:'Zyklus, KOP/FUP, Timer und Zähler – teste alles im Reiter „SPS“',L:[
+    {id:'u8l1',h:'Wie eine SPS arbeitet',S:[
+      {t:'info',h:'Der SPS-Zyklus',p:'Eine SPS (speicherprogrammierbare Steuerung) arbeitet zyklisch: 1. Eingänge lesen und im Prozessabbild der Eingänge (PAE) speichern, 2. Programm von oben nach unten abarbeiten, 3. Ergebnisse aus dem Prozessabbild der Ausgänge (PAA) an die Ausgänge schreiben. Ein Zyklus dauert typisch nur wenige Millisekunden.'},
+      {t:'order',q:'Bringe den SPS-Zyklus in die richtige Reihenfolge.',l:['Eingänge ins PAE einlesen','Programm abarbeiten','PAA an die Ausgänge schreiben'],e:'Danach beginnt der Zyklus von vorn – ähnlich wie loop() beim Arduino.'},
+      {t:'mc',q:'Was bedeutet die Adresse E0.3?',o:['Eingang, Byte 0, Bit 3','Ausgang 3','Eingang Nummer 03 von 8','Merker 0.3'],a:0,e:'Byte.Bit – ein Byte hat die Bits 0 bis 7.'},
+      {t:'mc',q:'Wofür sind Merker (M) da?',o:['Interner Speicher für Zwischenergebnisse','Sie sind physische Eingänge','Sie messen Zeiten','Sie schalten Lampen direkt'],a:0,e:'Merker sind wie Variablen: Bits ohne Klemme nach außen.'},
+      {t:'mc',q:'Ändert sich ein Eingang mitten im Zyklus – wann „sieht“ das Programm die Änderung?',o:['Erst im nächsten Zyklus, beim Einlesen des PAE','Sofort in der nächsten Zeile','Nie','Nur nach einem Neustart'],a:0,e:'Innerhalb eines Zyklus bleibt das Prozessabbild konstant.'}
+    ]},
+    {id:'u8l2',h:'KOP & FUP',S:[
+      {t:'info',h:'Kontaktplan und Funktionsplan',p:'Im KOP (Kontaktplan) fließt „Strom“ von der linken Schiene über Kontakte zur Spule. Kontakte in Reihe = UND, parallel = ODER. Ein Schließer ⊣ ⊢ ist geschlossen, wenn der Operand 1 ist; ein Öffner ⊣/⊢, wenn er 0 ist. Im FUP (Funktionsplan) gibt es dafür Kästen: & für UND, ≥1 für ODER, ein Kreis am Eingang bedeutet Negation.'},
+      {t:'mc',q:'Zwei Kontakte liegen im KOP parallel. Welche Verknüpfung ist das?',o:['ODER','UND','NICHT','Exklusiv-ODER'],a:0,e:'Strom kann über den einen oder den anderen Zweig fließen.'},
+      {t:'fill',q:'Welches Zeichen steht im FUP-Kasten für UND?',c:'┌───┐\n│ ___ │\n└───┘',o:['&','≥1','=1','S'],a:'&',e:'≥1 ist ODER, =1 ist XOR.'},
+      {t:'info',h:'Selbsthaltung',p:'Ein Taster liefert nur ein kurzes Signal. Damit der Motor weiterläuft, hält er sich über einen eigenen Kontakt parallel zum Start-Taster selbst. Der Stopp liegt in Reihe davor bzw. dahinter und unterbricht die Selbsthaltung.',c:'A0.0 := (Start OR A0.0) AND NOT Stopp;'},
+      {t:'mc',q:'Warum wird der Stopp-Taster in echten Anlagen als Öffner verdrahtet?',o:['Drahtbruchsicherheit: Bei Kabelbruch stoppt die Anlage','Öffner sind billiger','Damit der Taster leiser ist','Weil Schließer verboten sind'],a:0,e:'Fällt das Signal weg (Bruch), wirkt das wie „Stopp gedrückt“.'},
+      {t:'mc',q:'Netzwerk 1 setzt A0.0, Netzwerk 2 setzt A0.0 zurück. Beide Bedingungen sind gleichzeitig wahr. Was gilt?',o:['A0.0 = 0 – das untere Netzwerk gewinnt (rücksetzdominant)','A0.0 = 1','A0.0 blinkt','Die SPS geht in STOP'],a:0,e:'Am Zyklusende zählt der zuletzt geschriebene Wert.'}
+    ]},
+    {id:'u8l3',h:'Timer & Zähler',S:[
+      {t:'info',h:'Die drei IEC-Timer',p:'TON (Einschaltverzögerung): Ausgang wird erst nach der Zeit PT 1, solange der Eingang 1 ist. TOF (Ausschaltverzögerung): Ausgang sofort 1, fällt erst PT nach dem Abschalten ab. TP (Impuls): Eine steigende Flanke erzeugt einen Impuls fester Länge PT.'},
+      {t:'mc',q:'Treppenhauslicht: Nach dem Loslassen des Tasters soll das Licht noch 2 Minuten brennen. Welcher Timer?',o:['TOF','TON','TP','CTU'],a:0,e:'Ausschaltverzögerung – auch TP wäre denkbar, startet aber nur beim Drücken.'},
+      {t:'mc',q:'Ein Förderband soll erst 3 s nach dem Einschalten anlaufen (Warnhupe vorher). Welcher Timer?',o:['TON','TOF','TP','Kein Timer nötig'],a:0,e:'Einschaltverzögerung.'},
+      {t:'info',h:'Zähler CTU',p:'Der Vorwärtszähler CTU erhöht seinen Zählwert CV bei jeder steigenden Flanke am Eingang. Sein Ausgang Q wird 1, sobald CV ≥ PV (Sollwert). Mit Rücksetzen (R) wird CV wieder 0.'},
+      {t:'mc',q:'CTU mit PV = 5. Die Lichtschranke wird 5-mal unterbrochen. Was ist Q?',o:['1, weil CV = 5 ≥ PV','0, erst bei 6','1 schon nach dem ersten Mal','Q zählt selbst mit'],a:0,e:'Q = (CV ≥ PV).'},
+      {t:'mc',q:'Warum zählt CTU nicht hoch, solange der Taster dauerhaft gedrückt ist?',o:['Er reagiert nur auf die steigende Flanke','Der Taster prellt nicht','PV ist zu klein','CTU zählt nur rückwärts'],a:0,e:'Genau wie die Flankenerkennung beim Arduino.'}
+    ]}
+  ]});
   const ALL=[]; U.forEach(u=>u.L.forEach(l=>{ l.u=u; ALL.push(l); l.S.forEach((st,i)=>{ st._key=l.id+':'+i; st._u=u; }); }));
   const XP_STEP=10, XP_LESSON=10, GOAL=50;
 
@@ -4977,6 +5004,333 @@ void loop() {
   CALC.forEach(c=>{ if(c.init) c.init(); v.querySelectorAll(`[data-c="${c.id}"] input,[data-c="${c.id}"] select`).forEach(i=>{ if(!i.oninput) i.oninput=()=>CALCrun(c.id); if(i.tagName==='SELECT'&&!i.onchange) i.onchange=()=>CALCrun(c.id); }); CALCrun(c.id); });
 })();
 </script>
+<!-- ===== SPS-Simulator (KOP / FUP) ===== -->
+<style>
+.plc-top{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.plc-top select,.plc-top input{background:var(--panel2);color:var(--text);border:1px solid var(--line2);border-radius:8px;padding:8px 10px;font-size:14px}
+.plc-top input{flex:1 1 180px;min-width:0}
+.plc-seg{display:inline-flex;border:1px solid var(--line2);border-radius:8px;overflow:hidden}
+.plc-seg button{background:var(--panel2);border:0;color:var(--muted);padding:8px 12px;cursor:pointer;font-weight:600}
+.plc-seg button.on{background:var(--teal);color:#04201d}
+.plc-run{font-weight:700;min-width:120px}
+.plc-run.on{background:var(--green) !important;border-color:var(--green) !important;color:#04201d !important}
+.plc-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:12px;align-items:start}
+@media (max-width:980px){.plc-layout{grid-template-columns:1fr}}
+.plc-io{position:sticky;top:76px;display:flex;flex-direction:column;gap:10px}
+@media (max-width:980px){.plc-io{position:static}}
+.plc-io h4{margin:0 0 6px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.plc-ins,.plc-outs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.plc-in{display:flex;flex-direction:column;align-items:center;gap:3px;font-family:var(--mono);font-size:11px;color:var(--muted)}
+.plc-in button.k{width:54px;height:44px;border-radius:9px;border:2px solid var(--line2);background:#22292f;color:var(--text);font-family:var(--mono);font-size:12px;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.plc-in button.k.on{background:#3a2a07;border-color:var(--amber);color:var(--amber);box-shadow:0 0 10px rgba(255,176,32,.35)}
+.plc-in button.md{background:none;border:0;color:var(--muted);font-size:10.5px;cursor:pointer;padding:0;text-decoration:underline dotted}
+.plc-in .sy{max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);font-family:var(--sans)}
+.plc-lamp{width:34px;height:34px;border-radius:50%;background:#2a2f33;border:2px solid #444}
+.plc-lamp.on{background:#35d07f;border-color:#7dffb6;box-shadow:0 0 14px #35d07f}
+.plc-tbl{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px}
+.plc-tbl td{padding:3px 4px;border-bottom:1px solid var(--line)}
+.plc-tbl .on{color:var(--green);font-weight:700}
+.plc-net{margin-bottom:12px}
+.plc-nh{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+.plc-nh b{font-family:var(--mono);color:var(--teal)}
+.plc-nh input{flex:1;min-width:0;background:transparent;border:0;border-bottom:1px dashed var(--line2);color:var(--text);font-size:14px;padding:4px}
+.plc-svg{background:#0a0f13;border:1px solid var(--line);border-radius:8px;overflow:auto;-webkit-overflow-scrolling:touch}
+.plc-svg svg{display:block}
+.plc-st{font-family:var(--mono);font-size:12px;color:#9fb3c2;margin:6px 0 0;white-space:pre-wrap}
+.plc-ed{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+.plc-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:#0f171c;border:1px solid var(--line);border-radius:8px;padding:6px}
+.plc-row .lb{font-size:11.5px;color:var(--muted);min-width:58px}
+.plc-c{display:inline-flex;align-items:center;gap:2px;background:var(--panel2);border:1px solid var(--line2);border-radius:8px;padding:2px}
+.plc-c select,.plc-coil select,.plc-coil input{background:transparent;color:var(--text);border:0;font-family:var(--mono);font-size:13px;padding:5px 4px}
+.plc-coil input{width:80px;border-bottom:1px dashed var(--line2)}
+.plc-c button,.plc-x{background:none;border:0;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 6px}
+.plc-coil{display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:#11201d;border:1px solid #1d4a44;border-radius:8px;padding:6px}
+.plc-coil .lb{font-size:11.5px;color:var(--muted)}
+.plc-hint{font-size:12.5px;color:var(--muted);margin:4px 0 10px}
+.plc-sym{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px}
+.plc-sym label{display:flex;gap:6px;align-items:center;font-family:var(--mono);font-size:12.5px}
+.plc-sym input{flex:1;min-width:0;background:var(--panel2);color:var(--text);border:1px solid var(--line2);border-radius:6px;padding:5px 7px;font-family:var(--sans);font-size:13px}
+</style>
+<script>
+(function(){
+  const $=s=>document.querySelector(s);
+  const E=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const range=(p,n)=>Array.from({length:n},(_,i)=>p+i);
+  const OPS={E:range(0,8).map(i=>'E0.'+i),A:range(0,8).map(i=>'A0.'+i),M:range(0,8).map(i=>'M0.'+i),T:range(1,4).map(i=>'T'+i),Z:range(1,4).map(i=>'Z'+i)};
+  const ALLOPS=[].concat(OPS.E,OPS.A,OPS.M,OPS.T,OPS.Z);
+  const COILS={'=':'= Zuweisung','S':'S Setzen','R':'R Rücksetzen','TON':'TON Einschaltverz.','TOF':'TOF Ausschaltverz.','TP':'TP Impuls','CTU':'CTU Vorwärtszähler'};
+  const coilOps=t=>t==='='||t==='S'?OPS.A.concat(OPS.M):t==='R'?OPS.A.concat(OPS.M,OPS.T,OPS.Z):t==='CTU'?OPS.Z:OPS.T;
+  const C=(op,t)=>({op,t:t||'NO'});
+  const N=(title,branches,coil)=>({title,branches,coil});
+
+  /* ---------- Vorlagen ---------- */
+  const TPL=[
+   {name:'Selbsthaltung (Motor Start/Stopp)',sym:{'E0.0':'Start','E0.1':'Stopp','A0.0':'Motor'},nets:[
+     N('Motor mit Selbsthaltung, Stopp dominant',[[C('E0.0'),C('E0.1','NC')],[C('A0.0'),C('E0.1','NC')]],{t:'=',op:'A0.0'})]},
+   {name:'Setzen / Rücksetzen',sym:{'E0.0':'Ein','E0.1':'Aus','A0.0':'Lampe'},nets:[
+     N('Lampe einschalten',[[C('E0.0')]],{t:'S',op:'A0.0'}),
+     N('Lampe ausschalten (steht unten → rücksetzdominant)',[[C('E0.1')]],{t:'R',op:'A0.0'})]},
+   {name:'Treppenhauslicht (Ausschaltverzögerung)',sym:{'E0.0':'Taster','A0.0':'Licht'},nets:[
+     N('Nach Loslassen noch 5 s an',[[C('E0.0')]],{t:'TOF',op:'T1',pt:5000}),
+     N('Licht',[[C('T1')]],{t:'=',op:'A0.0'})]},
+   {name:'Blinker (Taktgeber mit 2 Timern)',sym:{'E0.0':'Freigabe','A0.0':'Blinklicht'},nets:[
+     N('Pausenzeit',[[C('E0.0'),C('T2','NC')]],{t:'TON',op:'T1',pt:500}),
+     N('Leuchtzeit',[[C('T1')]],{t:'TON',op:'T2',pt:500}),
+     N('Ausgang',[[C('T1')]],{t:'=',op:'A0.0'})]},
+   {name:'Stückzähler',sym:{'E0.0':'Lichtschranke','E0.1':'Reset','A0.0':'Karton voll'},nets:[
+     N('Teile zählen (Sollwert 5)',[[C('E0.0')]],{t:'CTU',op:'Z1',pv:5}),
+     N('Zähler zurücksetzen',[[C('E0.1')]],{t:'R',op:'Z1'}),
+     N('Meldung „voll“',[[C('Z1')]],{t:'=',op:'A0.0'})]},
+   {name:'Wendeschützschaltung',sym:{'E0.0':'Rechts','E0.1':'Links','E0.2':'Stopp','A0.0':'Q1 rechts','A0.1':'Q2 links'},nets:[
+     N('Rechtslauf mit Verriegelung',[[C('E0.0'),C('E0.2','NC'),C('A0.1','NC')],[C('A0.0'),C('E0.2','NC'),C('A0.1','NC')]],{t:'=',op:'A0.0'}),
+     N('Linkslauf mit Verriegelung',[[C('E0.1'),C('E0.2','NC'),C('A0.0','NC')],[C('A0.1'),C('E0.2','NC'),C('A0.0','NC')]],{t:'=',op:'A0.1'})]},
+   {name:'Leeres Programm',sym:{},nets:[N('',[[C('E0.0')]],{t:'=',op:'A0.0'})]}
+  ];
+  const clone=o=>JSON.parse(JSON.stringify(o));
+  const uid=()=>Math.random().toString(36).slice(2,9);
+
+  /* ---------- Speicher ---------- */
+  const KEY='uct-plc-v1';
+  let S; try{ S=JSON.parse(localStorage.getItem(KEY)); }catch(e){}
+  if(!S||!S.items||!S.items.length){ const p=Object.assign({id:uid()},clone(TPL[0])); S={cur:p.id,items:[p],view:'KOP',inMode:{}}; }
+  S.inMode=S.inMode||{}; S.view=S.view||'KOP';
+  const save=()=>{ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){} };
+  const prog=()=>S.items.find(x=>x.id===S.cur)||S.items[0];
+  const sym=op=>(prog().sym||{})[op]||'';
+
+  /* ---------- Laufzeit ---------- */
+  let R=null;   // {bits, tm:{T1:{et,q,inPrev}}, ct:{Z1:{cv,q,prev}}, edge:{}, timer, cyc}
+  const IN={}; OPS.E.forEach(o=>IN[o]=false);
+  function reset(){ R={bits:{},tm:{},ct:{},edge:{},flow:{},t:performance.now(),cyc:0}; ALLOPS.forEach(o=>R.bits[o]=false); OPS.T.forEach(t=>R.tm[t]={et:0,q:false,pin:false}); OPS.Z.forEach(z=>R.ct[z]={cv:0,q:false,prev:false}); }
+  function val(op){ if(op[0]==='T') return R.tm[op].q; if(op[0]==='Z') return R.ct[op].q; return !!R.bits[op]; }
+  function cycle(){
+    const now=performance.now(), dt=Math.min(200,now-R.t); R.t=now; R.cyc=dt;
+    OPS.E.forEach(o=>R.bits[o]=!!IN[o]);       // PAE einlesen
+    prog().nets.forEach((n,ni)=>{
+      const fl=[]; let rlo=false;
+      n.branches.forEach((br,bi)=>{
+        let p=true; const seg=[];
+        br.forEach((c,ci)=>{
+          let v=val(c.op);
+          if(c.t==='NC') v=!v;
+          else if(c.t==='P'){ const k=ni+':'+bi+':'+ci; const prev=!!R.edge[k]; R.edge[k]=v; v=v&&!prev; }
+          p=p&&v; seg.push(p);
+        });
+        fl.push(seg); if(p) rlo=true;
+      });
+      R.flow[ni]={b:fl,rlo};
+      const c=n.coil, op=c.op;
+      if(c.t==='=') R.bits[op]=rlo;
+      else if(c.t==='S'){ if(rlo){ if(op[0]==='T'||op[0]==='Z'); else R.bits[op]=true; } }
+      else if(c.t==='R'){ if(rlo){ if(op[0]==='T') R.tm[op]={et:0,q:false,pin:false}; else if(op[0]==='Z'){ R.ct[op].cv=0; R.ct[op].q=false; } else R.bits[op]=false; } }
+      else if(c.t==='TON'){ const T=R.tm[op]; T.pt=+c.pt||1000; if(rlo){ T.et=Math.min(T.pt,T.et+dt); T.q=T.et>=T.pt; } else { T.et=0; T.q=false; } }
+      else if(c.t==='TOF'){ const T=R.tm[op]; T.pt=+c.pt||1000; if(rlo){ T.q=true; T.et=0; } else if(T.q){ T.et+=dt; if(T.et>=T.pt){ T.q=false; T.et=T.pt; } } }
+      else if(c.t==='TP'){ const T=R.tm[op]; T.pt=+c.pt||1000; if(rlo&&!T.pin&&!T.q){ T.q=true; T.et=0; } if(T.q){ T.et+=dt; if(T.et>=T.pt){ T.q=false; T.et=T.pt; } } else if(!rlo) T.et=0; T.pin=rlo; }
+      else if(c.t==='CTU'){ const Z=R.ct[op]; Z.pv=+c.pv||1; if(rlo&&!Z.prev) Z.cv=Math.min(32767,Z.cv+1); Z.prev=rlo; Z.q=Z.cv>=Z.pv; }
+    });
+  }
+  let running=false, tmr=null;
+  function run(on){
+    running=on; clearInterval(tmr);
+    if(on){ reset(); tmr=setInterval(()=>{ cycle(); paint(); },20); } else { reset(); paint(); }
+    $('#plcRun').classList.toggle('on',on); $('#plcRun').textContent=on?'■ STOP':'▶ RUN';
+  }
+
+  /* ---------- Zeichnen KOP ---------- */
+  const GREEN='#35d07f', OFF='#5b6b78', TXT='#d6e2ea';
+  const CW=96, RH=76, X0=14;
+  function opLbl(op){ return `<text x="0" y="0" class="op">${E(op)}</text>`; }
+  function kop(n,ni){
+    const fl=running&&R.flow[ni];
+    const maxC=Math.max(1,...n.branches.map(b=>b.length));
+    const mx=X0+maxC*CW+16, coilW=n.coil.t.length>1?120:70, W=mx+40+coilW+30;
+    const H=Math.max(1,n.branches.length)*RH+(n.coil.t.length>1?40:0)+10;
+    const col=b=>b?GREEN:OFF;
+    let s=`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="font-family:var(--mono)">`;
+    s+=`<line x1="${X0}" y1="6" x2="${X0}" y2="${(n.branches.length-1)*RH+RH-12}" stroke="${running?GREEN:OFF}" stroke-width="3"/>`;
+    n.branches.forEach((br,bi)=>{
+      const y=bi*RH+38; let x=X0;
+      br.forEach((c,ci)=>{
+        const pl=bi===0&&ci===0?true:null;
+        const inP=fl?(ci===0?true:fl.b[bi][ci-1]):false, outP=fl?fl.b[bi][ci]:false;
+        s+=`<line x1="${x}" y1="${y}" x2="${x+34}" y2="${y}" stroke="${col(inP)}" stroke-width="2.5"/>`;
+        s+=`<line x1="${x+34}" y1="${y-14}" x2="${x+34}" y2="${y+14}" stroke="${TXT}" stroke-width="2.5"/><line x1="${x+50}" y1="${y-14}" x2="${x+50}" y2="${y+14}" stroke="${TXT}" stroke-width="2.5"/>`;
+        if(c.t==='NC') s+=`<line x1="${x+31}" y1="${y+12}" x2="${x+53}" y2="${y-12}" stroke="${TXT}" stroke-width="2"/>`;
+        if(c.t==='P') s+=`<text x="${x+42}" y="${y+5}" text-anchor="middle" fill="${TXT}" font-size="13" font-weight="700">P</text>`;
+        if(fl&&val(c.op)) s+=`<rect x="${x+36}" y="${y-12}" width="12" height="24" fill="rgba(53,208,127,.35)"/>`;
+        s+=`<text x="${x+42}" y="${y-20}" text-anchor="middle" fill="${TXT}" font-size="12.5">${E(c.op)}</text>`;
+        if(sym(c.op)) s+=`<text x="${x+42}" y="${y+28}" text-anchor="middle" fill="#8a9aa7" font-size="10.5" font-family="system-ui">${E(sym(c.op).slice(0,13))}</text>`;
+        s+=`<line x1="${x+50}" y1="${y}" x2="${x+CW}" y2="${y}" stroke="${col(outP)}" stroke-width="2.5"/>`;
+        x+=CW;
+      });
+      const endP=fl?(br.length?fl.b[bi][br.length-1]:true):false;
+      s+=`<line x1="${x}" y1="${y}" x2="${mx}" y2="${y}" stroke="${col(endP)}" stroke-width="2.5"/>`;
+    });
+    const y0=38, yl=(n.branches.length-1)*RH+38, rlo=fl&&fl.rlo;
+    if(n.branches.length>1) s+=`<line x1="${mx}" y1="${y0}" x2="${mx}" y2="${yl}" stroke="${col(rlo)}" stroke-width="2.5"/>`;
+    const cx=mx+40, c=n.coil;
+    s+=`<line x1="${mx}" y1="${y0}" x2="${cx}" y2="${y0}" stroke="${col(rlo)}" stroke-width="2.5"/>`;
+    if(c.t.length===1||c.t==='='){
+      const L=c.t==='='?'':c.t, on=running&&val(c.op);
+      s+=`<path d="M${cx+8} ${y0-15} Q${cx} ${y0} ${cx+8} ${y0+15} M${cx+38} ${y0-15} Q${cx+46} ${y0} ${cx+38} ${y0+15}" fill="none" stroke="${on?GREEN:TXT}" stroke-width="2.5"/>`;
+      if(L) s+=`<text x="${cx+23}" y="${y0+5}" text-anchor="middle" fill="${on?GREEN:TXT}" font-size="14" font-weight="700">${L}</text>`;
+      s+=`<text x="${cx+23}" y="${y0-21}" text-anchor="middle" fill="${TXT}" font-size="12.5">${E(c.op)}</text>`;
+      if(sym(c.op)) s+=`<text x="${cx+23}" y="${y0+30}" text-anchor="middle" fill="#8a9aa7" font-size="10.5" font-family="system-ui">${E(sym(c.op).slice(0,14))}</text>`;
+    } else {
+      const on=running&&val(c.op), info=c.t==='CTU'?`PV ${c.pv}`:`PT ${(+c.pt/1000).toString().replace('.',',')} s`;
+      const live=running?(c.t==='CTU'?`CV ${R.ct[c.op].cv}`:`ET ${(R.tm[c.op].et/1000).toFixed(1).replace('.',',')} s`):'';
+      s+=`<rect x="${cx}" y="${y0-22}" width="${coilW}" height="62" rx="4" fill="#0f171c" stroke="${on?GREEN:TXT}" stroke-width="2"/>`;
+      s+=`<text x="${cx+coilW/2}" y="${y0-30}" text-anchor="middle" fill="${TXT}" font-size="12.5">${E(c.op)}${sym(c.op)?' · '+E(sym(c.op).slice(0,10)):''}</text>`;
+      s+=`<text x="${cx+coilW/2}" y="${y0-4}" text-anchor="middle" fill="${on?GREEN:TXT}" font-size="14" font-weight="700">${c.t}</text>`;
+      s+=`<text x="${cx+coilW/2}" y="${y0+14}" text-anchor="middle" fill="#8a9aa7" font-size="11.5">${info}</text>`;
+      if(live) s+=`<text x="${cx+coilW/2}" y="${y0+31}" text-anchor="middle" fill="#ffb020" font-size="11.5">${live}</text>`;
+    }
+    return s+'</svg>';
+  }
+  /* ---------- Zeichnen FUP ---------- */
+  function fup(n,ni){
+    const fl=running&&R.flow[ni], col=b=>b?GREEN:OFF;
+    const IW=110, BW=56, rows=n.branches.map(b=>Math.max(1,b.length));
+    const tot=rows.reduce((a,b)=>a+b,0), RHf=28, GAP=16;
+    const H=tot*RHf+(n.branches.length-1)*GAP+64, orX=IW+BW+40, outX=orX+(n.branches.length>1?BW+30:0)+20;
+    const ow=n.coil.t.length>1?110:70, W=outX+ow+20;
+    let s=`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="font-family:var(--mono)">`;
+    let y=34; const outs=[];
+    n.branches.forEach((br,bi)=>{
+      const h=Math.max(1,br.length)*RHf, top=y, mid=y+h/2, single=br.length===1;
+      br.forEach((c,ci)=>{
+        const yy=top+ci*RHf+RHf/2, v=fl?val(c.op):false;
+        s+=`<text x="${IW-44}" y="${yy-4}" text-anchor="end" fill="${TXT}" font-size="12.5">${E(c.op)}</text>`;
+        if(sym(c.op)) s+=`<text x="${IW-44}" y="${yy+9}" text-anchor="end" fill="#8a9aa7" font-size="10" font-family="system-ui">${E(sym(c.op).slice(0,12))}</text>`;
+        const ex=single?(n.branches.length>1?orX:outX):IW;
+        s+=`<line x1="${IW-40}" y1="${yy}" x2="${ex-(c.t==='NC'?8:0)}" y2="${single?mid:yy}" stroke="${col(v)}" stroke-width="2.2"/>`;
+        if(c.t==='NC') s+=`<circle cx="${ex-4}" cy="${single?mid:yy}" r="4" fill="#0a0f13" stroke="${TXT}" stroke-width="1.6"/>`;
+        if(c.t==='P') s+=`<rect x="${IW-30}" y="${yy-9}" width="22" height="18" fill="#0f171c" stroke="${TXT}"/><text x="${IW-19}" y="${yy+4}" text-anchor="middle" fill="${TXT}" font-size="11" font-weight="700">P</text>`;
+      });
+      if(!single){
+        const on=fl&&fl.b[bi][br.length-1];
+        s+=`<rect x="${IW}" y="${top}" width="${BW}" height="${h}" rx="3" fill="#0f171c" stroke="${on?GREEN:TXT}" stroke-width="2"/><text x="${IW+BW/2}" y="${top+16}" text-anchor="middle" fill="${TXT}" font-size="14" font-weight="700">&amp;</text>`;
+        s+=`<line x1="${IW+BW}" y1="${mid}" x2="${n.branches.length>1?orX:outX}" y2="${mid}" stroke="${col(on)}" stroke-width="2.2"/>`;
+      }
+      outs.push(mid); y+=h+GAP;
+    });
+    const rlo=fl&&fl.rlo; let oy=outs[0];
+    if(n.branches.length>1){
+      const t=Math.min(...outs)-14, b=Math.max(...outs)+14; oy=(t+b)/2;
+      s+=`<rect x="${orX}" y="${t}" width="${BW}" height="${b-t}" rx="3" fill="#0f171c" stroke="${rlo?GREEN:TXT}" stroke-width="2"/><text x="${orX+BW/2}" y="${t+17}" text-anchor="middle" fill="${TXT}" font-size="13" font-weight="700">≥1</text>`;
+      s+=`<line x1="${orX+BW}" y1="${oy}" x2="${outX}" y2="${oy}" stroke="${col(rlo)}" stroke-width="2.2"/>`;
+    }
+    const c=n.coil, on=running&&val(c.op);
+    const lab=c.t==='='?'=':c.t, info=c.t==='CTU'?`PV ${c.pv}`:c.t.length>1?`PT ${(+c.pt/1000).toString().replace('.',',')} s`:'';
+    s+=`<rect x="${outX}" y="${oy-20}" width="${ow}" height="40" rx="3" fill="#0f171c" stroke="${on?GREEN:TXT}" stroke-width="2"/>`;
+    s+=`<text x="${outX+ow/2}" y="${oy-26}" text-anchor="middle" fill="${TXT}" font-size="12.5">${E(c.op)}${sym(c.op)?' · '+E(sym(c.op).slice(0,10)):''}</text>`;
+    s+=`<text x="${outX+ow/2}" y="${oy+(info?-2:5)}" text-anchor="middle" fill="${on?GREEN:TXT}" font-size="14" font-weight="700">${lab}</text>`;
+    if(info) s+=`<text x="${outX+ow/2}" y="${oy+14}" text-anchor="middle" fill="#8a9aa7" font-size="11">${info}${running?(c.t==='CTU'?' · CV '+R.ct[c.op].cv:' · '+(R.tm[c.op].et/1000).toFixed(1).replace('.',',')+' s'):''}</text>`;
+    return s+'</svg>';
+  }
+  /* ---------- ST-Text ---------- */
+  function st(n){
+    const lit=c=>(c.t==='NC'?'NOT ':'')+(c.t==='P'?'R_TRIG('+c.op+')':c.op);
+    const ex=n.branches.map(b=>b.length>1?'('+b.map(lit).join(' AND ')+')':lit(b[0]||{op:'TRUE',t:'NO'})).join(' OR ')||'FALSE';
+    const c=n.coil, e2=n.branches.length>1?ex:ex.replace(/^\((.*)\)$/,'$1');
+    if(c.t==='=') return `${c.op} := ${e2};`;
+    if(c.t==='S') return `IF ${e2} THEN ${c.op} := TRUE; END_IF;`;
+    if(c.t==='R') return `IF ${e2} THEN ${c.op[0]==='Z'?c.op+'.CV := 0':c.op[0]==='T'?c.op+' := RESET':c.op+' := FALSE'}; END_IF;`;
+    if(c.t==='CTU') return `${c.op}(CU := ${e2}, PV := ${c.pv});`;
+    return `${c.op}(IN := ${e2}, PT := T#${(+c.pt/1000).toString()}s);   // ${c.t}`;
+  }
+
+  /* ---------- Editor ---------- */
+  const opSel=(v,list,attr)=>`<select ${attr}>${list.map(o=>`<option value="${o}"${o===v?' selected':''}>${o}${sym(o)?' '+E(sym(o).slice(0,12)):''}</option>`).join('')}</select>`;
+  function renderNets(){
+    const p=prog(), host=$('#plcNets');
+    host.innerHTML=p.nets.map((n,ni)=>`<div class="card plc-net" data-n="${ni}">
+      <div class="plc-nh"><b>NW ${ni+1}</b><input data-a="title" value="${E(n.title||'')}" placeholder="Netzwerk-Kommentar"><button class="plc-x" data-a="up" title="nach oben">↑</button><button class="plc-x" data-a="down" title="nach unten">↓</button><button class="plc-x" data-a="delnet" title="Netzwerk löschen">✕</button></div>
+      <div class="plc-svg" id="plcG${ni}"></div>
+      <div class="plc-st">${E(st(n))}</div>
+      <details class="plc-ed-wrap"${n._open?' open':''}><summary style="cursor:pointer;color:var(--teal);font-size:13px;margin-top:6px">✎ Netzwerk bearbeiten</summary><div class="plc-ed">
+      ${n.branches.map((br,bi)=>`<div class="plc-row"><span class="lb">${bi===0?'Zweig 1':'ODER '+(bi+1)}</span>${br.map((c,ci)=>`<span class="plc-c"><select data-a="ct" data-b="${bi}" data-c="${ci}"><option value="NO"${c.t==='NO'?' selected':''}>⊣ ⊢</option><option value="NC"${c.t==='NC'?' selected':''}>⊣/⊢</option><option value="P"${c.t==='P'?' selected':''}>⊣P⊢</option></select>${opSel(c.op,ALLOPS,`data-a="co" data-b="${bi}" data-c="${ci}"`)}<button data-a="delc" data-b="${bi}" data-c="${ci}" title="Kontakt entfernen">✕</button></span>`).join('')}<button class="btn mini" data-a="addc" data-b="${bi}">+ UND</button>${n.branches.length>1?`<button class="plc-x" data-a="delb" data-b="${bi}" title="Zweig löschen">🗑</button>`:''}</div>`).join('')}
+      <div><button class="btn mini" data-a="addb">+ ODER-Zweig</button></div>
+      <div class="plc-coil"><span class="lb">Ausgang</span><select data-a="ctype">${Object.entries(COILS).map(([k,v])=>`<option value="${k}"${k===n.coil.t?' selected':''}>${v}</option>`).join('')}</select>${opSel(n.coil.op,coilOps(n.coil.t),'data-a="cop"')}${['TON','TOF','TP'].includes(n.coil.t)?`<span class="lb">Zeit</span><input data-a="pt" inputmode="numeric" value="${n.coil.pt||1000}"><span class="lb">ms</span>`:''}${n.coil.t==='CTU'?`<span class="lb">Sollwert</span><input data-a="pv" inputmode="numeric" value="${n.coil.pv||5}">`:''}</div>
+      </div></details></div>`).join('')+`<button class="btn" id="plcAddNet">+ Netzwerk</button>`;
+    p.nets.forEach((n,ni)=>{ $('#plcG'+ni).innerHTML=S.view==='FUP'?fup(n,ni):kop(n,ni); });
+    $('#plcAddNet').onclick=()=>{ p.nets.push(N('',[[C('E0.0')]],{t:'=',op:'A0.0'})); p.nets[p.nets.length-1]._open=true; save(); renderNets(); };
+  }
+  function onEdit(e){
+    const el=e.target, a=el.dataset.a; if(!a) return; const card=el.closest('[data-n]'); if(!card) return;
+    const p=prog(), ni=+card.dataset.n, n=p.nets[ni], bi=+el.dataset.b, ci=+el.dataset.c;
+    const det=card.querySelector('details'); n._open=det&&det.open;
+    let redraw=true;
+    switch(a){
+      case 'title': n.title=el.value; redraw=false; break;
+      case 'ct': n.branches[bi][ci].t=el.value; break;
+      case 'co': n.branches[bi][ci].op=el.value; break;
+      case 'delc': n.branches[bi].splice(ci,1); if(!n.branches[bi].length&&n.branches.length>1) n.branches.splice(bi,1); break;
+      case 'addc': n.branches[bi].push(C('E0.1')); break;
+      case 'addb': n.branches.push([C('E0.1')]); break;
+      case 'delb': n.branches.splice(bi,1); break;
+      case 'ctype': n.coil.t=el.value; if(!coilOps(n.coil.t).includes(n.coil.op)) n.coil.op=coilOps(n.coil.t)[0]; if(['TON','TOF','TP'].includes(n.coil.t)&&!n.coil.pt) n.coil.pt=1000; if(n.coil.t==='CTU'&&!n.coil.pv) n.coil.pv=5; break;
+      case 'cop': n.coil.op=el.value; break;
+      case 'pt': n.coil.pt=Math.max(10,parseInt(el.value)||0); redraw=false; break;
+      case 'pv': n.coil.pv=Math.max(1,parseInt(el.value)||0); redraw=false; break;
+      case 'up': if(ni>0){ [p.nets[ni-1],p.nets[ni]]=[p.nets[ni],p.nets[ni-1]]; } break;
+      case 'down': if(ni<p.nets.length-1){ [p.nets[ni+1],p.nets[ni]]=[p.nets[ni],p.nets[ni+1]]; } break;
+      case 'delnet': if(p.nets.length>1&&confirm('Netzwerk '+(ni+1)+' löschen?')) p.nets.splice(ni,1); break;
+      default: return;
+    }
+    save(); if(redraw) renderNets(); else { card.querySelector('.plc-st').textContent=st(n); paintNet(ni); }
+  }
+  function paintNet(ni){ const n=prog().nets[ni], g=$('#plcG'+ni); if(n&&g) g.innerHTML=S.view==='FUP'?fup(n,ni):kop(n,ni); }
+
+  /* ---------- E/A-Panel ---------- */
+  function renderIO(){
+    $('#plcIns').innerHTML=OPS.E.map(o=>`<div class="plc-in"><button class="k${IN[o]?' on':''}" data-in="${o}">${o}</button><span class="sy">${E(sym(o)||'')}</span><button class="md" data-md="${o}">${S.inMode[o]==='S'?'Schalter':'Taster'}</button></div>`).join('');
+    $('#plcOuts').innerHTML=OPS.A.map(o=>`<div class="plc-in"><div class="plc-lamp" data-out="${o}"></div><span>${o}</span><span class="sy">${E(sym(o)||'')}</span></div>`).join('');
+    $('#plcSym').innerHTML=[].concat(OPS.E,OPS.A,OPS.M.slice(0,4),OPS.T,OPS.Z.slice(0,2)).map(o=>`<label>${o}<input data-sym="${o}" value="${E(sym(o))}" placeholder="Symbol"></label>`).join('');
+  }
+  function paint(){
+    document.querySelectorAll('[data-out]').forEach(l=>l.classList.toggle('on',running&&val(l.dataset.out)));
+    document.querySelectorAll('[data-in]').forEach(b=>b.classList.toggle('on',!!IN[b.dataset.in]));
+    prog().nets.forEach((n,ni)=>paintNet(ni));
+    const m=OPS.M.filter(o=>R.bits[o]), t=OPS.T.filter(x=>R.tm[x].et>0||R.tm[x].q), z=OPS.Z.filter(x=>R.ct[x].cv>0);
+    $('#plcState').innerHTML=running?`<table class="plc-tbl"><tr><td>Zyklus</td><td>${R.cyc.toFixed(0)} ms</td></tr>${OPS.M.slice(0,4).map(o=>`<tr><td>${o}</td><td class="${R.bits[o]?'on':''}">${R.bits[o]?1:0}</td></tr>`).join('')}${OPS.T.map(x=>`<tr><td>${x}</td><td class="${R.tm[x].q?'on':''}">Q=${R.tm[x].q?1:0} · ET ${(R.tm[x].et/1000).toFixed(1)} s</td></tr>`).join('')}${OPS.Z.slice(0,2).map(x=>`<tr><td>${x}</td><td class="${R.ct[x].q?'on':''}">Q=${R.ct[x].q?1:0} · CV ${R.ct[x].cv}</td></tr>`).join('')}</table>`:'<span class="plc-hint">CPU im STOP – drück ▶ RUN.</span>';
+  }
+
+  /* ---------- Aufbau ---------- */
+  const v=$('#view-sps');
+  v.innerHTML=`<p class="intro">Programmiere eine SPS in <b>KOP</b> (Kontaktplan) oder <b>FUP</b> (Funktionsplan) und teste sie live: Eingänge antippen, Ausgänge leuchten. Adressen wie bei Siemens: E = Eingang, A = Ausgang, M = Merker, T = Timer, Z = Zähler.</p>
+    <div class="plc-top"><select id="plcPick" aria-label="Programm wählen"></select><input id="plcName" placeholder="Programmname"><select id="plcTpl"><option value="">📂 Vorlage …</option>${TPL.map((t,i)=>`<option value="${i}">${E(t.name)}</option>`).join('')}</select><button class="btn mini" id="plcDel">🗑</button>
+    <span class="plc-seg"><button data-view="KOP">KOP</button><button data-view="FUP">FUP</button></span><button class="btn plc-run" id="plcRun">▶ RUN</button></div>
+    <div class="plc-layout"><div><div id="plcNets"></div>
+      <details class="card" style="margin-top:12px"><summary style="cursor:pointer;font-weight:600">📋 Zuordnungsliste (Symbole)</summary><p class="plc-hint">Gib Operanden sprechende Namen – sie erscheinen im Plan und an den Ein-/Ausgängen.</p><div class="plc-sym" id="plcSym"></div></details>
+      <p class="plc-hint" style="margin-top:12px">ℹ️ Im Simulator sind alle Taster <b>Schließer</b>. In echten Anlagen wird der Stopp-Taster als <b>Öffner</b> verdrahtet (drahtbruchsicher) – dann steht im Programm ein Schließer-Kontakt.</p></div>
+      <div class="plc-io"><div class="card"><h4>Eingänge (antippen)</h4><div class="plc-ins" id="plcIns"></div></div><div class="card"><h4>Ausgänge</h4><div class="plc-outs" id="plcOuts"></div></div><div class="card"><h4>Merker · Timer · Zähler</h4><div id="plcState"></div></div></div></div>`;
+  function renderAll(){
+    $('#plcPick').innerHTML=S.items.map(x=>`<option value="${x.id}"${x.id===S.cur?' selected':''}>${E(x.name||'Ohne Name')}</option>`).join('');
+    $('#plcName').value=prog().name||'';
+    v.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('on',b.dataset.view===S.view));
+    renderNets(); renderIO(); paint();
+  }
+  $('#plcNets').addEventListener('change',onEdit);
+  $('#plcNets').addEventListener('input',e=>{ if(['title','pt','pv'].includes(e.target.dataset.a)) onEdit(e); });
+  $('#plcNets').addEventListener('click',e=>{ if(e.target.tagName==='BUTTON'&&e.target.dataset.a) onEdit(e); });
+  $('#plcName').oninput=e=>{ prog().name=e.target.value; save(); const o=$('#plcPick').selectedOptions[0]; if(o) o.textContent=e.target.value||'Ohne Name'; };
+  $('#plcPick').onchange=e=>{ S.cur=e.target.value; save(); if(running) run(false); renderAll(); };
+  $('#plcTpl').onchange=e=>{ const i=e.target.value; e.target.value=''; if(i==='') return; const p=Object.assign(clone(TPL[+i]),{id:uid()}); S.items.push(p); S.cur=p.id; save(); if(running) run(false); renderAll(); };
+  $('#plcDel').onclick=()=>{ if(!confirm('Programm „'+(prog().name||'')+'“ löschen?')) return; S.items=S.items.filter(x=>x.id!==S.cur); if(!S.items.length) S.items.push(Object.assign(clone(TPL[TPL.length-1]),{id:uid()})); S.cur=S.items[0].id; save(); if(running) run(false); renderAll(); };
+  v.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{ S.view=b.dataset.view; save(); renderAll(); });
+  $('#plcRun').onclick=()=>run(!running);
+  const ins=$('#plcIns');
+  ins.addEventListener('pointerdown',e=>{ const b=e.target.closest('[data-in]'); if(!b) return; e.preventDefault(); const o=b.dataset.in; if(S.inMode[o]==='S') IN[o]=!IN[o]; else { IN[o]=true; try{ b.setPointerCapture(e.pointerId); }catch(_){} } paint(); });
+  const up=e=>{ const b=e.target.closest('[data-in]'); if(!b) return; const o=b.dataset.in; if(S.inMode[o]!=='S'){ IN[o]=false; paint(); } };
+  ins.addEventListener('pointerup',up); ins.addEventListener('pointercancel',up);
+  ins.addEventListener('contextmenu',e=>e.preventDefault());
+  ins.addEventListener('click',e=>{ const m=e.target.closest('[data-md]'); if(!m) return; const o=m.dataset.md; S.inMode[o]=S.inMode[o]==='S'?'T':'S'; IN[o]=false; save(); renderIO(); paint(); });
+  $('#plcSym').addEventListener('input',e=>{ const o=e.target.dataset.sym; if(!o) return; const p=prog(); p.sym=p.sym||{}; if(e.target.value) p.sym[o]=e.target.value; else delete p.sym[o]; save(); clearTimeout(window.__plcSymT); window.__plcSymT=setTimeout(()=>{ renderNets(); const keep=document.activeElement; renderIO(); paint(); const f=document.querySelector(`[data-sym="${o}"]`); if(f){ f.focus(); f.setSelectionRange(f.value.length,f.value.length); } },500); });
+  reset(); renderAll();
+  document.addEventListener('visibilitychange',()=>{ if(document.hidden&&running) run(false); });
+})();
+</script>
 <!-- ===== App-Update (µC-Trainer als iPad-App) ===== -->
 <style>
 #upd{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translate(-50%,150%);z-index:9999;
@@ -4997,7 +5351,7 @@ void loop() {
 </div>
 <script>
 (function(){
-  var APP_VERSION = '1.4.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+  var APP_VERSION = '1.5.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register('sw.js').catch(function(){});
   var box = document.getElementById('upd');
