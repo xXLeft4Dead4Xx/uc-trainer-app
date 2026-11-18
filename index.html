@@ -4221,7 +4221,7 @@ b.bad{color:var(--red)}b.good{color:var(--green)}
 </script>
 <!-- ===== Lernpfad (Lektionen mit Fortschritt, XP, Serie) ===== -->
 <style>
-#ln-pfad .pf-head{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:12px}
+#ln-pfad .pf-head,#sp-pfad .pf-head{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:12px}
 .pf-stat{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-weight:600}
 .pf-stat small{display:block;font-weight:400;color:var(--muted);font-size:11.5px}
 .pf-stat .ic{font-size:22px}
@@ -4447,7 +4447,7 @@ button.pf-stat{font:inherit;color:inherit;cursor:pointer;text-align:left}
       {t:'mc',q:'ESP32: Die LED an GPIO 35 bleibt aus. Warum?',c:'pinMode(35, OUTPUT);\ndigitalWrite(35, HIGH);',o:['GPIO 34–39 sind nur Eingänge','35 ist ein PWM-Pin','Der ESP32 braucht 5 V','HIGH ist beim ESP32 LOW'],a:0,e:'Einen anderen GPIO nehmen, z. B. 25 oder 26.'}
     ]}
   ]});
-  U.push({id:'u8',ic:'🏭',h:'SPS-Grundlagen',s:'Zyklus, KOP/FUP, Timer und Zähler – teste alles im Reiter „SPS“',L:[
+  U.push({id:'u8',sps:true,ic:'🏭',h:'SPS-Grundlagen',s:'Zyklus, KOP/FUP, Timer und Zähler – teste alles im Simulator',L:[
     {id:'u8l1',h:'Wie eine SPS arbeitet',S:[
       {t:'info',h:'Der SPS-Zyklus',p:'Eine SPS (speicherprogrammierbare Steuerung) arbeitet zyklisch: 1. Eingänge lesen und im Prozessabbild der Eingänge (PAE) speichern, 2. Programm von oben nach unten abarbeiten, 3. Ergebnisse aus dem Prozessabbild der Ausgänge (PAA) an die Ausgänge schreiben. Ein Zyklus dauert typisch nur wenige Millisekunden.'},
       {t:'order',q:'Bringe den SPS-Zyklus in die richtige Reihenfolge.',l:['Eingänge ins PAE einlesen','Programm abarbeiten','PAA an die Ausgänge schreiben'],e:'Danach beginnt der Zyklus von vorn – ähnlich wie loop() beim Arduino.'},
@@ -4472,6 +4472,119 @@ button.pf-stat{font:inherit;color:inherit;cursor:pointer;text-align:left}
       {t:'mc',q:'Warum zählt CTU nicht hoch, solange der Taster dauerhaft gedrückt ist?',o:['Er reagiert nur auf die steigende Flanke','Der Taster prellt nicht','PV ist zu klein','CTU zählt nur rückwärts'],a:0,e:'Genau wie die Flankenerkennung beim Arduino.'}
     ]}
   ]});
+  U.push({id:'s2',sps:true,ic:'🔣',h:'Logik & Verknüpfungen',s:'UND, ODER, NICHT, XOR – in KOP, FUP und ST',L:[
+    {id:'s2l1',h:'Grundverknüpfungen',S:[
+      {t:'info',h:'Drei Bausteine reichen für alles',p:'UND: Ausgang 1, wenn alle Eingänge 1 sind. ODER: Ausgang 1, wenn mindestens ein Eingang 1 ist. NICHT: kehrt das Signal um. Aus diesen drei lässt sich jede Steuerungslogik bauen.',c:'A0.0 := E0.0 AND E0.1;   // UND\nA0.1 := E0.0 OR E0.1;    // ODER\nA0.2 := NOT E0.0;        // NICHT'},
+      {t:'mc',q:'E0.0 = 1, E0.1 = 0. Was liefert E0.0 AND E0.1?',o:['0','1','undefiniert','2'],a:0,e:'UND braucht alle Eingänge auf 1.'},
+      {t:'mc',q:'E0.0 = 1, E0.1 = 0. Was liefert E0.0 OR E0.1?',o:['1','0','undefiniert','2'],a:0,e:'Bei ODER genügt ein Eingang.'},
+      {t:'mc',q:'Wie sieht UND im Kontaktplan aus?',o:['Zwei Kontakte in Reihe','Zwei Kontakte parallel','Ein Öffner','Zwei Spulen in Reihe'],a:0,e:'Strom fließt nur, wenn beide Kontakte geschlossen sind.'},
+      {t:'fill',q:'Ergänze die ST-Zeile: Lampe an, wenn Taster 1 ODER Taster 2 gedrückt.',c:'Lampe := Taster1 ___ Taster2;',o:['OR','AND','XOR','NOT'],a:'OR',e:'In ST schreibt man die Verknüpfung als Wort.'}
+    ]},
+    {id:'s2l2',h:'XOR & Wahrheitstabellen',S:[
+      {t:'info',h:'Exklusiv-ODER',p:'XOR liefert 1, wenn genau einer der beiden Eingänge 1 ist – nicht beide. Typisch: Wechselschaltung (Licht von zwei Stellen schalten). Im FUP steht im Kasten „=1“.',c:'Licht := Schalter1 XOR Schalter2;'},
+      {t:'mc',q:'Beide Eingänge sind 1. Was liefert XOR?',o:['0','1','undefiniert','2'],a:0,e:'Genau einer muss 1 sein.'},
+      {t:'mc',q:'Wie viele Zeilen hat die Wahrheitstabelle einer Verknüpfung mit 3 Eingängen?',o:['8','6','3','9'],a:0,e:'2³ = 8 Kombinationen.'},
+      {t:'mc',q:'Welches Kästchen-Symbol steht im FUP für ODER?',o:['≥1','&','=1','1'],a:0,e:'& = UND, ≥1 = ODER, =1 = XOR.'}
+    ]},
+    {id:'s2l3',h:'Merker & Zwischenergebnisse',S:[
+      {t:'info',h:'Teilergebnisse speichern',p:'Lange Verknüpfungen werden schnell unübersichtlich. Ein Merker (z. B. M0.0 „Freigabe“) nimmt ein Zwischenergebnis auf, das später in mehreren Netzwerken genutzt wird.',c:'Freigabe := NOT NotHalt_ausgeloest AND Tuer_zu AND Druck_ok;\nMotor := Freigabe AND Start_gedrueckt;'},
+      {t:'mc',q:'Warum lohnt sich ein Merker „Freigabe“?',o:['Die Bedingung steht nur einmal im Programm und ist leicht zu ändern','Merker sind schneller als Eingänge','Ohne Merker geht UND nicht','Merker sparen Ausgänge an der Klemme'],a:0,e:'Einmal definieren, mehrfach verwenden – wie eine Variable.'},
+      {t:'mc',q:'Was ist M0.0 im Unterschied zu A0.0?',o:['Ein internes Bit ohne Klemme nach außen','Ein Eingang','Ein Analogwert','Ein Timer'],a:0,e:'Merker sind interner Speicher der CPU.'}
+    ]}
+  ]});
+  U.push({id:'s3',sps:true,ic:'🧲',h:'Speichern & Flanken',s:'Selbsthaltung, Setzen/Rücksetzen, Flankenauswertung',L:[
+    {id:'s3l1',h:'Selbsthaltung vs. Setzen/Rücksetzen',S:[
+      {t:'info',h:'Zwei Wege zum Speichern',p:'Ein kurzer Tastendruck soll einen Zustand speichern. Variante 1: Selbsthaltung – der Ausgang hält sich über einen eigenen Kontakt. Variante 2: Setzen (S) und Rücksetzen (R) – die Spule bleibt gesetzt, bis sie zurückgesetzt wird.',c:'// Selbsthaltung\nMotor := (Start OR Motor) AND NOT Stopp;\n\n// Setzen / Rücksetzen\nIF Start THEN Motor := TRUE; END_IF;\nIF Stopp THEN Motor := FALSE; END_IF;'},
+      {t:'mc',q:'Selbsthaltung: Start und Stopp werden gleichzeitig gedrückt. Was passiert bei Motor := (Start OR Motor) AND NOT Stopp?',o:['Motor bleibt aus – Stopp ist dominant','Motor läuft an','Motor blinkt','Kompilierfehler'],a:0,e:'„AND NOT Stopp“ wirkt auf beide Zweige.'},
+      {t:'mc',q:'Bei S/R stehen Setzen und Rücksetzen in zwei Netzwerken. Was entscheidet bei gleichzeitigem Signal?',o:['Das Netzwerk, das weiter unten steht','Das Netzwerk weiter oben','Immer Setzen','Der Zufall'],a:0,e:'Der zuletzt geschriebene Wert gilt – unten gewinnt.'},
+      {t:'mc',q:'Warum sollte bei Maschinen meist das Rücksetzen dominant sein?',o:['Sicherheit: Stopp muss immer Vorrang haben','Weil es schneller ist','Weil Setzen verboten ist','Weil es weniger Speicher braucht'],a:0,e:'Im Zweifel soll die Maschine stehen bleiben.'}
+    ]},
+    {id:'s3l2',h:'Flanken erkennen',S:[
+      {t:'info',h:'Signalwechsel statt Zustand',p:'Eine positive Flanke (P) ist der Moment, in dem ein Signal von 0 auf 1 wechselt – sie ist genau einen Zyklus lang 1. Eine negative Flanke (N) ist der Wechsel 1 → 0. Die SPS merkt sich dafür den alten Zustand in einem Flankenmerker.',c:'Flanke := Taster AND NOT Taster_alt;\nTaster_alt := Taster;'},
+      {t:'mc',q:'Wie lange ist das Ergebnis einer Flankenauswertung 1?',o:['Genau einen SPS-Zyklus','So lange der Taster gedrückt ist','1 Sekunde','Bis zum Rücksetzen'],a:0,e:'Deshalb eignet sie sich für einmalige Ereignisse.'},
+      {t:'mc',q:'Ein Taster soll eine Lampe bei jedem Druck umschalten (Stromstoßschalter). Was brauchst du?',o:['Positive Flanke des Tasters','Einen TON-Timer','Einen Öffner','Eine Selbsthaltung'],a:0,e:'Ohne Flanke würde die Lampe in jedem Zyklus umschalten, solange der Taster gedrückt ist.'},
+      {t:'mc',q:'Warum darf ein Flankenmerker nur an einer Stelle verwendet werden?',o:['Sonst wird der alte Zustand überschrieben und die Flanke falsch erkannt','Weil Merker teuer sind','Weil die CPU sonst stoppt','Das ist egal'],a:0,e:'Jede Flankenauswertung braucht ihren eigenen Speicher.'}
+    ]},
+    {id:'s3l3',h:'Stromstoßschalter',S:[
+      {t:'info',h:'Umschalten mit einem Taster',p:'Mit Flanke und Verknüpfung lässt sich „Toggle“ bauen: Bei jeder positiven Flanke wird die Lampe invertiert.',c:'IF Flanke_Taster THEN\n  Lampe := NOT Lampe;\nEND_IF;'},
+      {t:'order',q:'Bringe die ST-Zeilen für den Stromstoßschalter in Reihenfolge.',l:['Flanke := Taster AND NOT Taster_alt;','Taster_alt := Taster;','IF Flanke THEN','  Lampe := NOT Lampe;','END_IF;'],e:'Erst Flanke bilden, alten Zustand merken, dann umschalten.'},
+      {t:'mc',q:'Was macht Lampe := NOT Lampe?',o:['Schaltet die Lampe in den jeweils anderen Zustand','Schaltet die Lampe immer aus','Schaltet die Lampe immer ein','Nichts'],a:0,e:'Aus 0 wird 1, aus 1 wird 0.'}
+    ]}
+  ]});
+  U.push({id:'s4',sps:true,ic:'⏲️',h:'Timer & Zähler vertieft',s:'Zeitdiagramme, Taktgeber, Auf- und Abwärtszähler',L:[
+    {id:'s4l1',h:'Zeitdiagramme lesen',S:[
+      {t:'info',h:'IN, Q, PT und ET',p:'IN ist der Eingang, Q der Ausgang, PT die vorgegebene Zeit, ET die abgelaufene Zeit. TON: Q wird PT nach steigendem IN zu 1, fällt mit IN sofort ab. TOF: Q folgt IN sofort auf 1, bleibt nach fallendem IN noch PT lang 1. TP: steigende Flanke an IN → Q genau PT lang 1, egal was IN danach macht.'},
+      {t:'mc',q:'TON mit PT = 5 s. IN ist nur 3 s lang 1. Was macht Q?',o:['Bleibt 0','Wird nach 3 s 1','Wird nach 5 s 1','Wird sofort 1'],a:0,e:'Die Zeit muss vollständig ablaufen, während IN = 1 ist.'},
+      {t:'mc',q:'TP mit PT = 2 s. IN wird kurz (0,5 s) betätigt. Wie lange ist Q = 1?',o:['2 s','0,5 s','2,5 s','Gar nicht'],a:0,e:'TP erzeugt immer einen Impuls der Länge PT.'},
+      {t:'mc',q:'TOF mit PT = 10 s. IN geht von 1 auf 0. Wann wird Q = 0?',o:['10 s nach dem Abschalten von IN','Sofort','10 s nach dem Einschalten von IN','Nie'],a:0,e:'Ausschaltverzögerung.'}
+    ]},
+    {id:'s4l2',h:'Taktgeber',S:[
+      {t:'info',h:'Blinken mit zwei Timern',p:'Zwei TON, die sich gegenseitig zurücksetzen, erzeugen einen Takt: T1 läuft (Pause), dann startet T2 (Leuchtzeit). Ist T2 fertig, wird T1 über einen Öffner-Kontakt von T2 zurückgesetzt – und alles beginnt neu. Probier die Vorlage „Blinker“ im Simulator!',c:'T1(IN := Freigabe AND NOT T2.Q, PT := T#500ms);\nT2(IN := T1.Q, PT := T#500ms);\nLampe := T1.Q;'},
+      {t:'mc',q:'Wie lange dauert eine komplette Periode (an + aus) im Beispiel ungefähr?',o:['1 s','500 ms','2 s','250 ms'],a:0,e:'500 ms Pause + 500 ms Leuchten.'},
+      {t:'mc',q:'Viele CPUs bieten fertige Taktmerker (z. B. 1 Hz). Wann ist ein eigener Taktgeber trotzdem sinnvoll?',o:['Wenn Puls- und Pausenzeit verschieden oder einstellbar sein sollen','Nie','Nur bei sehr großen Programmen','Wenn keine Timer vorhanden sind'],a:0,e:'Taktmerker haben feste Frequenzen mit 50 % Tastgrad.'}
+    ]},
+    {id:'s4l3',h:'Auf- und Abwärtszähler',S:[
+      {t:'info',h:'CTU, CTD, CTUD',p:'CTU zählt bei jeder steigenden Flanke an CU hoch, Q = (CV ≥ PV), R setzt CV auf 0. CTD zählt an CD herunter, LD lädt PV in CV, Q = (CV ≤ 0). CTUD kann beides – z. B. für Parkplatz-Belegung: Einfahrt zählt hoch, Ausfahrt herunter.'},
+      {t:'mc',q:'Parkhaus mit 50 Plätzen: Einfahrt und Ausfahrt haben je eine Lichtschranke. Welcher Zähler passt?',o:['CTUD','CTU','CTD','TON'],a:0,e:'Hoch- und Runterzählen in einem Baustein.'},
+      {t:'mc',q:'CTD mit PV = 3 wurde geladen. Nach 3 Impulsen an CD ist …',o:['CV = 0 und Q = 1','CV = 3 und Q = 0','CV = 6','CV = −3 und Q = 0'],a:0,e:'CTD: Q = 1, sobald CV ≤ 0.'},
+      {t:'mc',q:'Woher kommt die Flanke, die der Zähler auswertet?',o:['Der Zähler wertet sie intern aus – ein normaler Kontakt am Eingang genügt','Man braucht immer einen P-Kontakt davor','Vom Timer','Von der CPU-Uhr'],a:0,e:'Die IEC-Zähler reagieren selbst nur auf steigende Flanken.'}
+    ]}
+  ]});
+  U.push({id:'s5',sps:true,ic:'🪜',h:'Ablaufsteuerung',s:'Schrittketten, Transitionen, Betriebsarten, Not-Halt',L:[
+    {id:'s5l1',h:'Schrittketten',S:[
+      {t:'info',h:'Schritt für Schritt',p:'Abläufe (z. B. Bohren: spannen → bohren → zurückfahren → lösen) werden als Schrittkette programmiert. Immer ist genau ein Schritt aktiv. Ein Schritt wird verlassen, wenn seine Transition (Weiterschaltbedingung) erfüllt ist. Jeder Schritt hat Aktionen, z. B. „Bohrmotor ein“.'},
+      {t:'mc',q:'Wie viele Schritte sind in einer einfachen (linearen) Schrittkette gleichzeitig aktiv?',o:['Genau einer','Alle','Keiner','Immer zwei'],a:0,e:'Das macht Ablaufsteuerungen übersichtlich und sicher.'},
+      {t:'mc',q:'Was ist eine Transition?',o:['Die Bedingung, um vom aktiven zum nächsten Schritt zu wechseln','Eine Aktion im Schritt','Ein Timer','Der Startschritt'],a:0,e:'z. B. „Endlage unten erreicht“.'},
+      {t:'order',q:'Ordne die Schritte einer Bohrstation.',l:['Werkstück spannen','Bohren (abwärts)','Zurückfahren','Werkstück lösen'],e:'Jeder Schritt wartet auf seine Weiterschaltbedingung.'},
+      {t:'info',h:'Schrittkette in ST',p:'Eine Schrittkette lässt sich gut mit einer Schritt-Variable und CASE umsetzen.',c:'CASE Schritt OF\n  0: IF Start THEN Schritt := 1; END_IF;\n  1: Spannen := TRUE;\n     IF Gespannt THEN Schritt := 2; END_IF;\n  2: Bohren := TRUE;\n     IF Unten THEN Schritt := 3; END_IF;\nEND_CASE;'},
+      {t:'mc',q:'Welche ST-Anweisung passt am besten zu einer Schrittkette?',o:['CASE … OF','FOR … DO','WHILE … DO','REPEAT … UNTIL'],a:0,e:'Pro Schrittnummer ein Fall.'}
+    ]},
+    {id:'s5l2',h:'Betriebsarten',S:[
+      {t:'info',h:'Hand, Automatik, Einrichten',p:'Maschinen haben meist mehrere Betriebsarten: Automatik (Ablauf läuft selbstständig), Hand bzw. Tippbetrieb (einzelne Bewegungen per Taster, z. B. zum Einrichten) und Grundstellung (Anlage fährt in eine definierte Startposition). Die Betriebsarten müssen sich gegenseitig ausschließen.'},
+      {t:'mc',q:'Wozu dient die Grundstellungsfahrt?',o:['Die Anlage in eine definierte Startposition bringen, bevor Automatik startet','Die SPS neu starten','Die Lampen testen','Den Not-Halt quittieren'],a:0,e:'Sonst kennt die Schrittkette die Position nicht.'},
+      {t:'mc',q:'Was bedeutet Tippbetrieb?',o:['Bewegung nur, solange der Taster gedrückt ist','Bewegung startet nach einem Tipp und läuft weiter','Schnelllauf','Automatik ohne Sensoren'],a:0,e:'Loslassen = sofort Stopp.'}
+    ]},
+    {id:'s5l3',h:'Not-Halt & Sicherheit',S:[
+      {t:'info',h:'Not-Halt gehört nicht (nur) ins Programm',p:'Not-Halt ist eine Sicherheitsfunktion. Sie muss über Sicherheitstechnik wirken – Sicherheitsrelais oder Sicherheits-SPS (F-CPU) – ausgelegt nach DIN EN ISO 13849-1. Die Standard-SPS bekommt nur eine Rückmeldung. Nach dem Entriegeln darf die Maschine nicht selbstständig wieder anlaufen.'},
+      {t:'mc',q:'Reicht es, den Not-Halt-Taster an einen normalen SPS-Eingang zu legen und die Ausgänge im Programm abzuschalten?',o:['Nein – Sicherheitsfunktionen brauchen Sicherheitstechnik (Sicherheitsrelais/F-CPU)','Ja, wenn das Programm getestet ist','Ja, wenn der Eingang als Öffner verdrahtet ist','Ja, bei kleinen Maschinen'],a:0,e:'Ein Programm- oder CPU-Fehler darf die Sicherheit nicht aufheben.'},
+      {t:'mc',q:'Nach Not-Halt wird der Pilzkopftaster entriegelt. Was muss passieren?',o:['Die Maschine bleibt aus – erst eine bewusste Quittierung/Neustart','Die Maschine läuft sofort weiter','Die SPS startet neu','Alle Ausgänge gehen an'],a:0,e:'Wiederanlaufsperre: kein selbstständiger Anlauf.'},
+      {t:'mc',q:'Nach welcher Norm wird der Performance Level (PL a–e) einer Sicherheitsfunktion bestimmt?',o:['DIN EN ISO 13849-1','DIN VDE 0100-410','IEC 61131-3','DIN 66261'],a:0,e:'IEC 61131-3 sind die SPS-Sprachen, DIN 66261 die Struktogramme.'}
+    ]}
+  ]});
+  U.push({id:'s6',sps:true,ic:'📈',h:'Daten & Analogwerte',s:'Datentypen, Normierung, Strukturierter Text',L:[
+    {id:'s6l1',h:'Datentypen',S:[
+      {t:'info',h:'Mehr als nur Bits',p:'BOOL (1 Bit), BYTE (8 Bit), WORD (16 Bit), INT (16 Bit mit Vorzeichen, −32 768 … 32 767), DINT (32 Bit), REAL (Gleitkommazahl), TIME (Zeitdauer, z. B. T#5s).'},
+      {t:'mc',q:'Welcher Datentyp passt für eine Temperatur mit Nachkommastellen?',o:['REAL','BOOL','INT','WORD'],a:0,e:'REAL ist die Gleitkommazahl.'},
+      {t:'mc',q:'Wie viele Bits hat ein WORD?',o:['16','8','32','1'],a:0,e:'BYTE 8, WORD 16, DWORD 32.'},
+      {t:'fill',q:'Ergänze die Zeitangabe für 3 Sekunden.',c:'Timer1(IN := Start, PT := ___);',o:['T#3s','3000','3s','TIME(3)'],a:'T#3s',e:'Zeiten werden in IEC 61131-3 mit T# geschrieben.'}
+    ]},
+    {id:'s6l2',h:'Analogwerte normieren',S:[
+      {t:'info',h:'Vom Rohwert zur Größe',p:'Ein Analogeingang (z. B. 0–10 V oder 4–20 mA) liefert bei Siemens-Baugruppen im Nennbereich Rohwerte von 0 bis 27648. Daraus rechnet man die physikalische Größe: Wert = Rohwert / 27648 · (Max − Min) + Min.',c:'// 0–10 bar Drucksensor\nDruck := INT_TO_REAL(Rohwert) / 27648.0 * 10.0;'},
+      {t:'mc',q:'Rohwert 13824 bei einem Sensor 0–100 °C (Nennbereich 0–27648). Welche Temperatur?',o:['50 °C','13,8 °C','27,6 °C','100 °C'],a:0,e:'13824 ist genau die Hälfte von 27648.'},
+      {t:'mc',q:'Warum ist 4–20 mA bei Sensoren beliebt?',o:['Drahtbruch ist erkennbar: unter 4 mA stimmt etwas nicht','Es ist genauer als Spannung, weil 20 > 10','Es braucht keine Versorgung','Es ist digital'],a:0,e:'0 mA heißt „Fehler“, nicht „Messwert null“. Ströme sind zudem unempfindlich gegen Leitungswiderstand.'},
+      {t:'mc',q:'Was solltest du bei Analogwerten im Programm zusätzlich tun?',o:['Plausibilisieren – Werte außerhalb des Bereichs als Fehler melden','Nichts','Immer auf ganze Zahlen runden','Sie als BOOL speichern'],a:0,e:'Defekte Sensoren dürfen nicht unbemerkt falsche Werte liefern.'}
+    ]},
+    {id:'s6l3',h:'Strukturierter Text (ST)',S:[
+      {t:'info',h:'Hochsprache für die SPS',p:'ST (bei Siemens SCL) ähnelt Pascal: Zuweisung mit :=, Bedingungen mit IF … THEN … ELSIF … ELSE … END_IF;, Fallunterscheidung mit CASE. Jede Anweisung endet mit Semikolon.',c:'IF Temperatur > 80.0 THEN\n  Luefter := TRUE;\nELSIF Temperatur < 70.0 THEN\n  Luefter := FALSE;\nEND_IF;'},
+      {t:'fill',q:'Wie lautet der Zuweisungsoperator in ST?',c:'Lampe ___ TRUE;',o:[':=','=','==','<-'],a:':=',e:'= ist in ST ein Vergleich.'},
+      {t:'mc',q:'Was bewirkt das Beispiel mit 80 °C / 70 °C?',o:['Eine Hysterese: Lüfter an über 80, aus unter 70','Der Lüfter ist immer an','Der Lüfter schaltet bei 75 °C','Ein Kompilierfehler'],a:0,e:'Dazwischen bleibt der Zustand erhalten – kein Flattern.'},
+      {t:'mc',q:'Womit endet ein IF-Block in ST?',o:['END_IF;','}','ENDIF','FI'],a:0,e:'Auch CASE endet mit END_CASE;'}
+    ]}
+  ]});
+  U.push({id:'s7',sps:true,ic:'🕵️',h:'SPS-Fehler-Detektiv',s:'Typische Fehler in SPS-Programmen finden',L:[
+    {id:'s7l1',h:'Logik- und Programmfehler',S:[
+      {t:'info',h:'Oft liegt es am Programmaufbau',p:'Viele SPS-Fehler entstehen nicht durch Tippfehler, sondern durch den Ablauf im Zyklus: doppelt beschriebene Ausgänge, fehlende Flanken oder falsche Reihenfolge der Netzwerke.'},
+      {t:'mc',q:'A0.0 wird in Netzwerk 3 und Netzwerk 7 jeweils mit „=“ beschrieben. Die Lampe reagiert nur auf Netzwerk 7. Warum?',o:['Doppelzuweisung – das spätere Netzwerk überschreibt das frühere','Netzwerk 3 ist defekt','Die CPU ist zu langsam','Lampen haben nur einen Eingang'],a:0,e:'Jeden Ausgang nur an einer Stelle zuweisen; Bedingungen vorher mit ODER verknüpfen.'},
+      {t:'mc',q:'Ein selbst gebauter Zähler (Z := Z + 1, wenn Taster) zählt bei einem Druck um Hunderte hoch. Fehler?',o:['Es fehlt die Flankenauswertung','Z hat den falschen Datentyp','Der Taster ist ein Öffner','Es fehlt ein Timer'],a:0,e:'Ohne Flanke wird in jedem Zyklus gezählt, solange gedrückt ist.'},
+      {t:'mc',q:'Selbsthaltung: Der Motor lässt sich starten, aber nicht mehr stoppen. Wahrscheinliche Ursache?',o:['Der Stopp-Kontakt liegt nur im Start-Zweig, nicht im Selbsthalte-Zweig','Der Start-Taster klemmt nicht','Zu viele Netzwerke','Der Motor ist zu groß'],a:0,e:'Stopp muss beide Zweige unterbrechen – also in Reihe hinter der Parallelschaltung.'}
+    ]},
+    {id:'s7l2',h:'Verdrahtung & Hardware',S:[
+      {t:'info',h:'Programm und Verdrahtung passen nicht zusammen',p:'Ein Öffner in der Verdrahtung kehrt das Signal um. Wer im Programm dann zusätzlich einen Öffner-Kontakt nimmt, dreht die Logik zweimal.'},
+      {t:'mc',q:'Der Stopp-Taster ist als Öffner verdrahtet. Im Programm steht ⊣/⊢ (Öffner-Kontakt). Was passiert?',o:['Die Logik ist doppelt invertiert – der Motor läuft gar nicht an (höchstens, solange Stopp gedrückt ist)','Alles korrekt','Der Motor läuft schneller','Die SPS geht in STOP'],a:0,e:'Bei verdrahtetem Öffner (Ruhe = 1) gehört im Programm ein Schließer-Kontakt hin.'},
+      {t:'mc',q:'Ein Sensor meldet im Programm nie etwas, die LED am Sensor leuchtet aber. Was prüfst du zuerst?',o:['Ob der Sensor am richtigen Eingang hängt bzw. die Adresse im Programm stimmt','Ob die CPU neu ist','Die Zykluszeit','Den Not-Halt'],a:0,e:'Die Status-LED am Eingangsmodul zeigt, ob das Signal ankommt.'},
+      {t:'mc',q:'PNP-Sensor an einer Eingangskarte für NPN-Sensoren (sinkend/quellend vertauscht). Folge?',o:['Das Signal wird nicht erkannt','Das Signal ist doppelt so stark','Kein Unterschied','Die Karte zählt Impulse'],a:0,e:'In Europa sind PNP-Sensoren und plusschaltende (stromziehende) Eingänge üblich – Datenblatt prüfen.'}
+    ]}
+  ]});
   const ALL=[]; U.forEach(u=>u.L.forEach(l=>{ l.u=u; ALL.push(l); l.S.forEach((st,i)=>{ st._key=l.id+':'+i; st._u=u; }); }));
   const XP_STEP=10, XP_LESSON=10; const goal=()=>(window.uctSettings&&+window.uctSettings.goal)||50;
 
@@ -4491,25 +4604,28 @@ button.pf-stat{font:inherit;color:inherit;cursor:pointer;text-align:left}
     saveP();
   }
   const isDone=l=>!!P.done[l.id];
-  const nextIdx=()=>{ const i=ALL.findIndex(l=>!isDone(l)); return i<0?ALL.length:i; };
+  const TR={ard:U.filter(u=>!u.sps),sps:U.filter(u=>u.sps)};
+  const trackOf=u=>u&&u.sps?'sps':'ard';
+  const lessons=t=>[].concat(...TR[t].map(u=>u.L));
+  const nextIdx=L=>{ const i=L.findIndex(l=>!isDone(l)); return i<0?L.length:i; };
 
   /* ---------- Übersicht ---------- */
   function ring(v){ const r=16,c=2*Math.PI*r, f=Math.min(1,v); return `<svg class="pf-ring" viewBox="0 0 40 40"><circle cx="20" cy="20" r="${r}" fill="none" stroke="#26323c" stroke-width="5"/><circle cx="20" cy="20" r="${r}" fill="none" stroke="${f>=1?'#35d07f':'#ffb020'}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${c*f} ${c}" transform="rotate(-90 20 20)"/></svg>`; }
-  function renderPath(){
-    const host=$('#pfHost'); if(!host) return;
-    const nd=ALL.filter(isDone).length, ni=nextIdx();
+  function renderTrack(t){
+    const host=document.getElementById(t==='sps'?'pfHostSps':'pfHost'); if(!host) return;
+    const L=lessons(t), nd=L.filter(isDone).length, ni=nextIdx(L), wl=wrongList(t).length;
     let h=`<div class="pf-head">
-      <div class="pf-stat pf-total"><div style="flex:1">Gesamtfortschritt <small>${nd} von ${ALL.length} Lektionen</small><div class="pf-bar" style="margin-top:6px"><i style="width:${(nd/ALL.length*100).toFixed(1)}%"></i></div></div><b style="font-size:20px">${Math.round(nd/ALL.length*100)} %</b></div>
+      <div class="pf-stat pf-total"><div style="flex:1">${t==='sps'?'SPS-Fortschritt':'Gesamtfortschritt'} <small>${nd} von ${L.length} Lektionen</small><div class="pf-bar" style="margin-top:6px"><i style="width:${(nd/L.length*100).toFixed(1)}%"></i></div></div><b style="font-size:20px">${Math.round(nd/L.length*100)} %</b></div>
       <div class="pf-stat"><span class="ic">🔥</span><div>${streakNow()} ${streakNow()===1?'Tag':'Tage'}<small>Serie</small></div></div>
       <div class="pf-stat">${ring(dayXp()/goal())}<div>${dayXp()} / ${goal()} XP<small>Tagesziel</small></div></div>
       <div class="pf-stat"><span class="ic">⭐</span><div>${P.xp} XP<small>gesamt</small></div></div>
-      ${wrongList().length?`<button class="pf-stat pf-rev" id="pfRev"><span class="ic">🔁</span><div>Wiederholen<small>${wrongList().length} offene Fehler</small></div></button>`:''}
+      ${wl?`<button class="pf-stat pf-rev" data-rev="${t}"><span class="ic">🔁</span><div>Wiederholen<small>${wl} offene Fehler</small></div></button>`:''}
     </div>`;
-    U.forEach(u=>{
+    TR[t].forEach(u=>{
       const d=u.L.filter(isDone).length;
       h+=`<div class="pf-unit"><h3>${u.ic} ${E(u.h)}</h3><div class="sub">${E(u.s)} · ${d}/${u.L.length} Lektionen</div><div class="pf-bar"><i style="width:${d/u.L.length*100}%"></i></div><div class="pf-path">`;
       u.L.forEach(l=>{
-        const i=ALL.indexOf(l), done=isDone(l), next=i===ni, lock=i>ni;
+        const i=L.indexOf(l), done=isDone(l), next=i===ni, lock=i>ni;
         const st=done?'done':next?'next':lock?'lock':'';
         const meta=done?`✓ abgeschlossen · ${P.done[l.id].acc} % richtig`:next?`Weiter geht’s · ${l.S.length} Schritte`:lock?'🔒 gesperrt':'';
         h+=`<button class="pf-node ${st}" data-l="${l.id}" ${lock?'disabled':''}><span class="pf-dot">${done?'✓':lock?'🔒':u.ic}</span><span><span class="t">${E(l.h)}</span><br><span class="m">${meta}</span></span></button>`;
@@ -4518,8 +4634,10 @@ button.pf-stat{font:inherit;color:inherit;cursor:pointer;text-align:left}
     });
     host.innerHTML=h;
     host.querySelectorAll('.pf-node:not(.lock)').forEach(b=>b.onclick=()=>start(ALL.find(l=>l.id===b.dataset.l)));
-    const rv=$('#pfRev'); if(rv) rv.onclick=startReview;
+    host.querySelectorAll('[data-rev]').forEach(b=>b.onclick=()=>startReview(b.dataset.rev));
   }
+  function renderPath(){ renderTrack('ard'); renderTrack('sps'); }
+  window.uctRenderTrack=renderTrack;
 
   /* ---------- Lektion ---------- */
   let LS=null;   // {l, queue, pos, total, correct, tries, xp, state, pick, order}
@@ -4601,7 +4719,7 @@ button.pf-stat{font:inherit;color:inherit;cursor:pointer;text-align:left}
     const first=!P.done[LS.l.id]; const gain=LS.xp+XP_LESSON;
     addXp(gain);
     P.done[LS.l.id]={acc:Math.max(acc,(P.done[LS.l.id]||{}).acc||0),date:today()}; saveP();
-    const idx=ALL.indexOf(LS.l), nxt=ALL[idx+1];
+    const TL=lessons(trackOf(LS.l.u)), idx=TL.indexOf(LS.l), nxt=TL[idx+1];
     $('#plIn').innerHTML=`<div class="pl-done"><div class="big">${acc===100?'🏆':'🎉'}</div><h2>Lektion geschafft!</h2><p>${E(LS.l.h)} · ${E(LS.l.u.h)}</p>
       <div class="row"><div class="pf-stat"><span class="ic">⭐</span>+${gain} XP<small>verdient</small></div><div class="pf-stat"><span class="ic">🎯</span>${acc} %<small>beim ersten Versuch richtig</small></div><div class="pf-stat"><span class="ic">🔥</span>${streakNow()}<small>${streakNow()===1?'Tag':'Tage'} Serie</small></div></div>
       ${dayXp()>=goal()&&dayXp()-gain<goal()?'<p>✅ <b>Tagesziel erreicht!</b></p>':''}${!first?'<p style="color:var(--muted)">Wiederholung – stark, dass du übst!</p>':''}</div>`;
@@ -4609,15 +4727,15 @@ button.pf-stat{font:inherit;color:inherit;cursor:pointer;text-align:left}
   }
 
   /* ---------- Wiederholung ---------- */
-  function wrongList(){ return Object.entries(P.wrong).map(([k,w])=>({s:STEP(k),w})).filter(x=>x.s).sort((a,b)=>b.w.n-a.w.n||String(a.w.d).localeCompare(String(b.w.d))); }
-  function startReview(){
-    const list=wrongList().slice(0,8).map(x=>x.s); if(!list.length) return;
-    LS={l:{id:'review',h:'Wiederholung',u:{h:'Deine Fehler von früher'},S:list},queue:list.map((s,i)=>({s,i})),pos:0,solved:0,total:list.length,correct:0,answered:0,xp:0,state:'ask',mode:'review'};
+  function wrongList(t){ return Object.entries(P.wrong).map(([k,w])=>({s:STEP(k),w})).filter(x=>x.s&&(!t||trackOf(x.s._u)===t)).sort((a,b)=>b.w.n-a.w.n||String(a.w.d).localeCompare(String(b.w.d))); }
+  function startReview(t){
+    const list=wrongList(t).slice(0,8).map(x=>x.s); if(!list.length) return;
+    LS={track:t,l:{id:'review',h:'Wiederholung',u:{h:'Deine Fehler von früher'},S:list},queue:list.map((s,i)=>({s,i})),pos:0,solved:0,total:list.length,correct:0,answered:0,xp:0,state:'ask',mode:'review'};
     $('#pfLesson').classList.add('on'); document.body.style.overflow='hidden'; step();
   }
   function finishReview(){
     LS.state='done'; LS.solved=LS.total; bar(); addXp(LS.xp);
-    const left=wrongList().length;
+    const left=wrongList(LS.track).length;
     $('#plIn').innerHTML=`<div class="pl-done"><div class="big">🔁</div><h2>Wiederholung geschafft!</h2><p>${LS.correct} von ${LS.total} jetzt richtig.</p><div class="row"><div class="pf-stat"><span class="ic">⭐</span>+${LS.xp} XP<small>verdient</small></div><div class="pf-stat"><span class="ic">📌</span>${left}<small>noch offen</small></div></div></div>`;
     foot('ok',left?'Offene Aufgaben kommen bei der nächsten Wiederholung.':'<b>Alles aufgeholt!</b>','Fertig',false);
   }
@@ -5333,6 +5451,63 @@ void loop() {
   document.addEventListener('visibilitychange',()=>{ if(document.hidden&&running) run(false); });
 })();
 </script>
+<!-- ===== SPS: Reiter Lernpfad / Simulator / Guideline ===== -->
+<script>
+(function(){
+  const $=s=>document.querySelector(s);
+  const E=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const v=$('#view-sps'); if(!v) return;
+  const sim=document.createElement('div'); sim.className='ln-pane'; sim.id='sp-sim';
+  while(v.firstChild) sim.appendChild(v.firstChild);
+  v.innerHTML=`<div class="ln-tabs" style="margin-bottom:14px"><button data-sp="pfad">🎯 Lernpfad</button><button data-sp="sim">🧪 Simulator</button><button data-sp="guide">✅ Coding-Guideline</button></div>
+    <div class="ln-pane" id="sp-pfad"><div id="pfHostSps"></div></div>`;
+  v.appendChild(sim);
+  const g=document.createElement('div'); g.className='ln-pane'; g.id='sp-guide'; v.appendChild(g);
+
+  const R=[
+   {h:'1. Symbolisch programmieren',p:'Im Programm stehen sprechende Namen statt absoluter Adressen. Die Zuordnungsliste (Symboltabelle) verbindet Name, Adresse, Datentyp und Kommentar.',
+    bad:'A0.3 := E1.4 AND NOT E1.5;',good:'Foerderband := Start_Band AND NOT Stopp_Band;\n// Symboltabelle: Start_Band = E1.4, BOOL, „Taster Band EIN, S3“'},
+   {h:'2. Einheitliche Namensregeln',p:'Ein festes Schema macht Programme lesbar – z. B. Anlagenteil_Funktion, Taster mit „T_“, Sensoren mit „B_“, Motoren mit „M_“. Wichtig ist nicht welches Schema, sondern dass es überall gleich ist.',
+    good:'B_Band1_Anfang     // Sensor\nT_Band1_Start      // Taster\nM_Band1            // Motorschütz\nH_Band1_Stoerung   // Meldeleuchte'},
+   {h:'3. Jedes Netzwerk kommentieren',p:'Titel und kurzer Kommentar je Netzwerk: Was passiert hier und warum? Bei Änderungen Datum und Kürzel ergänzen.',
+    good:'// NW 4: Band 1 läuft, solange Freigabe und kein Stau\n// 18.11.26 LS: Staumelder B_Band1_Ende ergänzt'},
+   {h:'4. Jeden Ausgang nur einmal zuweisen',p:'Doppelzuweisungen führen dazu, dass das spätere Netzwerk das frühere überschreibt. Alle Bedingungen für einen Ausgang vorher verknüpfen – z. B. über Merker.',
+    bad:'// NW 3\nM_Pumpe := Hand_Ein;\n// NW 9\nM_Pumpe := Auto_Anforderung;',good:'M_Pumpe := (Betriebsart_Hand AND Hand_Ein)\n        OR (Betriebsart_Auto AND Auto_Anforderung);'},
+   {h:'5. Drahtbruchsicher verdrahten',p:'Abschaltende Signale (Stopp, Endschalter „Grenze“, Not-Halt-Rückmeldung) werden als Öffner verdrahtet. Ein Kabelbruch wirkt dann wie „Stopp“. Im Programm steht dafür ein Schließer-Kontakt (Signal = 1 heißt „alles in Ordnung“).',
+    bad:'// Stopp als Schließer verdrahtet – Kabelbruch bleibt unbemerkt\nMotor := (Start OR Motor) AND NOT Stopp;',good:'// Stopp als Öffner verdrahtet: E = 1 im Ruhezustand\nMotor := (Start OR Motor) AND Stopp_nicht_betaetigt;'},
+   {h:'6. Sicherheit gehört in Sicherheitstechnik',p:'Not-Halt, Schutztüren und Lichtgitter wirken über Sicherheitsrelais oder eine Sicherheits-SPS (F-CPU) nach DIN EN ISO 13849-1. Die Standard-SPS wertet nur die Rückmeldung aus und reagiert zusätzlich.',
+    bad:'IF NotHalt THEN\n  Alle_Ausgaenge_aus();   // einzige Abschaltung – unzulässig\nEND_IF;',good:'// Sicherheitsrelais trennt die Lastspannung hardwareseitig.\n// SPS: Rückmeldung auswerten, Schrittkette stoppen, Meldung anzeigen\nIF NOT NotHalt_OK THEN Schritt := 0; END_IF;'},
+   {h:'7. Verriegelungen doppelt',p:'Gegenseitig ausschließende Ausgänge (Rechts-/Linkslauf, Heben/Senken) werden im Programm UND in der Hardware (Hilfskontakte der Schütze) verriegelt.',
+    good:'Q_Rechts := (T_Rechts OR Q_Rechts) AND Stopp_OK AND NOT Q_Links;\nQ_Links  := (T_Links  OR Q_Links)  AND Stopp_OK AND NOT Q_Rechts;\n// + Öffner-Hilfskontakte K1/K2 in der Schützsteuerung'},
+   {h:'8. Programm strukturieren',p:'OB1 enthält nur Aufrufe. Logik steckt in Bausteinen nach Anlagenteil oder Funktion. Wiederkehrendes (Motor, Ventil) als FB mit Instanz-Datenbaustein – einmal programmiert, mehrfach genutzt.',
+    good:'// OB1\n"Betriebsarten"();\n"Band1"(Instanz := "DB_Band1");\n"Band2"(Instanz := "DB_Band2");\n"Meldungen"();'},
+   {h:'9. Abläufe als Schrittkette',p:'Sequenzen nicht mit verschachtelten Merkern bauen, sondern als Schrittkette (GRAPH oder CASE in ST). Pro Schritt: Aktionen und eine klare Weiterschaltbedingung.',
+    bad:'IF M10.1 AND NOT M10.2 AND B_Unten AND M11.0 THEN M10.2 := TRUE; END_IF;',good:'CASE Schritt OF\n  10: Bohren := TRUE;\n      IF B_Unten THEN Schritt := 20; END_IF;\n  20: Zurueck := TRUE;\n      IF B_Oben THEN Schritt := 30; END_IF;\nEND_CASE;'},
+   {h:'10. Flanken sauber auswerten',p:'Ereignisse (Zählen, Umschalten, Quittieren) immer über eine Flanke. Jeder Flankenmerker nur einmal verwenden.',
+    bad:'IF B_Teil THEN Anzahl := Anzahl + 1; END_IF;   // zählt jeden Zyklus',good:'Teil_Flanke := B_Teil AND NOT B_Teil_alt;\nB_Teil_alt := B_Teil;\nIF Teil_Flanke THEN Anzahl := Anzahl + 1; END_IF;'},
+   {h:'11. Timer & Zähler eindeutig nutzen',p:'Jede Timer-/Zähler-Instanz nur an einer Stelle aufrufen – und in jedem Zyklus, damit die Zeit korrekt läuft. Nicht in bedingten Programmteilen „vergessen“.',
+    bad:'IF Auto THEN\n  T_Warten(IN := Start, PT := T#5s);   // läuft nur in Auto weiter\nEND_IF;',good:'T_Warten(IN := Auto AND Start, PT := T#5s);'},
+   {h:'12. Definierter Anlauf',p:'Beim Start der CPU (Anlauf-OB, z. B. OB100) Schrittketten in Grundstellung setzen und Ausgänge sicher halten. Nach Spannungsausfall läuft die Anlage nicht selbstständig wieder an (Wiederanlaufsperre).',
+    good:'// OB100 – Anlauf\nSchritt := 0;\nAutomatik_aktiv := FALSE;\nStoerung_quittiert := FALSE;'},
+   {h:'13. Analogwerte normieren und prüfen',p:'Rohwerte in physikalische Größen mit Einheit umrechnen und plausibilisieren. Werte außerhalb des Messbereichs (z. B. unter 4 mA → Drahtbruch) als Störung melden.',
+    good:'Druck_bar := INT_TO_REAL(PEW_Druck) / 27648.0 * 10.0;\nStoerung_Druck := (PEW_Druck < 0) OR (PEW_Druck > 32511);'},
+   {h:'14. Meldungen & Diagnose',p:'Jede Störung bekommt eine eigene, verständliche Meldung mit Ursache und Abhilfe. Störungen werden gespeichert, bis sie quittiert sind.',
+    good:'IF Motorschutz_ausgeloest THEN Stoerung_Band1 := TRUE; END_IF;\nIF Quittieren AND NOT Motorschutz_ausgeloest THEN Stoerung_Band1 := FALSE; END_IF;'},
+   {h:'15. Testen, dokumentieren, sichern',p:'Erst simulieren (z. B. PLCSIM oder dieser Simulator), dann schrittweise in Betrieb nehmen – bei bewegten Teilen nur mit verantwortlicher Person. Änderungen dokumentieren und das Projekt versioniert sichern.',
+    good:'// Testprotokoll NW 4–7: 18.11.26 LS\n// [x] Start/Stopp  [x] Stau-Abschaltung  [x] Not-Halt-Rückmeldung\n// Projekt gesichert: Anlage_Band_v1.3.zap'}
+  ];
+  const HL=c=>{ let x=E(c); x=x.replace(/(\/\/[^\n]*)/g,'<span class="t-com">$1</span>'); x=x.replace(/\b(IF|THEN|ELSIF|ELSE|END_IF|CASE|OF|END_CASE|AND|OR|NOT|XOR|TRUE|FALSE)\b/g,'<span class="t-kw">$1</span>'); x=x.replace(/\b(T#\w+)/g,'<span class="t-num">$1</span>'); return x; };
+  g.innerHTML=`<div class="ln-guide-intro card"><h2>Coding-Guideline für SPS-Programme</h2><p>Regeln für übersichtliche, sichere und wartbare Steuerungsprogramme – angelehnt an gängige Praxis (IEC 61131-3, Siemens TIA Portal). Beispiele in ST/SCL, gilt genauso für KOP und FUP.</p></div>
+    <div class="ln-guide">${R.map(r=>`<div class="card"><h3>${E(r.h)}</h3><p>${E(r.p)}</p>${r.bad?`<div class="lbl" style="color:var(--red)">✗ schlecht</div><pre class="bad">${HL(r.bad)}</pre>`:''}${r.good?`<div class="lbl" style="color:var(--green)">✓ gut</div><pre class="good">${HL(r.good)}</pre>`:''}</div>`).join('')}</div>`;
+
+  const tabs=v.querySelectorAll('[data-sp]');
+  function show(k){ tabs.forEach(b=>b.classList.toggle('on',b.dataset.sp===k)); v.querySelectorAll(':scope > .ln-pane').forEach(p=>p.classList.toggle('on',p.id==='sp-'+k)); if(k==='pfad'&&window.uctRenderTrack) window.uctRenderTrack('sps'); try{ sessionStorage.setItem('uct-sp-tab',k); }catch(e){} }
+  tabs.forEach(b=>b.onclick=()=>show(b.dataset.sp));
+  let k='pfad'; try{ k=sessionStorage.getItem('uct-sp-tab')||'pfad'; }catch(e){}
+  show(k);
+  const vt=$('#vt-sps-dummy');
+})();
+</script>
 <!-- ===== Design 2.0 + Einstellungen ===== -->
 <style>
 /* ---------- Themes & Akzente ---------- */
@@ -5484,7 +5659,7 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
     lernen:['Lernen','Lernpfad, Prüfung, Karteikarten, Glossar & Guideline'],
     aufgaben:['Aufgaben','Programmieraufgaben mit automatischer Prüfung'],
     labor:['Labor','Schaltung aufbauen, Sketch schreiben, live simulieren'],
-    sps:['SPS','Kontaktplan & Funktionsplan programmieren und testen'],
+    sps:['SPS','Lernpfad, Simulator (KOP/FUP) und Coding-Guideline'],
     struktogramm:['Struktogramm','Abläufe nach Nassi-Shneiderman entwerfen'],
     quiz:['Quiz','Schnelle Wissensfragen'],
     werkzeuge:['Werkzeuge','Elektro-Rechner und Projekt-Ideen'],
@@ -5595,7 +5770,7 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
 </div>
 <script>
 (function(){
-  var APP_VERSION = '1.6.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+  var APP_VERSION = '1.7.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
   window.UCT_VERSION = APP_VERSION;
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register('sw.js').catch(function(){});
