@@ -5749,6 +5749,119 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
   if(!location.hash) { showView(ST.start); } else showView(location.hash.slice(1));
 })();
 </script>
+<!-- ===== Kompakt-Layout: Dropdowns im Labor & Struktogramm ===== -->
+<style>
+/* allgemein kompakter */
+.card{padding:13px 14px}
+#pageHead{margin:0 0 12px;gap:11px}
+#pageHead .ic{width:38px;height:38px;border-radius:11px}
+#pageHead .ic svg{width:20px;height:20px}
+#pageHead h1{font-size:21px}
+#pageHead p{font-size:13px}
+@media (min-width:1000px){ #appNav{width:212px;padding:12px 10px} main{margin-left:212px !important;padding:18px 22px 32px !important} #appNav nav button{padding:9px 12px;font-size:14.5px} }
+@media (max-width:999px){ main{padding:12px 12px calc(92px + env(safe-area-inset-bottom)) !important} }
+.ln-tabs{margin-bottom:10px !important}
+.ln-tabs button{padding:7px 12px;font-size:13.5px}
+.pf-head{gap:8px !important;margin-bottom:10px !important}
+.pf-stat{padding:8px 12px !important}
+.pf-unit{padding:12px 14px !important;margin-bottom:10px !important}
+.pf-dot{width:46px !important;height:46px !important;font-size:19px !important}
+.intro{display:none}
+/* Labor */
+#lib{display:none !important}
+.labbar{gap:8px !important;padding:8px 10px !important;align-items:center}
+.labbar label{font-size:12.5px}
+#labSave,#labOpen,#labIno,#labTpl,#labSound{display:none !important}
+.labbar .grow{flex:1 1 0 !important}
+.pname{width:130px !important}
+.labbar>label{font-size:0 !important;gap:0 !important}
+.labbar>label select{font-size:14px}
+.lab-add{display:flex;align-items:center;gap:6px}
+.lab-add select{min-width:150px;max-width:230px;font-weight:600;background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 18%,var(--panel2)),var(--panel2)) !important;border-color:var(--accent) !important}
+.lab-menu{position:relative}
+.lab-menu>button{min-width:42px}
+.lab-pop{position:fixed;z-index:80;background:var(--panel);border:1px solid var(--line2);border-radius:14px;padding:6px;min-width:250px;box-shadow:0 18px 40px -12px rgba(0,0,0,.7);display:none}
+.lab-pop.on{display:block}
+.lab-pop button{display:flex;width:100%;align-items:center;gap:10px;background:none;border:0;color:var(--text);padding:10px 12px;border-radius:10px;font-size:14px;cursor:pointer;text-align:left}
+.lab-pop button:hover{background:var(--panel2)}
+.lab-pop select{width:100%;margin:4px 0 2px}
+.lab-pop hr{border:0;border-top:1px solid var(--line);margin:4px 2px}
+.lab-pop .lb{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;padding:6px 12px 2px}
+.devtabs{margin-top:8px !important}
+.circuit{padding:10px !important;gap:16px 40px !important;grid-template-columns:200px minmax(0,1fr) !important;min-height:52vh}
+@media (max-width:759px){.circuit{grid-template-columns:1fr !important}}
+.comps{grid-template-columns:repeat(auto-fill,minmax(250px,1fr)) !important;gap:10px !important}
+.comp{padding:8px !important}
+.labbottom{margin-top:10px !important;gap:10px !important}
+.netpanel>summary{padding:10px 12px !important;font-size:14px !important}
+/* Struktogramm */
+.sg-ins .btn[data-ins]{display:none}
+.sg-ins select{min-width:220px;font-weight:600;border-color:var(--accent) !important}
+.sg-card{gap:8px !important}
+.sg-edit{padding:8px !important}
+</style>
+<script>
+(function(){
+  const $=s=>document.querySelector(s);
+  const E=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  /* ---------- Labor: Bauteil-Dropdown ---------- */
+  const bar=$('.labbar'), lib=$('#lib');
+  if(bar&&lib){
+    const wrap=document.createElement('div'); wrap.className='lab-add';
+    wrap.innerHTML='<select id="labAddSel" aria-label="Bauteil hinzufügen"></select>';
+    const run=$('#labStopBtn'); run.parentNode.insertBefore(wrap,$('#labStatus').nextSibling);
+    const sel=$('#labAddSel');
+    function build(){
+      let h='<option value="">＋ Bauteil hinzufügen …</option>';
+      lib.querySelectorAll('.libg').forEach(g=>{
+        const cat=g.querySelector('.libh').textContent;
+        h+=`<optgroup label="${E(cat)}">`;
+        g.querySelectorAll('[data-add]').forEach(b=>{ const name=b.querySelector('span:nth-child(2)').textContent.trim(); h+=`<option value="${b.dataset.add}"${b.disabled?' disabled':''}>${E(name)}</option>`; });
+        h+='</optgroup>';
+      });
+      sel.innerHTML=h;
+    }
+    build(); new MutationObserver(build).observe(lib,{childList:true,subtree:true});
+    sel.onchange=()=>{ const k=sel.value; sel.value=''; if(!k) return; const b=lib.querySelector(`[data-add="${k}"]`); if(b&&!b.disabled) b.click(); };
+
+    /* Mehr-Menü */
+    const menu=document.createElement('div'); menu.className='lab-menu';
+    menu.innerHTML=`<button class="btn" id="labMore" aria-label="Weitere Funktionen">⋯</button><div class="lab-pop" id="labPop">
+      <div class="lb">Projekt</div>
+      <button data-cl="labSave">💾 Projekt speichern</button>
+      <button data-cl="labOpen">📂 Projekt öffnen</button>
+      <button data-cl="labIno">⬇ Sketch als .ino</button>
+      <hr><div class="lb">Vorlage laden</div>
+      <div style="padding:0 8px 6px"><select id="labTpl2"></select></div>
+      <hr><button data-cl="labSound" id="labSnd2"></button></div>`;
+    bar.appendChild(menu);
+    const pop=$('#labPop');
+    const sync=()=>{ $('#labSnd2').textContent=$('#labSound').textContent; $('#labTpl2').innerHTML=$('#labTpl').innerHTML; };
+    $('#labMore').onclick=e=>{ e.stopPropagation(); sync(); const on=!pop.classList.contains('on'); pop.classList.toggle('on',on);
+      if(on){ const r=$('#labMore').getBoundingClientRect(), z=parseFloat(document.body.style.zoom)||1, pw=pop.offsetWidth, ph=pop.offsetHeight;
+        let left=Math.min(r.right/z-pw, window.innerWidth/z-pw-8); left=Math.max(8,left);
+        let top=r.bottom/z+6; if(top+ph>window.innerHeight/z-8) top=Math.max(8,r.top/z-ph-6);
+        pop.style.left=left+'px'; pop.style.top=top+'px'; } };
+    window.addEventListener('scroll',()=>pop.classList.remove('on'),{passive:true});
+    document.addEventListener('click',e=>{ if(!menu.contains(e.target)) pop.classList.remove('on'); });
+    pop.querySelectorAll('[data-cl]').forEach(b=>b.onclick=()=>{ $('#'+b.dataset.cl).click(); if(b.dataset.cl!=='labSound') pop.classList.remove('on'); sync(); });
+    $('#labTpl2').onchange=e=>{ const t=$('#labTpl'); t.value=e.target.value; t.dispatchEvent(new Event('change')); pop.classList.remove('on'); };
+    const np=$('#netPanel'); if(np) np.open=false;
+  }
+
+  /* ---------- Struktogramm: Einfügen als Dropdown ---------- */
+  const ins=$('.sg-ins');
+  if(ins){
+    const s=document.createElement('select'); s.setAttribute('aria-label','Block einfügen');
+    s.innerHTML='<option value="">＋ Block einfügen …</option>'+[...ins.querySelectorAll('[data-ins]')].map(b=>`<option value="${b.dataset.ins}">${E(b.textContent.trim())}</option>`).join('');
+    const lbl=ins.querySelector('.sg-lbl'); if(lbl) lbl.remove();
+    ins.insertBefore(s,ins.firstChild);
+    s.onchange=()=>{ const k=s.value; s.value=''; if(k) ins.querySelector(`[data-ins="${k}"]`).click(); };
+    const bottom=$('.sg-bottom'); if(bottom){ ins.appendChild(bottom); bottom.style.display='contents'; }
+  }
+})();
+</script>
 <!-- ===== App-Update (µC-Trainer als iPad-App) ===== -->
 <style>
 #upd{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translate(-50%,150%);z-index:9999;
@@ -5770,7 +5883,7 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
 </div>
 <script>
 (function(){
-  var APP_VERSION = '1.7.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+  var APP_VERSION = '1.8.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
   window.UCT_VERSION = APP_VERSION;
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register('sw.js').catch(function(){});
