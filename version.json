@@ -1,4 +1,4 @@
 {
-  "version": "1.9.0",
-  "notes": "Lernen mit Sprachauswahl: Arduino C++, neu Python (inkl. MicroPython), SPS – KOP und SPS – FUP getrennt. Lernpfad, Prüfung, Karteikarten, Glossar und Guideline je Sprache."
+  "version": "2.0.0",
+  "notes": "Neu: KI-Assistent ✨ – prüft automatisch Code, Schaltung, SPS-Programm und Struktogramm und beantwortet Fragen. Offline kostenlos, optional mit Claude (eigener API-Schlüssel in den Einstellungen)."
 }

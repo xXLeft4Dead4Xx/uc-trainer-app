@@ -3949,6 +3949,7 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
     img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
   };
 
+  window.uctSgContext=()=>{ let empty=0; const walk=L=>{ if(!L.length){ empty++; return; } L.forEach(n=>{ ['yes','no','body'].forEach(k=>{ if(n[k]) walk(n[k]); }); if(n.cases) n.cases.forEach(c=>walk(c.body)); }); }; walk(doc().body); return {title:doc().title,code:arduinoCode(),empty}; };
   renderPick(); draw(); renderEdit();
   window.addEventListener('resize',()=>{});
 })();
@@ -4287,6 +4288,7 @@ b.bad{color:var(--red)}b.good{color:var(--green)}
   }
 
   /* ---------- Verdrahtung ---------- */
+  window.UCT_GLOSS=T;
   function buildCats(){ const A=TL(), cs=CATS0.filter(c=>A.some(t=>t.cat===c)); $('#lnCat').innerHTML=`<option value="*">Alle Themen (${A.length})</option>`+cs.map(c=>`<option value="${E(c)}">${E(c)} (${A.filter(t=>t.cat===c).length})</option>`).join(''); }
   buildCats();
   try{ const pref=JSON.parse(localStorage.getItem(KEY+'-ui'))||{}; ['lnCat','lnMode','lnDir'].forEach(k=>{ if(pref[k]) $('#'+k).value=pref[k]; }); }catch(e){}
@@ -4883,7 +4885,7 @@ button.pf-stat{font:inherit;color:inherit;cursor:pointer;text-align:left}
     host.querySelectorAll('[data-rev]').forEach(b=>b.onclick=()=>startReview(b.dataset.rev));
   }
   function renderPath(){ renderTrack(); }
-  window.uctRenderTrack=renderTrack; window.UCT_LANGS=LANGS; window.uctCurLang=curLang; window.uctLangProgress=t=>{ const L=lessons(t); return [L.filter(isDone).length,L.length]; };
+  window.uctRenderTrack=renderTrack; window.UCT_LANGS=LANGS; window.uctCurLang=curLang; window.UCT_ALL=ALL; window.uctLangProgress=t=>{ const L=lessons(t); return [L.filter(isDone).length,L.length]; };
   window.uctSetLang=l=>{ try{ localStorage.setItem('uct-lang',l); }catch(e){} renderTrack(); renderExamSetup(); document.dispatchEvent(new CustomEvent('uct-lang',{detail:l})); };
 
   /* ---------- Lektion ---------- */
@@ -5696,6 +5698,7 @@ void loop() {
   ins.addEventListener('contextmenu',e=>e.preventDefault());
   ins.addEventListener('click',e=>{ const m=e.target.closest('[data-md]'); if(!m) return; const o=m.dataset.md; S.inMode[o]=S.inMode[o]==='S'?'T':'S'; IN[o]=false; save(); renderIO(); paint(); });
   $('#plcSym').addEventListener('input',e=>{ const o=e.target.dataset.sym; if(!o) return; const p=prog(); p.sym=p.sym||{}; if(e.target.value) p.sym[o]=e.target.value; else delete p.sym[o]; save(); clearTimeout(window.__plcSymT); window.__plcSymT=setTimeout(()=>{ renderNets(); const keep=document.activeElement; renderIO(); paint(); const f=document.querySelector(`[data-sym="${o}"]`); if(f){ f.focus(); f.setSelectionRange(f.value.length,f.value.length); } },500); });
+  window.uctPlcContext=()=>{ const p=prog(); return {name:p.name,nets:p.nets,sym:p.sym||{},st:p.nets.map((n,i)=>'// NW '+(i+1)+(n.title?' '+n.title:'')+'\n'+st(n))}; };
   window.uctPlcSvg=(net,view,syms)=>{ const kr=running, ks=SYMO; running=false; SYMO=syms||{}; let out=''; try{ out=view==='FUP'?fup(net,-1):kop(net,-1); } finally { running=kr; SYMO=ks; } return out; };
   reset(); renderAll();
   document.addEventListener('visibilitychange',()=>{ if(document.hidden&&running) run(false); });
@@ -6125,6 +6128,277 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
   }
 })();
 </script>
+<!-- ===== KI-Assistent (Offline-Coach + optional Claude) ===== -->
+<style>
+#aiFab{position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom));z-index:65;width:56px;height:56px;border-radius:18px;border:0;cursor:pointer;background:linear-gradient(135deg,var(--accent),var(--accent2));color:var(--ink);box-shadow:0 10px 26px -8px var(--glow),0 4px 10px rgba(0,0,0,.4);display:grid;place-items:center}
+#aiFab svg{width:26px;height:26px}
+#aiFab .bd{position:absolute;top:-6px;right:-6px;min-width:22px;height:22px;border-radius:11px;background:#ff5a4e;color:#fff;font-size:12px;font-weight:700;display:none;place-items:center;padding:0 6px;border:2px solid var(--bg)}
+#aiFab .bd.on{display:grid}
+@media (max-width:999px){#aiFab{bottom:calc(84px + env(safe-area-inset-bottom));right:14px;width:50px;height:50px;border-radius:16px}}
+#aiPanel{position:fixed;z-index:8500;display:none;flex-direction:column;background:var(--panel);border:1px solid var(--line2);box-shadow:0 24px 60px -10px rgba(0,0,0,.75)}
+#aiPanel.on{display:flex}
+@media (min-width:1000px){#aiPanel{right:16px;top:76px;bottom:16px;width:420px;border-radius:20px}}
+@media (max-width:999px){#aiPanel{left:0;right:0;bottom:0;height:min(78vh,720px);border-radius:22px 22px 0 0;padding-bottom:env(safe-area-inset-bottom)}}
+.ai-h{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.ai-h .ic{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;background:linear-gradient(135deg,var(--accent),var(--accent2));color:var(--ink)}
+.ai-h .ic svg{width:19px;height:19px}
+.ai-h b{display:block;font-size:15px}
+.ai-h small{color:var(--muted);font-size:12px}
+.ai-h .x{margin-left:auto;background:none;border:0;color:var(--muted);font-size:22px;cursor:pointer;padding:4px 8px}
+.ai-h .clr{background:none;border:1px solid var(--line2);color:var(--muted);border-radius:8px;font-size:11.5px;padding:3px 8px;cursor:pointer}
+.ai-body{flex:1;overflow:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px;-webkit-overflow-scrolling:touch}
+.ai-ctx{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.ai-ctx span{border:1px solid var(--line2);border-radius:999px;padding:2px 9px;background:var(--panel2)}
+.ai-hints{display:flex;flex-direction:column;gap:6px}
+.ai-hint{border-radius:12px;padding:9px 11px;font-size:13.5px;line-height:1.45;border:1px solid var(--line2);background:var(--panel2)}
+.ai-hint.w{border-color:#5b4a1a;background:#241d0e;color:#f5dc9c}
+.ai-hint.e{border-color:#6b2a2e;background:#2a1214;color:#ffc9c5}
+.ai-hint.ok{border-color:#1d5a3f;background:#0f2a20;color:#a9f0c9}
+.ai-hint code,.ai-msg code{font-family:var(--mono);font-size:12.5px;background:rgba(0,0,0,.3);padding:0 4px;border-radius:4px}
+.ai-msg{max-width:92%;border-radius:14px;padding:9px 12px;font-size:14px;line-height:1.5;word-wrap:break-word}
+.ai-msg.u{align-self:flex-end;background:linear-gradient(180deg,var(--accent),var(--accent2));color:var(--ink);border-bottom-right-radius:4px}
+.ai-msg.a{align-self:flex-start;background:var(--panel2);border:1px solid var(--line2);border-bottom-left-radius:4px}
+.ai-msg pre{background:#0a0f13;border:1px solid var(--line);border-radius:8px;padding:8px;overflow:auto;font-family:var(--mono);font-size:12.5px;margin:6px 0;white-space:pre}
+.ai-msg p{margin:0 0 6px}.ai-msg p:last-child{margin:0}
+.ai-msg ul{margin:4px 0;padding-left:18px}
+.ai-msg .src{font-size:11.5px;color:var(--muted);margin-top:6px}
+.ai-typing{align-self:flex-start;color:var(--muted);font-size:13px}
+.ai-quick{display:flex;gap:6px;flex-wrap:wrap;padding:0 14px 8px}
+.ai-quick button{border:1px solid var(--line2);background:var(--panel2);color:var(--text);border-radius:999px;padding:6px 11px;font-size:12.5px;cursor:pointer}
+.ai-in{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line)}
+.ai-in textarea{flex:1;resize:none;height:44px;max-height:120px;background:var(--panel2);color:var(--text);border:1px solid var(--line2);border-radius:12px;padding:11px 12px;font:inherit;font-size:15px}
+.ai-in button{width:46px;border-radius:12px;border:0;background:linear-gradient(180deg,var(--accent),var(--accent2));color:var(--ink);font-size:18px;cursor:pointer}
+.ai-mode{font-size:11.5px;color:var(--muted);padding:0 14px 6px}
+</style>
+<button id="aiFab" aria-label="KI-Assistent öffnen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18 9l-4.2 1.4L12 15l-1.8-4.6L6 9l4.2-1.4z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/><path d="M5 15l.6 1.4L7 17l-1.4.6L5 19l-.6-1.4L3 17l1.4-.6z"/></svg><span class="bd" id="aiBadge"></span></button>
+<div id="aiPanel" role="dialog" aria-label="KI-Assistent">
+  <div class="ai-h"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18 9l-4.2 1.4L12 15l-1.8-4.6L6 9l4.2-1.4z"/></svg></span><div><b>KI-Assistent</b><small id="aiSub">Offline-Coach</small></div><button class="clr" id="aiClr">Neu</button><button class="x" id="aiX" aria-label="Schließen">×</button></div>
+  <div class="ai-body" id="aiBody"></div>
+  <div class="ai-quick" id="aiQuick"></div>
+  <div class="ai-mode" id="aiMode"></div>
+  <div class="ai-in"><textarea id="aiText" placeholder="Frag mich etwas …" rows="1"></textarea><button id="aiSend" aria-label="Senden">➤</button></div>
+</div>
+<script>
+(function(){
+  const $=s=>document.querySelector(s);
+  const E=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const KEYK='uct-ai-key', CFG='uct-ai-cfg', HIST='uct-ai-chat';
+  const MODELS=[['claude-haiku-5-5','Claude Haiku 5.5 – schnell & günstig'],['claude-sonnet-5-5','Claude Sonnet 5.5 – gründlicher']];
+  const getKey=()=>{ try{ return localStorage.getItem(KEYK)||''; }catch(e){ return ''; } };
+  let cfg; try{ cfg=Object.assign({model:MODELS[0][0],auto:'on'},JSON.parse(localStorage.getItem(CFG))||{}); }catch(e){ cfg={model:MODELS[0][0],auto:'on'}; }
+  const saveCfg=()=>{ try{ localStorage.setItem(CFG,JSON.stringify(cfg)); }catch(e){} };
+  let chat; try{ chat=JSON.parse(sessionStorage.getItem(HIST))||[]; }catch(e){ chat=[]; }
+  const saveChat=()=>{ try{ sessionStorage.setItem(HIST,JSON.stringify(chat.slice(-30))); }catch(e){} };
+
+  /* ================= Kontext sammeln ================= */
+  const curView=()=>((document.querySelector('.view.on')||{}).id||'').replace('view-','');
+  const VNAME={lernen:'Lernen',aufgaben:'Aufgaben',labor:'Labor',sps:'SPS-Simulator',struktogramm:'Struktogramm',quiz:'Quiz',werkzeuge:'Werkzeuge',referenz:'Referenz',einstellungen:'Einstellungen'};
+  function context(){
+    const v=curView(), c={view:v,name:VNAME[v]||v};
+    try{
+      if(v==='labor'&&typeof cd!=='undefined'&&cd){ c.board=cd.board; c.code=cd.code; c.comps=cd.comps.map(x=>({type:x.type,name:(COMP[x.type]||{}).name||x.type,pins:x.pins,props:x.props})); c.serial=($('#labMon')||{}).innerText; c.msgs=($('#labMsgs')||{}).innerText; }
+      if(v==='aufgaben'&&typeof EXERCISES!=='undefined'){ const ex=EXERCISES[cur]; c.task=ex.title; c.taskText=(document.querySelector('#exDesc')||{}).innerText; c.board=ex.board; c.code=exEditor.get(); c.results=($('#exResults')||{}).innerText; }
+      if(v==='sps'&&window.uctPlcContext) c.plc=window.uctPlcContext();
+      if(v==='struktogramm'&&window.uctSgContext) c.sg=window.uctSgContext();
+      if(v==='lernen'&&window.uctCurLang){ c.lang=(window.UCT_LANGS||{})[window.uctCurLang()]; const p=window.uctLangProgress(window.uctCurLang()); c.progress=p[0]+' von '+p[1]+' Lektionen'; }
+    }catch(e){}
+    return c;
+  }
+
+  /* ================= Offline-Coach: Prüfregeln ================= */
+  const PWM_UNO=[3,5,6,9,10,11];
+  function pinMap(code,board){
+    const m={}; const re=/(?:const\s+(?:int|byte|uint8_t|short)|#define)\s+([A-Za-z_]\w*)\s*=?\s*(A?\d+)/g; let x;
+    while((x=re.exec(code))){ m[x[1]]=x[2]; }
+    return m;
+  }
+  function resolve(tok,map,board){ tok=String(tok).trim(); if(map[tok]!=null) tok=map[tok]; if(/^A\d$/.test(tok)) return board==='uno'?14+ +tok.slice(1):tok; return /^\d+$/.test(tok)?+tok:null; }
+  function stripComments(c){ return String(c||'').replace(/\/\*[\s\S]*?\*\//g,'').replace(/\/\/[^\n]*/g,''); }
+  function checkCode(code,board,comps){
+    const H=[]; if(!code) return H; const src=stripComments(code), map=pinMap(src,board);
+    if(!/void\s+setup\s*\(/.test(src)) H.push(['e','Es fehlt <code>void setup()</code>.']);
+    if(!/void\s+loop\s*\(/.test(src)) H.push(['e','Es fehlt <code>void loop()</code>.']);
+    const modes={}; src.replace(/pinMode\s*\(\s*([^,]+),\s*(\w+)\s*\)/g,(_,p,m)=>{ const r=resolve(p,map,board); if(r!=null) modes[r]=m; });
+    const writes=new Set(), reads=new Set();
+    src.replace(/digitalWrite\s*\(\s*([^,]+),/g,(_,p)=>{ const r=resolve(p,map,board); if(r!=null) writes.add(r); });
+    src.replace(/digitalRead\s*\(\s*([^)]+)\)/g,(_,p)=>{ const r=resolve(p,map,board); if(r!=null) reads.add(r); });
+    writes.forEach(p=>{ if(modes[p]!=='OUTPUT') H.push(['w',`<code>digitalWrite</code> auf Pin ${p}, aber kein <code>pinMode(…, OUTPUT)</code> – die LED leuchtet dann kaum.`]); });
+    reads.forEach(p=>{ if(!modes[p]) H.push(['w',`Pin ${p} wird gelesen, hat aber kein <code>pinMode</code>. Für Taster meist <code>INPUT_PULLUP</code>.`]); });
+    if(/Serial\.(print|println|write)\s*\(/.test(src)&&!/Serial\.begin\s*\(/.test(src)) H.push(['w','<code>Serial.print</code> ohne <code>Serial.begin(…)</code> in <code>setup()</code> – im Monitor erscheint nichts.']);
+    if(/\bif\s*\([^)]*[^=!<>]=[^=][^)]*\)/.test(src)) H.push(['e','In einer <code>if</code>-Bedingung steht ein einzelnes <code>=</code>. Zum Vergleichen <code>==</code> verwenden.']);
+    const mvars=[...src.matchAll(/(\w+)\s*=\s*millis\s*\(/g)].map(m=>m[1]);
+    if(mvars.some(v=>new RegExp('\\bint\\s+'+v+'\\b').test(src))) H.push(['w','Zeitwerte von <code>millis()</code> als <code>unsigned long</code> speichern – <code>int</code> läuft auf dem Uno nach ca. 33 s über.']);
+    const loopBody=(src.split(/void\s+loop\s*\(\s*\)\s*\{/)[1]||'');
+    if(/delay\s*\(\s*([2-9]\d{2,}|\d{4,})\s*\)/.test(loopBody)&&/digitalRead|analogRead/.test(loopBody)) H.push(['w','In <code>loop()</code> stehen lange <code>delay()</code> und Eingabe-Abfragen – Taster werden währenddessen ignoriert. Besser <code>millis()</code>.']);
+    if(board==='uno') src.replace(/analogWrite\s*\(\s*([^,]+),/g,(_,p)=>{ const r=resolve(p,map,board); if(r!=null&&r<14&&!PWM_UNO.includes(r)) H.push(['w',`<code>analogWrite</code> auf Pin ${r}: Der Uno kann PWM nur an 3, 5, 6, 9, 10, 11.`]); });
+    if(board==='esp32') Object.entries(modes).forEach(([p,m])=>{ if(m==='OUTPUT'&&+p>=34&&+p<=39) H.push(['e',`GPIO ${p} ist beim ESP32 nur ein Eingang – als Ausgang funktioniert er nicht.`]); });
+    if(comps&&comps.length){
+      const used=new Set([...writes,...reads]); src.replace(/(?:analogRead|analogWrite|tone|noTone|pulseIn|attach)\s*\(\s*([^,)]+)/g,(_,p)=>{ const r=resolve(p,map,board); if(r!=null) used.add(r); });
+      Object.values(map).forEach(v=>{ const r=resolve(v,{},board); if(r!=null) used.add(r); });
+      comps.forEach(c=>{
+        Object.entries(c.pins||{}).forEach(([k,p])=>{ if(p!=null&&!used.has(+p)&&!/sda|scl|data|dio|clk|dt|sck/i.test(k)) H.push(['w',`${E(c.name)} hängt an ${board==='uno'&&p>=14?'A'+(p-14):'Pin '+p}, der im Code nicht vorkommt. Pin im Code oder am Bauteil anpassen.`]); });
+        if(c.type==='led'&&c.props&&c.props.res===false) H.push(['e',`${E(c.name)} ohne Vorwiderstand – brennt durch.`]);
+      });
+      [...writes].forEach(p=>{ if(!comps.some(c=>Object.values(c.pins||{}).map(Number).includes(p))&&!(p===13||p===2)) H.push(['w',`Der Code schaltet Pin ${p}, dort ist aber kein Bauteil angeschlossen.`]); });
+    }
+    return H;
+  }
+  function checkPlc(P){
+    const H=[]; if(!P) return H; const assign={}, setr={}, defs=new Set();
+    P.nets.forEach((n,i)=>{ const c=n.coil; if(['TON','TOF','TP','CTU'].includes(c.t)) defs.add(c.op);
+      if(c.t==='='){ (assign[c.op]=assign[c.op]||[]).push(i+1); }
+      if(c.t==='S'||c.t==='R'){ (setr[c.op]=setr[c.op]||new Set()).add(c.t); }
+      const selfB=n.branches.find(b=>b.some(k=>k.op===c.op&&k.t==='NO'));
+      if(c.t==='='&&selfB&&n.branches.length>1&&!n.branches.every(b=>b.some(k=>k.t==='NC'))) H.push(['w',`NW ${i+1}: Selbsthaltung von ${c.op} – nicht jeder Zweig hat einen Stopp-Öffner. Lässt sich der Ausgang noch abschalten?`]);
+    });
+    Object.entries(assign).forEach(([op,nws])=>{ if(nws.length>1) H.push(['e',`Doppelzuweisung: ${op} wird in NW ${nws.join(' und ')} mit „=“ beschrieben – nur das letzte Netzwerk wirkt.`]); });
+    Object.entries(setr).forEach(([op,s])=>{ if(assign[op]) H.push(['w',`${op} wird sowohl mit „=“ als auch mit S/R beschrieben – das führt zu unklarem Verhalten.`]); if(s.has('S')&&!s.has('R')&&op[0]!=='Z') H.push(['w',`${op} wird gesetzt (S), aber nirgends zurückgesetzt (R).`]); });
+    P.nets.forEach((n,i)=>n.branches.forEach(b=>b.forEach(k=>{ if(/^[TZ]/.test(k.op)&&!defs.has(k.op)) H.push(['w',`NW ${i+1} fragt ${k.op} ab, aber ${k.op} wird nirgends als Timer/Zähler aufgerufen.`]); })));
+    return H;
+  }
+  function checkSg(S){ const H=[]; if(!S) return H; if(S.empty>0) H.push(['w',`Im Struktogramm sind noch ${S.empty} leere Felder.`]); if(S.code&&!/void loop\(\) \{\n\s+\S/.test(S.code)) H.push(['w','Es gibt keine Endlosschleife (loop) mit Inhalt – auf dem Arduino läuft dann nach setup() nichts mehr.']); return H; }
+  function hints(c){
+    c=c||context();
+    if(c.view==='labor') return checkCode(c.code,c.board,c.comps);
+    if(c.view==='aufgaben') return checkCode(c.code,c.board,null);
+    if(c.view==='sps') return checkPlc(c.plc);
+    if(c.view==='struktogramm') return checkSg(c.sg);
+    return [];
+  }
+
+  /* ================= Offline-Antworten ================= */
+  const norm=s=>String(s).toLowerCase().replace(/[^a-zäöüß0-9 ]/g,' ');
+  const STOP=new Set('der die das ein eine einer und oder ist was wie warum wo wann ich du mir mich mein meine bei mit von zu im in am auf für den dem des es sich nicht kann man auch so geht'.split(' '));
+  function offlineAnswer(q){
+    const w=norm(q).split(/\s+/).filter(x=>x.length>2&&!STOP.has(x));
+    const out=[];
+    (window.UCT_GLOSS||[]).forEach(t=>{ const tt=norm(t.term); let sc=0; w.forEach(x=>{ if(tt.includes(x)) sc+=5; else if(norm(t.def).includes(x)) sc+=1; }); if(sc) out.push({sc,h:t.term,b:t.def,src:'Glossar · '+t.cat}); });
+    (window.UCT_ALL||[]).forEach(l=>l.S.forEach(s=>{ if(s.t!=='info') return; const hh=norm(s.h), pp=norm(s.p); let sc=0; w.forEach(x=>{ if(hh.includes(x)) sc+=3; else if(pp.includes(x)) sc+=1; }); if(sc) out.push({sc,h:s.h,b:s.p,c:s.c,src:'Lektion · '+l.h}); }));
+    out.sort((a,b)=>b.sc-a.sc);
+    let html='';
+    const why=/warum|fehler|geht nicht|funktioniert nicht|klappt nicht|leuchtet nicht|problem|hilfe/i.test(q);
+    if(why){ const h=hints(); html+= h.length?'<p><b>Das ist mir aufgefallen:</b></p><ul>'+h.map(x=>'<li>'+x[1]+'</li>').join('')+'</ul>':'<p>In deinem aktuellen Bereich sehe ich keine typischen Fehler.</p>'; }
+    const top=out.slice(0,2);
+    if(top.length) html+=top.map(t=>`<p><b>${E(t.h)}</b><br>${E(t.b)}</p>${t.c?'<pre>'+E(t.c)+'</pre>':''}<div class="src">📖 ${E(t.src)}</div>`).join('');
+    if(!html) html='<p>Dazu habe ich offline nichts gefunden. Versuch es mit einem Fachbegriff (z. B. „Pull-up“, „Selbsthaltung“, „f-String“).</p>';
+    if(!getKey()) html+='<div class="src">💡 Für freie Fragen wie in einem echten Chat: in den Einstellungen einen Claude-API-Schlüssel eintragen.</div>';
+    return html;
+  }
+
+  /* ================= Claude-API ================= */
+  function ctxText(c){
+    let t=`Bereich: ${c.name}.`;
+    if(c.lang) t+=` Gewählte Lernsprache: ${c.lang} (${c.progress}).`;
+    if(c.task) t+=`\nAufgabe: ${c.task}\n${(c.taskText||'').slice(0,1500)}`;
+    if(c.board) t+=`\nBoard: ${c.board==='esp32'?'ESP32':'Arduino Uno'}`;
+    if(c.comps) t+=`\nBauteile im Labor: ${c.comps.map(x=>x.name+' '+JSON.stringify(x.pins)+(x.props&&Object.keys(x.props).length?' '+JSON.stringify(x.props):'')).join('; ')}`;
+    if(c.code) t+=`\nAktueller Code:\n\`\`\`cpp\n${String(c.code).slice(0,6000)}\n\`\`\``;
+    if(c.results) t+=`\nPrüfergebnis der Aufgabe:\n${c.results.slice(0,1200)}`;
+    if(c.msgs) t+=`\nMeldungen des Simulators:\n${c.msgs.slice(0,800)}`;
+    if(c.serial) t+=`\nSerieller Monitor (Ende):\n${c.serial.slice(-800)}`;
+    if(c.plc) t+=`\nSPS-Programm „${c.plc.name}“ (als ST dargestellt, Symbole: ${JSON.stringify(c.plc.sym||{})}):\n${c.plc.st.join('\n')}`;
+    if(c.sg) t+=`\nStruktogramm „${c.sg.title}“ als Code-Gerüst:\n${c.sg.code.slice(0,3000)}`;
+    const h=hints(c); if(h.length) t+=`\nAutomatische Prüfung fand:\n- ${h.map(x=>x[1].replace(/<[^>]+>/g,'')).join('\n- ')}`;
+    return t;
+  }
+  const SYS='Du bist der KI-Tutor im µC-Trainer, einer Lern-App für eine Weiterbildung zum staatlich geprüften Techniker (Elektro- und Automatisierungstechnik). Themen: Arduino/ESP32 (C++), Python/MicroPython, SPS (KOP, FUP, ST nach IEC 61131-3), Elektrotechnik, Struktogramme. Antworte auf Deutsch, klar und knapp, wie ein guter Lehrer: erst die Ursache, dann der Weg zur Lösung. Bei Übungsaufgaben gib zuerst Hinweise statt der fertigen Lösung, außer der Nutzer bittet ausdrücklich darum. Nutze den mitgeschickten Kontext (Code, Schaltung, SPS-Programm), wenn er zur Frage passt. Weise bei Arbeiten an 230 V, Maschinen oder Not-Halt auf Sicherheit und Fachpersonal hin. Code in ```-Blöcken. Wenn du etwas nicht sicher weißt, sag es.';
+  async function askClaude(q){
+    const c=context();
+    const msgs=chat.filter(m=>m.r==='u'||m.r==='a').slice(-10).map(m=>({role:m.r==='u'?'user':'assistant',content:m.raw||m.t}));
+    msgs.push({role:'user',content:q});
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':getKey(),'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:cfg.model,max_tokens:1200,system:SYS+'\n\nAktueller Kontext in der App:\n'+ctxText(c),messages:msgs})});
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok){ const m=(j.error&&j.error.message)||res.statusText; let f='Fehler '+res.status+': '+m;
+      if(res.status===401) f='Der API-Schlüssel ist ungültig. Bitte in den Einstellungen prüfen.';
+      else if(/credit|balance/i.test(m)) f='Dein Guthaben in der Anthropic Console ist aufgebraucht oder zu niedrig.';
+      else if(res.status===429) f='Zu viele Anfragen – kurz warten und nochmal versuchen.';
+      else if(res.status===404||/model/i.test(m)) f='Das gewählte Modell ist nicht verfügbar. Bitte in den Einstellungen ein anderes wählen.';
+      throw new Error(f); }
+    return (j.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+  }
+  function md(t){
+    const parts=String(t).split(/```(\w*)\n?([\s\S]*?)```/g); let h='';
+    for(let i=0;i<parts.length;i++){
+      if(i%3===0){ let x=E(parts[i]).replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
+        x=x.split(/\n{2,}/).map(p=>{ if(/^\s*[-*•] /m.test(p)) return '<ul>'+p.split('\n').filter(Boolean).map(l=>'<li>'+l.replace(/^\s*[-*•] /,'')+'</li>').join('')+'</ul>'; return p.trim()?'<p>'+p.trim().replace(/\n/g,'<br>')+'</p>':''; }).join(''); h+=x; }
+      else if(i%3===2){ h+='<pre>'+E(parts[i].replace(/\n$/,''))+'</pre>'; }
+    }
+    return h;
+  }
+
+  /* ================= Oberfläche ================= */
+  const panel=$('#aiPanel'), body=$('#aiBody');
+  function quick(){
+    const v=curView(), Q={labor:['Warum funktioniert meine Schaltung nicht?','Erklär mir meinen Code','Was kann ich als Nächstes bauen?'],aufgaben:['Gib mir einen Tipp','Warum ist meine Lösung falsch?','Erklär die Aufgabe einfacher'],sps:['Prüf mein SPS-Programm','Erklär mir Selbsthaltung','Wie baue ich eine Schrittkette?'],struktogramm:['Prüf mein Struktogramm','Wie wird daraus Code?'],lernen:['Was soll ich heute lernen?','Erklär mir Pull-up','Was ist eine Flanke?']}[v]||['Was kann ich hier machen?','Erklär mir PWM'];
+    $('#aiQuick').innerHTML=Q.map(x=>`<button>${E(x)}</button>`).join('');
+    $('#aiQuick').querySelectorAll('button').forEach(b=>b.onclick=()=>send(b.textContent));
+  }
+  function render(){
+    const c=context(), h=hints(c);
+    let x=`<div class="ai-ctx">👁 Ich sehe: <span>${E(c.name||'—')}</span>${c.board?`<span>${c.board==='esp32'?'ESP32':'Uno'}</span>`:''}${c.comps?`<span>${c.comps.length} Bauteile</span>`:''}${c.plc?`<span>${c.plc.nets.length} Netzwerke</span>`:''}${c.lang?`<span>${E(c.lang)}</span>`:''}</div>`;
+    if(['labor','aufgaben','sps','struktogramm'].includes(c.view)) x+='<div class="ai-hints">'+(h.length?h.map(k=>`<div class="ai-hint ${k[0]}">${k[0]==='e'?'❗':'⚠️'} ${k[1]}</div>`).join(''):'<div class="ai-hint ok">✅ Keine typischen Fehler gefunden.</div>')+'</div>';
+    x+=chat.map(m=>m.r==='u'?`<div class="ai-msg u">${E(m.t)}</div>`:`<div class="ai-msg a">${m.h}</div>`).join('');
+    body.innerHTML=x; body.scrollTop=body.scrollHeight;
+    const on=!!getKey(); $('#aiSub').textContent=on?'Claude · '+(MODELS.find(m=>m[0]===cfg.model)||[0,cfg.model])[1].split(' – ')[0]:'Offline-Coach';
+    $('#aiMode').textContent=on?'Antworten kommen von Claude und verbrauchen dein API-Guthaben.':'Offline-Modus: Hinweise und Antworten aus Glossar & Lektionen – kostenlos.';
+    quick();
+  }
+  let busy=false;
+  async function send(q){
+    q=String(q||'').trim(); if(!q||busy) return; $('#aiText').value='';
+    chat.push({r:'u',t:q}); render();
+    if(!getKey()){ chat.push({r:'a',h:offlineAnswer(q),raw:''}); saveChat(); render(); return; }
+    busy=true; body.insertAdjacentHTML('beforeend','<div class="ai-typing" id="aiTyping">✨ denkt nach …</div>'); body.scrollTop=body.scrollHeight;
+    try{ const a=await askClaude(q); chat.push({r:'a',h:md(a),raw:a}); }
+    catch(e){ chat.push({r:'a',h:'<p>⚠️ '+E(e.message||String(e))+'</p>'+offlineAnswer(q),raw:''}); }
+    busy=false; saveChat(); render();
+  }
+  $('#aiFab').onclick=()=>{ panel.classList.add('on'); render(); setTimeout(()=>$('#aiText').focus(),50); };
+  $('#aiX').onclick=()=>panel.classList.remove('on');
+  $('#aiClr').onclick=()=>{ chat=[]; saveChat(); render(); };
+  $('#aiSend').onclick=()=>send($('#aiText').value);
+  $('#aiText').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); send($('#aiText').value); } });
+
+  /* ---------- Überwachen: Badge ---------- */
+  let lastSig='';
+  function watch(){
+    if(cfg.auto!=='on'){ $('#aiBadge').classList.remove('on'); return; }
+    const c=context(); const sig=c.view+'|'+(c.code||'').length+'|'+JSON.stringify(c.comps||'').length+'|'+JSON.stringify(c.plc||'').length+'|'+((c.sg||{}).code||'').length;
+    if(sig===lastSig) return; lastSig=sig;
+    const n=hints(c).length, b=$('#aiBadge'); b.textContent=n; b.classList.toggle('on',n>0);
+    if(panel.classList.contains('on')&&!busy) render();
+  }
+  setInterval(watch,1500);
+  const so=showView; showView=function(v){ so(v); lastSig=''; watch(); if(panel.classList.contains('on')) render(); };
+  new MutationObserver(()=>{ $('#aiFab').style.display=document.getElementById('pfLesson').classList.contains('on')?'none':''; }).observe(document.getElementById('pfLesson'),{attributes:true,attributeFilter:['class']});
+
+  /* ---------- Einstellungen-Karte ---------- */
+  function settingsCard(){
+    const wrap=document.querySelector('#view-einstellungen .st-wrap'); if(!wrap||document.getElementById('stAi')) return;
+    const k=getKey();
+    const d=document.createElement('div'); d.className='card st-card'; d.id='stAi';
+    d.innerHTML=`<h3>🤖 KI-Assistent</h3>
+      <div class="st-row"><div class="t"><b>Automatische Hinweise</b><small>Offline-Coach prüft Code, Schaltung & SPS-Programm</small></div><button class="tog${cfg.auto==='on'?' on':''}" id="aiAuto" aria-label="Automatische Hinweise"></button></div>
+      <div class="st-row" style="flex-wrap:wrap"><div class="t" style="flex:1 1 100%"><b>Claude-API-Schlüssel</b><small>Optional. Ohne Schlüssel bleibt alles kostenlos offline. Mit Schlüssel laufen die Kosten über dein Guthaben in der Anthropic Console – dort am besten ein Ausgabenlimit setzen. Der Schlüssel bleibt nur auf diesem Gerät und ist nicht in der Sicherung.</small></div>
+        <div style="display:flex;gap:6px;flex:1 1 100%"><input id="aiKey" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-…" value="${E(k)}" style="flex:1;min-width:0;background:var(--panel2);color:var(--text);border:1px solid var(--line2);padding:9px 10px;font-family:var(--mono);font-size:13px"><button class="btn" id="aiShow">👁</button></div></div>
+      <div class="st-row"><div class="t"><b>Modell</b><small>Haiku ist günstiger, Sonnet gründlicher</small></div><select id="aiModel" style="max-width:230px">${MODELS.map(m=>`<option value="${m[0]}"${m[0]===cfg.model?' selected':''}>${E(m[1])}</option>`).join('')}</select></div>
+      <div class="st-row"><div class="t"><b>Verbindung</b><small id="aiTestMsg">${k?'Schlüssel gespeichert':'Kein Schlüssel – Offline-Modus'}</small></div><div class="st-opts"><button class="btn" id="aiTest">Testen</button>${k?'<button class="btn st-danger" id="aiDel">Entfernen</button>':''}</div></div>`;
+    wrap.insertBefore(d,wrap.children[2]||null);
+    $('#aiAuto').onclick=()=>{ cfg.auto=cfg.auto==='on'?'off':'on'; saveCfg(); $('#aiAuto').classList.toggle('on',cfg.auto==='on'); lastSig=''; watch(); };
+    $('#aiKey').onchange=e=>{ try{ const v=e.target.value.trim(); if(v) localStorage.setItem(KEYK,v); else localStorage.removeItem(KEYK); }catch(_){} $('#aiTestMsg').textContent=e.target.value.trim()?'Schlüssel gespeichert':'Kein Schlüssel – Offline-Modus'; };
+    $('#aiShow').onclick=()=>{ const i=$('#aiKey'); i.type=i.type==='password'?'text':'password'; };
+    $('#aiModel').onchange=e=>{ cfg.model=e.target.value; saveCfg(); };
+    const del=$('#aiDel'); if(del) del.onclick=()=>{ try{ localStorage.removeItem(KEYK); }catch(e){} d.remove(); settingsCard(); };
+    $('#aiTest').onclick=async()=>{ const m=$('#aiTestMsg'); if(!getKey()){ m.textContent='Bitte zuerst einen Schlüssel eintragen.'; return; } m.textContent='Teste …';
+      try{ const a=await (async()=>{ const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':getKey(),'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:cfg.model,max_tokens:20,messages:[{role:'user',content:'Antworte nur mit: OK'}]})}); const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error((j.error&&j.error.message)||('HTTP '+r.status)); return j; })(); m.textContent='✅ Verbindung klappt.'; }
+      catch(e){ m.textContent='❌ '+e.message; } };
+  }
+  new MutationObserver(()=>settingsCard()).observe(document.getElementById('view-einstellungen'),{childList:true});
+  settingsCard();
+  watch();
+})();
+</script>
 <!-- ===== App-Update (µC-Trainer als iPad-App) ===== -->
 <style>
 #upd{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translate(-50%,150%);z-index:9999;
@@ -6146,7 +6420,7 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
 </div>
 <script>
 (function(){
-  var APP_VERSION = '1.9.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+  var APP_VERSION = '2.0.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
   window.UCT_VERSION = APP_VERSION;
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register('sw.js').catch(function(){});
