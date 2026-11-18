@@ -3640,7 +3640,7 @@ $('#labName').value=lab.name||'Mein Projekt';
 // Gesamtsicherung
 $('#bkBtn').onclick=()=>{ const p=$('#bkPanel'); p.hidden=!p.hidden; };
 $('#bkSave').onclick=()=>{ saveLab(); const d=new Date(); const stamp=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  const extra={}; ['uct-sg-v1','uct-learn-v1','uct-learn-v1-ui','uct-path-v1','uct-plc-v1'].forEach(k=>{ try{ const v=localStorage.getItem(k); if(v!=null) extra[k]=v; }catch(e){} });
+  const extra={}; ['uct-sg-v1','uct-learn-v1','uct-learn-v1-ui','uct-path-v1','uct-plc-v1','uct-lang','uct-settings'].forEach(k=>{ try{ const v=localStorage.getItem(k); if(v!=null) extra[k]=v; }catch(e){} });
   saveFile('uC-Trainer-Sicherung-'+stamp+'.json',JSON.stringify({app:'uC-Trainer',kind:'backup',v:2,data:DATA,extra})); };
 $('#bkLoad').onclick=async()=>{
   const f=await pickFile('.json,application/json'); if(!f) return;
@@ -4093,8 +4093,65 @@ b.bad{color:var(--red)}b.good{color:var(--green)}
     ['Endlosschleife','Struktogramm & Ablauf','Schleife ohne Abbruchbedingung. Bei Arduino übernimmt loop() diese Rolle.'],
     ['Algorithmus','Struktogramm & Ablauf','Eindeutige, endliche Folge von Schritten zur Lösung einer Aufgabe.']
   ];
+  G.push(
+    ['SPS','SPS','Speicherprogrammierbare Steuerung: ein Industriecomputer, der zyklisch Eingänge liest, ein Programm abarbeitet und Ausgänge schaltet.'],
+    ['SPS-Zyklus','SPS','Ablauf: Prozessabbild der Eingänge (PAE) lesen → Programm abarbeiten → Prozessabbild der Ausgänge (PAA) schreiben. Dauert typisch wenige Millisekunden.'],
+    ['PAE / PAA','SPS','Prozessabbild der Eingänge bzw. Ausgänge: Speicherbereiche, in denen die SPS während eines Zyklus mit festen Werten arbeitet.'],
+    ['Merker (M)','SPS','Internes Speicherbit der SPS ohne Anschlussklemme, z. B. M0.0 – für Zwischenergebnisse.'],
+    ['VKE','SPS','Verknüpfungsergebnis: das logische Ergebnis einer Verknüpfung, das an Spule oder Baustein weitergegeben wird.'],
+    ['Selbsthaltung','SPS','Ein Ausgang hält sich über einen eigenen Kontakt parallel zum Start-Signal eingeschaltet, bis Stopp den Strompfad unterbricht.'],
+    ['Setzen / Rücksetzen','SPS','S setzt einen Operanden dauerhaft auf 1, R auf 0. Bei gleichzeitigem Signal gewinnt die zuletzt bearbeitete Anweisung (dominant).'],
+    ['Flanke','SPS','Signalwechsel: positive Flanke 0→1, negative Flanke 1→0. Das Ergebnis ist genau einen Zyklus lang 1.'],
+    ['TON','SPS','Einschaltverzögerung: Ausgang Q wird erst nach der Zeit PT zu 1, solange der Eingang IN 1 ist.'],
+    ['TOF','SPS','Ausschaltverzögerung: Q folgt IN sofort auf 1 und fällt erst PT nach dem Abschalten von IN ab.'],
+    ['TP','SPS','Impuls: Eine steigende Flanke an IN erzeugt an Q einen Impuls der festen Länge PT.'],
+    ['CTU / CTD','SPS','Vorwärts- bzw. Rückwärtszähler. CTU: Q = 1, wenn CV ≥ PV. CTD: Q = 1, wenn CV ≤ 0.'],
+    ['Schrittkette','SPS','Ablaufsteuerung aus Schritten mit Aktionen und Transitionen (Weiterschaltbedingungen). Es ist immer ein Schritt aktiv.'],
+    ['Drahtbruchsicherheit','SPS','Abschaltende Signale werden als Öffner verdrahtet, damit ein Kabelbruch wie „Stopp“ wirkt.'],
+    ['Verriegelung','SPS','Gegenseitiges Sperren von Ausgängen, die nie gleichzeitig an sein dürfen (z. B. Rechts-/Linkslauf).'],
+    ['Zuordnungsliste','SPS','Tabelle, die Operanden (E0.0, A0.1 …) sprechende Namen, Datentypen und Kommentare zuordnet. Bei Siemens: Variablentabelle.'],
+    ['OB1','SPS','Organisationsbaustein für die zyklische Programmbearbeitung bei Siemens. Von hier werden FC und FB aufgerufen.'],
+    ['FC / FB','SPS','Funktion (ohne Gedächtnis) bzw. Funktionsbaustein (mit Instanz-Datenbaustein als Gedächtnis).'],
+    ['IEC 61131-3','SPS','Norm für SPS-Programmiersprachen: KOP, FUP, ST, AS (Ablaufsprache) und die veraltete AWL/IL.'],
+    ['ST / SCL','SPS','Strukturierter Text – textbasierte Hochsprache für SPS. Bei Siemens heißt sie SCL.'],
+    ['Analogwert-Normierung','SPS','Umrechnen des Rohwerts (bei Siemens 0–27648 im Nennbereich) in die physikalische Größe, z. B. bar oder °C.'],
+    ['Kontaktplan (KOP)','KOP','Grafische SPS-Sprache nach dem Vorbild von Stromlaufplänen: Kontakte, Spulen und Strompfade zwischen einer linken Stromschiene und den Spulen.'],
+    ['Schließer-Kontakt','KOP','⊣ ⊢ leitet, wenn der abgefragte Operand 1 ist.'],
+    ['Öffner-Kontakt','KOP','⊣/⊢ leitet, wenn der abgefragte Operand 0 ist.'],
+    ['Spule','KOP','( ) am Ende des Strompfads: schreibt das VKE in den Operanden. (S) setzt, (R) setzt zurück.'],
+    ['Strompfad / Netzwerk','KOP','Ein Abschnitt des KOP-Programms mit eigener Logik und meist einer Spule am Ende.'],
+    ['Funktionsplan (FUP)','FUP','Grafische SPS-Sprache mit Logikkästen ähnlich der Digitaltechnik.'],
+    ['&-Kasten','FUP','UND-Verknüpfung: Ausgang 1, wenn alle Eingänge 1 sind.'],
+    ['≥1-Kasten','FUP','ODER-Verknüpfung: Ausgang 1, wenn mindestens ein Eingang 1 ist.'],
+    ['=1-Kasten','FUP','Exklusiv-ODER: Ausgang 1, wenn genau ein Eingang 1 ist.'],
+    ['Negation (Kreis)','FUP','Ein kleiner Kreis an einem Ein- oder Ausgang kehrt das Signal um – entspricht dem Öffner im KOP.'],
+    ['Python','Python','Leicht lesbare Programmiersprache. Blöcke werden durch Einrückung gebildet, Typen werden automatisch erkannt.'],
+    ['Interpreter','Python','Programm, das Python-Code Zeile für Zeile ausführt – ohne vorheriges Kompilieren zu Maschinencode.'],
+    ['Einrückung','Python','Leerzeichen am Zeilenanfang (üblich: 4). Sie legen fest, welche Zeilen zu einem Block (if, for, def) gehören.'],
+    ['print()','Python','Gibt Werte auf dem Bildschirm bzw. in der Konsole aus.'],
+    ['input()','Python','Liest eine Eingabe von der Tastatur – immer als Text (str).'],
+    ['int / float / str / bool','Python','Grunddatentypen: ganze Zahl, Kommazahl, Text, Wahrheitswert (True/False).'],
+    ['f-String','Python','Text mit Platzhaltern: f"U = {u:.2f} V" setzt Werte direkt ein und formatiert sie.'],
+    ['Liste','Python','Geordnete, veränderbare Sammlung: werte = [1, 2, 3]. Index ab 0, werte[-1] ist das letzte Element.'],
+    ['Dictionary','Python','Sammlung von Schlüssel-Wert-Paaren: {"pin": 2, "name": "LED"}.'],
+    ['Tupel','Python','Unveränderbare Sammlung in runden Klammern: (x, y).'],
+    ['range()','Python','Erzeugt Zahlenfolgen für Schleifen. range(1, 5) liefert 1, 2, 3, 4 – das Ende ist exklusiv.'],
+    ['def','Python','Schlüsselwort zum Definieren einer Funktion, z. B. def leistung(u, i): return u * i'],
+    ['return','Python','Beendet eine Funktion und gibt einen Wert zurück. Ohne return liefert sie None.'],
+    ['Modul / import','Python','Eine Datei mit Funktionen, die mit import eingebunden wird, z. B. import math.'],
+    ['Exception','Python','Laufzeitfehler wie ValueError oder ZeroDivisionError. Mit try/except abfangen.'],
+    ['None','Python','Besonderer Wert für „nichts“ bzw. „kein Ergebnis“.'],
+    ['MicroPython','MicroPython','Schlanke Python-Variante für Mikrocontroller wie ESP32 und Raspberry Pi Pico.'],
+    ['machine.Pin','MicroPython','Klasse zum Ansteuern von GPIOs: Pin(2, Pin.OUT) oder Pin(0, Pin.IN, Pin.PULL_UP).'],
+    ['REPL','MicroPython','Interaktive Kommandozeile auf dem Mikrocontroller: Befehl eintippen, Ergebnis sofort sehen.'],
+    ['time.ticks_ms()','MicroPython','Millisekunden-Zähler für nicht-blockierende Zeitsteuerung. Differenzen mit time.ticks_diff() bilden.'],
+    ['main.py / boot.py','MicroPython','boot.py läuft beim Start zuerst, danach main.py – dort steht das eigentliche Programm.']
+  );
   const T=G.map((g,i)=>({id:'g'+i+'-'+g[0].replace(/\W+/g,'').slice(0,12),term:g[0],cat:g[1],def:g[2]}));
-  const CATS=[...new Set(T.map(t=>t.cat))];
+  const CATLANG={'Grundlagen':['ard'],'Programmierung':['ard'],'Hardware & Elektro':['ard','kop','fup','py'],'Kommunikation & ESP32':['ard','py'],'Struktogramm & Ablauf':['ard','py','kop','fup'],'SPS':['kop','fup'],'KOP':['kop'],'FUP':['fup'],'Python':['py'],'MicroPython':['py']};
+  const LNG=()=>{ try{ return localStorage.getItem('uct-lang')||'ard'; }catch(e){ return 'ard'; } };
+  const TL=()=>T.filter(t=>(CATLANG[t.cat]||['ard']).includes(LNG()));
+  const CATS0=[...new Set(T.map(t=>t.cat))];
 
   /* ---------- Fortschritt (Leitner, 5 Fächer) ---------- */
   const KEY='uct-learn-v1';
@@ -4104,7 +4161,7 @@ b.bad{color:var(--red)}b.good{color:var(--green)}
   const box=id=>L.box[id]||1;
   const INTERVAL=[0,1,3,7,15,30]; // Karten in Fach k kommen frühestens nach so vielen Runden wieder
 
-  const pool=()=>{ const c=$('#lnCat').value; return c==='*'?T:T.filter(t=>t.cat===c); };
+  const pool=()=>{ const c=$('#lnCat').value, A=TL(); return c==='*'?A:A.filter(t=>t.cat===c); };
   function pick(){
     const P=pool(); if(!P.length) return null;
     const due=P.filter(t=>(L.n-(L.seen[t.id]??-99))>=INTERVAL[box(t.id)]);
@@ -4155,7 +4212,7 @@ b.bad{color:var(--red)}b.good{color:var(--green)}
   /* ---------- Glossar ---------- */
   function renderGloss(){
     const q=$('#lnSearch').value.trim().toLowerCase();
-    const list=T.filter(t=>!q||t.term.toLowerCase().includes(q)||t.def.toLowerCase().includes(q)).sort((a,b)=>a.term.localeCompare(b.term,'de'));
+    const list=TL().filter(t=>!q||t.term.toLowerCase().includes(q)||t.def.toLowerCase().includes(q)).sort((a,b)=>a.term.localeCompare(b.term,'de'));
     $('#lnGloss').innerHTML=list.length?list.map(t=>`<div class="ln-g"><b>${E(t.term)}</b><span class="c">${E(t.cat)}</span><p>${E(t.def)}</p></div>`).join(''):'<p class="ln-meta">Nichts gefunden.</p>';
   }
 
@@ -4201,21 +4258,46 @@ b.bad{color:var(--red)}b.good{color:var(--green)}
     {h:'15. Sicherer Zustand bei Start und Fehler',p:'Ausgänge in setup() sofort in einen definierten, sicheren Zustand bringen (z. B. Motor aus). Bei Sensorfehlern sicher reagieren statt weiterzumachen.',
      good:'void setup() {\n  pinMode(MOTOR_PIN, OUTPUT);\n  digitalWrite(MOTOR_PIN, LOW);   // erst mal aus\n}\n\nif (isnan(temp)) {   // Sensor liefert nichts\n  heizungAus();\n  return;\n}'}
   ];
+  const RPY=[
+    {h:'1. Einrückung: 4 Leerzeichen',p:'Python bildet Blöcke über Einrückung. Immer 4 Leerzeichen, nie Tabs und Leerzeichen mischen.',bad:'if temp > 30:\n  print("warm")\n    alarm()',good:'if temp > 30:\n    print("warm")\n    alarm()'},
+    {h:'2. Namen nach PEP 8',p:'Variablen und Funktionen in snake_case, Konstanten in GROSSBUCHSTABEN, Klassen in CamelCase. Namen sagen, was drin ist.',bad:'def F(x, Y):\n    T = x*Y',good:'MAX_TEMP = 30.0\n\ndef berechne_leistung(spannung, strom):\n    return spannung * strom'},
+    {h:'3. Leerzeichen und Zeilenlänge',p:'Leerzeichen um Operatoren und nach Kommas, keine überlangen Zeilen (Richtwert 79 Zeichen). Lesbarkeit geht vor Kürze.',bad:'p=u*i;print(p)',good:'leistung = spannung * strom\nprint(leistung)'},
+    {h:'4. Docstrings und Kommentare',p:'Jede Funktion bekommt einen Docstring: Was macht sie, welche Einheiten? Kommentare erklären das Warum.',good:'def vorwiderstand(u_b, u_f, i_f):\n    """LED-Vorwiderstand in Ohm. Spannungen in V, Strom in A."""\n    return (u_b - u_f) / i_f'},
+    {h:'5. Keine magischen Zahlen',p:'Feste Werte oben als Konstante mit Einheit im Namen ablegen.',bad:'if wert > 2482:\n    pumpe.on()',good:'SCHWELLE_ROH = 2482      # entspricht 2,0 V am ADC\nif wert > SCHWELLE_ROH:\n    pumpe.on()'},
+    {h:'6. Kleine Funktionen',p:'Eine Funktion erledigt eine Aufgabe. Lange Skripte in Funktionen aufteilen – das macht Testen und Wiederverwenden leicht.',good:'def lese_temperatur():\n    ...\n\ndef pruefe_grenzwert(temp):\n    ...\n\ndef main():\n    temp = lese_temperatur()\n    pruefe_grenzwert(temp)'},
+    {h:'7. f-Strings für Ausgaben',p:'f-Strings sind am lesbarsten und erlauben Formatierung direkt im Text.',bad:'print("U = " + str(u) + " V")',good:'print(f"U = {u:.2f} V")'},
+    {h:'8. Gezielt Fehler abfangen',p:'Nur die Fehler abfangen, die du erwartest. Ein nacktes except: versteckt auch echte Programmfehler.',bad:'try:\n    r = float(text)\nexcept:\n    pass',good:'try:\n    r = float(text)\nexcept ValueError:\n    print("Keine gültige Zahl")'},
+    {h:'9. Dateien mit with öffnen',p:'with schließt die Datei automatisch – auch bei Fehlern.',bad:'f = open("log.csv", "a")\nf.write(zeile)',good:'with open("log.csv", "a") as f:\n    f.write(zeile)'},
+    {h:'10. Einstiegspunkt mit __main__',p:'Den Programmstart in main() packen. So lässt sich die Datei auch als Modul importieren, ohne dass alles sofort losläuft.',good:'def main():\n    ...\n\nif __name__ == "__main__":\n    main()'},
+    {h:'11. Vergleiche richtig schreiben',p:'Mit None und True/False vergleicht man über is bzw. direkt, nicht mit ==.',bad:'if fehler == None:\n    ...\nif aktiv == True:\n    ...',good:'if fehler is None:\n    ...\nif aktiv:\n    ...'},
+    {h:'12. MicroPython: nicht blockieren',p:'Lange sleep()-Aufrufe machen den Controller taub für Taster. Zeitsteuerung mit ticks_ms() und ticks_diff().',bad:'while True:\n    led.value(not led.value())\n    time.sleep(2)',good:'letzte = time.ticks_ms()\nwhile True:\n    if time.ticks_diff(time.ticks_ms(), letzte) >= 2000:\n        letzte = time.ticks_ms()\n        led.value(not led.value())\n    # Taster hier weiter abfragen'},
+    {h:'13. MicroPython: sicherer Start',p:'Ausgänge beim Start sofort in einen definierten, sicheren Zustand setzen. Pins nur einmal anlegen, nicht in jeder Schleife.',good:'from machine import Pin\nmotor = Pin(25, Pin.OUT, value=0)   # startet aus\ntaster = Pin(0, Pin.IN, Pin.PULL_UP)'}
+  ];
+  const GINFO={ard:['Coding-Guideline für Arduino & ESP32','Regeln für lesbaren, sicheren und wartbaren Code – für Übungen, Projektarbeit und Prüfung.'],py:['Coding-Guideline für Python & MicroPython','Angelehnt an den Python-Stil PEP 8 – plus Regeln für Mikrocontroller.'],kop:['Coding-Guideline für SPS-Programme','Regeln für übersichtliche, sichere und wartbare Steuerungsprogramme (IEC 61131-3, TIA Portal). Gilt für KOP, FUP und ST.'],fup:['Coding-Guideline für SPS-Programme','Regeln für übersichtliche, sichere und wartbare Steuerungsprogramme (IEC 61131-3, TIA Portal). Gilt für KOP, FUP und ST.']};
   function renderGuide(){
+    const l=LNG(), RR=l==='py'?RPY:(l==='kop'||l==='fup')?(window.UCT_SPS_RULES||[]):R, H=(l==='kop'||l==='fup')&&window.UCT_SPS_HL?window.UCT_SPS_HL:HL;
+    const gi=document.querySelector('.ln-guide-intro'); if(gi){ gi.querySelector('h2').textContent=GINFO[l][0]; gi.querySelector('p').textContent=GINFO[l][1]+' Jede Regel mit ✗ schlecht und ✓ gut.'; }
+    $('#lnGuide').innerHTML=RR.map(r=>`<div class="card"><h3>${E(r.h)}</h3><p>${E(r.p)}</p>`+
+      (r.bad?`<div class="lbl" style="color:var(--red)">✗ schlecht</div><pre class="bad">${H(r.bad)}</pre>`:'')+
+      (r.good?`<div class="lbl" style="color:var(--green)">✓ gut</div><pre class="good">${H(r.good)}</pre>`:'')+`</div>`).join('');
+    return;
     $('#lnGuide').innerHTML=R.map(r=>`<div class="card"><h3>${E(r.h)}</h3><p>${E(r.p)}</p>`+
       (r.bad?`<div class="lbl" style="color:var(--red)">✗ schlecht</div><pre class="bad">${HL(r.bad)}</pre>`:'')+
       (r.good?`<div class="lbl" style="color:var(--green)">✓ gut</div><pre class="good">${HL(r.good)}</pre>`:'')+`</div>`).join('');
   }
 
   /* ---------- Verdrahtung ---------- */
-  $('#lnCat').innerHTML=`<option value="*">Alle Themen (${T.length})</option>`+CATS.map(c=>`<option value="${E(c)}">${E(c)} (${T.filter(t=>t.cat===c).length})</option>`).join('');
+  function buildCats(){ const A=TL(), cs=CATS0.filter(c=>A.some(t=>t.cat===c)); $('#lnCat').innerHTML=`<option value="*">Alle Themen (${A.length})</option>`+cs.map(c=>`<option value="${E(c)}">${E(c)} (${A.filter(t=>t.cat===c).length})</option>`).join(''); }
+  buildCats();
   try{ const pref=JSON.parse(localStorage.getItem(KEY+'-ui'))||{}; ['lnCat','lnMode','lnDir'].forEach(k=>{ if(pref[k]) $('#'+k).value=pref[k]; }); }catch(e){}
   ['lnCat','lnMode','lnDir'].forEach(k=>$('#'+k).onchange=()=>{ try{ localStorage.setItem(KEY+'-ui',JSON.stringify({lnCat:$('#lnCat').value,lnMode:$('#lnMode').value,lnDir:$('#lnDir').value})); }catch(e){} last=null; next(); });
   document.querySelectorAll('[data-lt]').forEach(b=>b.onclick=()=>{
-    document.querySelectorAll('[data-lt]').forEach(x=>x.classList.toggle('on',x===b));
-    document.querySelectorAll('.ln-pane').forEach(p=>p.classList.toggle('on',p.id==='ln-'+b.dataset.lt));
+    document.querySelectorAll('#view-lernen [data-lt]').forEach(x=>x.classList.toggle('on',x===b));
+    document.querySelectorAll('#view-lernen .ln-pane').forEach(p=>p.classList.toggle('on',p.id==='ln-'+b.dataset.lt));
+    if(b.dataset.lt==='guide') renderGuide();
   });
   $('#lnSearch').oninput=renderGloss;
+  document.addEventListener('uct-lang',()=>{ buildCats(); last=null; next(); renderGloss(); renderGuide(); });
   next(); renderGloss(); renderGuide();
 })();
 </script>
@@ -4249,6 +4331,8 @@ button.pf-stat{font:inherit;color:inherit;cursor:pointer;text-align:left}
 .pl-in h3{margin:18px 0 6px}
 .pl-in .ln-g code{font-family:var(--mono);font-size:13px}
 /* Lektion (Vollbild) */
+.pl-diag{background:#0a0f13;border:1px solid var(--line);border-radius:10px;padding:8px;overflow:auto;margin:0 0 14px}
+.pl-diag svg{display:block;max-width:100%;height:auto}
 #pfLesson{position:fixed;inset:0;z-index:9000;background:var(--bg);display:none;flex-direction:column}
 #pfLesson.on{display:flex}
 .pl-top{display:flex;align-items:center;gap:12px;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;max-width:820px;width:100%;margin:0 auto}
@@ -4530,7 +4614,7 @@ button.pf-stat{font:inherit;color:inherit;cursor:pointer;text-align:left}
       {t:'mc',q:'Woher kommt die Flanke, die der Zähler auswertet?',o:['Der Zähler wertet sie intern aus – ein normaler Kontakt am Eingang genügt','Man braucht immer einen P-Kontakt davor','Vom Timer','Von der CPU-Uhr'],a:0,e:'Die IEC-Zähler reagieren selbst nur auf steigende Flanken.'}
     ]}
   ]});
-  U.push({id:'s5',sps:true,ic:'🪜',h:'Ablaufsteuerung',s:'Schrittketten, Transitionen, Betriebsarten, Not-Halt',L:[
+  U.push({id:'s5',sps:true,ic:'📋',h:'Ablaufsteuerung',s:'Schrittketten, Transitionen, Betriebsarten, Not-Halt',L:[
     {id:'s5l1',h:'Schrittketten',S:[
       {t:'info',h:'Schritt für Schritt',p:'Abläufe (z. B. Bohren: spannen → bohren → zurückfahren → lösen) werden als Schrittkette programmiert. Immer ist genau ein Schritt aktiv. Ein Schritt wird verlassen, wenn seine Transition (Weiterschaltbedingung) erfüllt ist. Jeder Schritt hat Aktionen, z. B. „Bohrmotor ein“.'},
       {t:'mc',q:'Wie viele Schritte sind in einer einfachen (linearen) Schrittkette gleichzeitig aktiv?',o:['Genau einer','Alle','Keiner','Immer zwei'],a:0,e:'Das macht Ablaufsteuerungen übersichtlich und sicher.'},
@@ -4585,6 +4669,166 @@ button.pf-stat{font:inherit;color:inherit;cursor:pointer;text-align:left}
       {t:'mc',q:'PNP-Sensor an einer Eingangskarte für NPN-Sensoren (sinkend/quellend vertauscht). Folge?',o:['Das Signal wird nicht erkannt','Das Signal ist doppelt so stark','Kein Unterschied','Die Karte zählt Impulse'],a:0,e:'In Europa sind PNP-Sensoren und plusschaltende (stromziehende) Eingänge üblich – Datenblatt prüfen.'}
     ]}
   ]});
+  /* ---------- SPS: KOP-spezifisch ---------- */
+  const NET=(b,c)=>({branches:b,coil:c}), K=(op,t)=>({op,t:t||'NO'});
+  U.push({id:'k1',lang:['kop'],ic:'🪜',h:'Kontaktplan (KOP)',s:'Kontakte, Spulen und Strompfade lesen',L:[
+    {id:'k1l1',h:'Kontakte & Spulen',S:[
+      {t:'info',h:'Strom fließt von links nach rechts',p:'Im KOP ist links die Stromschiene. Der „Strom“ fließt über Kontakte zur Spule rechts. Ein Schließer ⊣ ⊢ leitet, wenn sein Operand 1 ist. Ein Öffner ⊣/⊢ leitet, wenn sein Operand 0 ist. Die Spule ( ) übernimmt das Ergebnis (VKE).',net:NET([[K('E0.0'),K('E0.1','NC')]],{t:'=',op:'A0.0'})},
+      {t:'mc',q:'Wann ist A0.0 = 1?',net:NET([[K('E0.0'),K('E0.1','NC')]],{t:'=',op:'A0.0'}),o:['E0.0 = 1 und E0.1 = 0','E0.0 = 1 und E0.1 = 1','E0.0 = 0 oder E0.1 = 1','Immer'],a:0,e:'Reihe = UND, der Öffner leitet nur bei 0.'},
+      {t:'mc',q:'Welche Verknüpfung zeigt dieser Strompfad?',net:NET([[K('E0.0')],[K('E0.1')]],{t:'=',op:'A0.0'}),o:['ODER','UND','NICHT','XOR'],a:0,e:'Parallele Zweige = ODER.'},
+      {t:'mc',q:'Was bedeutet „VKE“?',o:['Verknüpfungsergebnis – das Ergebnis des Strompfads vor der Spule','Verriegelungskontakt-Eingang','Vorwärtszähler-Endwert','Verbindungskabel-Ende'],a:0,e:'Das VKE wird auf die Spule bzw. den Baustein geschrieben.'}
+    ]},
+    {id:'k1l2',h:'Selbsthaltung im KOP',S:[
+      {t:'info',h:'Der Ausgang hält sich selbst',p:'Parallel zum Start-Taster liegt ein Schließer des Ausgangs selbst. Nach dem Loslassen von Start fließt der Strom über diesen Selbsthaltekontakt weiter. Der Stopp-Öffner sitzt in beiden Zweigen bzw. in Reihe danach.',net:NET([[K('E0.0'),K('E0.1','NC')],[K('A0.0'),K('E0.1','NC')]],{t:'=',op:'A0.0'})},
+      {t:'mc',q:'Welcher Kontakt ist der Selbsthaltekontakt?',net:NET([[K('E0.0'),K('E0.1','NC')],[K('A0.0'),K('E0.1','NC')]],{t:'=',op:'A0.0'}),o:['A0.0 im unteren Zweig','E0.0','E0.1','Die Spule'],a:0,e:'Der Ausgang selbst „hält“ den Strompfad geschlossen.'},
+      {t:'mc',q:'Was passiert, wenn der Öffner E0.1 nur im oberen Zweig stünde?',o:['Der Motor ließe sich nicht mehr stoppen','Der Motor ließe sich nicht starten','Nichts ändert sich','Der Motor läuft nur, solange Start gedrückt ist'],a:0,e:'Der Selbsthaltezweig würde den Stopp umgehen.'}
+    ]},
+    {id:'k1l3',h:'Setzen, Rücksetzen & Timer',S:[
+      {t:'info',h:'Spulen mit Gedächtnis',p:'Eine Spule (S) setzt ihren Operanden bei VKE = 1 dauerhaft auf 1, eine Spule (R) setzt ihn auf 0. Timer und Zähler erscheinen im KOP als Kasten mit Eingang IN bzw. CU.',net:NET([[K('E0.0')]],{t:'S',op:'A0.0'})},
+      {t:'mc',q:'E0.0 wird kurz gedrückt und wieder losgelassen. Welchen Wert hat A0.0 danach?',net:NET([[K('E0.0')]],{t:'S',op:'A0.0'}),o:['1 – er bleibt gesetzt','0','Er blinkt','Er folgt E0.0'],a:0,e:'Erst eine (R)-Spule setzt ihn zurück.'},
+      {t:'mc',q:'Was macht dieser Strompfad?',net:NET([[K('E0.0')]],{t:'TON',op:'T1',pt:3000}),o:['T1 wird 3 s nach dem Einschalten von E0.0 zu 1','T1 ist 3 s lang 1','T1 fällt 3 s nach E0.0 ab','T1 zählt bis 3'],a:0,e:'TON = Einschaltverzögerung.'}
+    ]}
+  ]});
+  /* ---------- SPS: FUP-spezifisch ---------- */
+  U.push({id:'f1',lang:['fup'],ic:'🔲',h:'Funktionsplan (FUP)',s:'Logikkästen, Negation und Bausteine lesen',L:[
+    {id:'f1l1',h:'Logikkästen',S:[
+      {t:'info',h:'Kästen statt Kontakte',p:'Im FUP werden Verknüpfungen als Kästen gezeichnet: & = UND, ≥1 = ODER, =1 = XOR. Links kommen die Eingänge, rechts der Ausgang. Das Ergebnis geht in den Zuweisungskasten „=“ mit dem Operanden darüber.',net:NET([[K('E0.0'),K('E0.1')]],{t:'=',op:'A0.0'}),view:'FUP'},
+      {t:'mc',q:'Wann ist A0.0 = 1?',net:NET([[K('E0.0'),K('E0.1')]],{t:'=',op:'A0.0'}),view:'FUP',o:['Wenn E0.0 und E0.1 beide 1 sind','Wenn einer der beiden 1 ist','Wenn beide 0 sind','Immer'],a:0,e:'&-Kasten = UND.'},
+      {t:'mc',q:'Welche Verknüpfung zeigt das?',net:NET([[K('E0.0')],[K('E0.1')]],{t:'=',op:'A0.0'}),view:'FUP',o:['ODER','UND','XOR','NICHT'],a:0,e:'≥1 heißt: mindestens ein Eingang muss 1 sein.'},
+      {t:'fill',q:'Welches Zeichen steht im FUP-Kasten für Exklusiv-ODER?',c:'┌───┐\n│ ___ │\n└───┘',o:['=1','≥1','&','XOR!'],a:'=1',e:'Genau ein Eingang darf 1 sein.'}
+    ]},
+    {id:'f1l2',h:'Negation',S:[
+      {t:'info',h:'Der kleine Kreis',p:'Ein Kreis am Eingang eines Kastens negiert das Signal – das entspricht dem Öffner im KOP. Ein Kreis am Ausgang negiert das Ergebnis.',net:NET([[K('E0.0'),K('E0.1','NC')]],{t:'=',op:'A0.0'}),view:'FUP'},
+      {t:'mc',q:'Wann ist A0.0 = 1?',net:NET([[K('E0.0'),K('E0.1','NC')]],{t:'=',op:'A0.0'}),view:'FUP',o:['E0.0 = 1 und E0.1 = 0','E0.0 = 1 und E0.1 = 1','E0.0 = 0 und E0.1 = 0','Nie'],a:0,e:'Der Kreis an E0.1 kehrt das Signal um.'},
+      {t:'mc',q:'Was entspricht dem negierten Eingang im KOP?',o:['Ein Öffner-Kontakt ⊣/⊢','Ein Schließer ⊣ ⊢','Eine Setzspule (S)','Ein Parallelzweig'],a:0,e:'Beides „leitet“, wenn der Operand 0 ist.'}
+    ]},
+    {id:'f1l3',h:'Selbsthaltung & Timer im FUP',S:[
+      {t:'info',h:'Speichern im FUP',p:'Die Selbsthaltung sieht im FUP so aus: (Start ODER Ausgang) UND NICHT Stopp. Alternativ gibt es SR- bzw. RS-Kästen. Timer und Zähler sind eigene Kästen (TON, TOF, TP, CTU).',net:NET([[K('E0.0'),K('E0.1','NC')],[K('A0.0'),K('E0.1','NC')]],{t:'=',op:'A0.0'}),view:'FUP'},
+      {t:'mc',q:'Warum wird A0.0 selbst als Eingang des oberen ≥1-Kastens verwendet?',o:['Damit sich der Ausgang nach dem Loslassen von Start selbst hält','Weil Ausgänge immer zurückgelesen werden müssen','Für die Negation','Damit er blinkt'],a:0,e:'Das ist die Selbsthaltung.'},
+      {t:'mc',q:'Was zeigt dieser Kasten?',net:NET([[K('E0.0')]],{t:'TOF',op:'T1',pt:5000}),view:'FUP',o:['Ausschaltverzögerung: T1 bleibt 5 s nach E0.0 = 0 noch 1','Einschaltverzögerung um 5 s','Impuls von 5 s','Zähler bis 5'],a:0,e:'TOF = Ausschaltverzögerung, z. B. Treppenhauslicht.'}
+    ]}
+  ]});
+  /* ---------- Python ---------- */
+  U.push({id:'p1',lang:['py'],ic:'🐍',h:'Python: Erste Schritte',s:'Ausgabe, Variablen, Datentypen, Eingabe',L:[
+    {id:'p1l1',h:'Hallo Python',S:[
+      {t:'info',h:'Ein Befehl pro Zeile',p:'Python-Programme werden Zeile für Zeile ausgeführt. print() gibt etwas aus. Kommentare beginnen mit #. Es gibt keine Semikolons und keine geschweiften Klammern.',c:'# Mein erstes Programm\nprint("Hallo Techniker!")\nprint(2 + 3)'},
+      {t:'mc',q:'Was gibt print(2 * 4) aus?',o:['8','2 * 4','24','"8"'],a:0,e:'Python rechnet den Ausdruck aus.'},
+      {t:'fill',q:'Womit beginnt in Python ein Kommentar?',c:'___ Das ist ein Kommentar',o:['#','//','--','/*'],a:'#',e:'// ist ein Kommentar in C++, in Python ist es Ganzzahl-Division.'}
+    ]},
+    {id:'p1l2',h:'Variablen & Datentypen',S:[
+      {t:'info',h:'Einfach zuweisen',p:'Variablen brauchen keine Typangabe – Python erkennt den Typ selbst: int (ganze Zahl), float (Kommazahl), str (Text), bool (True/False).',c:'spannung = 12.6      # float\nzellen = 6           # int\nname = "Bordakku"    # str\nladen = False        # bool\nprint(type(spannung))'},
+      {t:'mc',q:'Welchen Typ hat x = 3.0?',o:['float','int','str','bool'],a:0,e:'Der Punkt macht eine Kommazahl daraus.'},
+      {t:'mc',q:'Wie werden True und False geschrieben?',o:['Mit großem Anfangsbuchstaben: True, False','Klein: true, false','Groß: TRUE, FALSE','Als 1 und 0 in Anführungszeichen'],a:0,e:'Python unterscheidet Groß- und Kleinschreibung.'},
+      {t:'mc',q:'Was ergibt 7 // 2 in Python?',o:['3','3.5','4','1'],a:0,e:'// ist ganzzahlige Division, / ergibt 3.5, % den Rest 1.'}
+    ]},
+    {id:'p1l3',h:'Eingabe & f-Strings',S:[
+      {t:'info',h:'Text mit Werten',p:'input() liest Text von der Tastatur – immer als str. Für Rechnungen mit int() oder float() umwandeln. f-Strings setzen Werte direkt in Text ein.',c:'u = float(input("Spannung in V: "))\nr = float(input("Widerstand in Ohm: "))\ni = u / r\nprint(f"Strom: {i:.3f} A")'},
+      {t:'mc',q:'Welchen Typ liefert input() immer?',o:['str','int','float','bool'],a:0,e:'Deshalb float(input(…)) für Zahlen.'},
+      {t:'fill',q:'Ergänze den f-String.',c:'print(___"Temperatur: {temp} °C")',o:['f','s','%','$'],a:'f',e:'Das f vor den Anführungszeichen aktiviert die Platzhalter in {}.'},
+      {t:'mc',q:'Was gibt f"{3.14159:.2f}" aus?',o:['3.14','3.14159','3.1','3'],a:0,e:':.2f = zwei Nachkommastellen.'}
+    ]}
+  ]});
+  U.push({id:'p2',lang:['py'],ic:'🔀',h:'Python: Entscheidungen & Schleifen',s:'if/elif/else, for, while – Einrückung ist Pflicht',L:[
+    {id:'p2l1',h:'if, elif, else',S:[
+      {t:'info',h:'Einrückung statt Klammern',p:'Nach if, elif und else steht ein Doppelpunkt. Der Block darunter wird eingerückt (4 Leerzeichen). Die Einrückung bestimmt, was zum Block gehört.',c:'if spannung >= 12.4:\n    print("voll")\nelif spannung >= 12.0:\n    print("halb")\nelse:\n    print("laden!")'},
+      {t:'mc',q:'Was fehlt hier?',c:'if temp > 30\n    print("zu warm")',o:['Der Doppelpunkt nach der Bedingung','Klammern um die Bedingung','Ein Semikolon','end'],a:0,e:'if temp > 30:'},
+      {t:'fill',q:'Ergänze das Schlüsselwort für „sonst wenn“.',c:'___ wert == 0:',o:['elif','else if','elseif','case'],a:'elif',e:'Python kürzt else if zu elif.'},
+      {t:'mc',q:'Wie verknüpft man zwei Bedingungen mit UND?',o:['and','&&','&','AND'],a:0,e:'Python nutzt Wörter: and, or, not.'}
+    ]},
+    {id:'p2l2',h:'for & range',S:[
+      {t:'info',h:'Zählschleife',p:'for durchläuft eine Folge. range(n) liefert 0 bis n−1, range(a, b) liefert a bis b−1, range(a, b, s) mit Schrittweite s.',c:'for i in range(5):\n    print(i)        # 0 1 2 3 4\n\nfor pin in range(2, 6):\n    print(pin)      # 2 3 4 5'},
+      {t:'mc',q:'Welche Zahlen liefert range(1, 4)?',o:['1, 2, 3','1, 2, 3, 4','0, 1, 2, 3','4, 3, 2, 1'],a:0,e:'Das Ende ist immer exklusiv.'},
+      {t:'order',q:'Gib die Quadratzahlen von 1 bis 5 aus – ordne die Zeilen.',l:['for n in range(1, 6):','    q = n * n','    print(q)'],e:'Die eingerückten Zeilen gehören zur Schleife.'}
+    ]},
+    {id:'p2l3',h:'while & break',S:[
+      {t:'info',h:'Wiederholen, solange …',p:'while läuft, solange die Bedingung wahr ist. break verlässt die Schleife sofort, continue springt zum nächsten Durchlauf. while True: ist eine Endlosschleife – typisch für Mikrocontroller.',c:'versuche = 0\nwhile versuche < 3:\n    versuche += 1\n    if sensor_ok():\n        break'},
+      {t:'mc',q:'Was macht break?',o:['Verlässt die Schleife sofort','Pausiert das Programm','Springt zum nächsten Durchlauf','Beendet Python'],a:0,e:'continue würde nur den aktuellen Durchlauf überspringen.'},
+      {t:'mc',q:'Was bedeutet x += 1?',o:['x = x + 1','x = 1','x == x + 1','x wird zu „+1“'],a:0,e:'Ein ++ gibt es in Python nicht.'}
+    ]}
+  ]});
+  U.push({id:'p3',lang:['py'],ic:'🧩',h:'Python: Funktionen & Module',s:'def, return, Parameter, import',L:[
+    {id:'p3l1',h:'Eigene Funktionen',S:[
+      {t:'info',h:'def und return',p:'Mit def definierst du eine Funktion. Parameter stehen in Klammern, return liefert das Ergebnis zurück. Ein Docstring in """ beschreibt, was die Funktion tut.',c:'def vorwiderstand(u_b, u_f, i_f):\n    """Berechnet den LED-Vorwiderstand in Ohm."""\n    return (u_b - u_f) / i_f\n\nprint(vorwiderstand(5, 2, 0.015))   # 200.0'},
+      {t:'fill',q:'Mit welchem Schlüsselwort beginnt eine Funktionsdefinition?',c:'___ leistung(u, i):\n    return u * i',o:['def','function','func','void'],a:'def',e:'def steht für define.'},
+      {t:'mc',q:'Was liefert eine Funktion ohne return?',o:['None','0','Einen Fehler','Den letzten berechneten Wert'],a:0,e:'None steht für „kein Wert“.'}
+    ]},
+    {id:'p3l2',h:'Parameter & Standardwerte',S:[
+      {t:'info',h:'Flexible Aufrufe',p:'Parameter können Standardwerte haben. Beim Aufruf lassen sie sich weglassen oder per Name angeben.',c:'def laufzeit(kapazitaet_ah, strom_a, nutzbar=0.5):\n    return kapazitaet_ah * nutzbar / strom_a\n\nlaufzeit(100, 0.35)\nlaufzeit(100, 0.35, nutzbar=0.9)'},
+      {t:'mc',q:'Welchen Wert hat nutzbar beim Aufruf laufzeit(100, 2)?',o:['0.5','0.9','None','2'],a:0,e:'Der Standardwert greift.'},
+      {t:'mc',q:'Wo ist eine Variable bekannt, die innerhalb einer Funktion angelegt wird?',o:['Nur innerhalb dieser Funktion (lokal)','Im ganzen Programm','In allen Funktionen','Nur in der ersten Zeile'],a:0,e:'Lokale Variablen verschwinden nach dem Funktionsende.'}
+    ]},
+    {id:'p3l3',h:'Module importieren',S:[
+      {t:'info',h:'Fertige Werkzeuge nutzen',p:'Mit import lädst du Module. math bietet z. B. sqrt, pi und sin. Mit from … import … holst du einzelne Namen direkt.',c:'import math\nz = math.sqrt(3**2 + 4**2)   # 5.0\n\nfrom math import pi\numfang = 2 * pi * 0.05'},
+      {t:'fill',q:'Lade das Modul math.',c:'___ math',o:['import','include','using','require'],a:'import',e:'#include gibt es in C++, nicht in Python.'},
+      {t:'mc',q:'Was berechnet 3**2 in Python?',o:['9','6','32','Einen Fehler'],a:0,e:'** ist die Potenz. ^ wäre bitweises XOR.'}
+    ]}
+  ]});
+  U.push({id:'p4',lang:['py'],ic:'📚',h:'Python: Listen & Dictionaries',s:'Messwerte speichern und durchlaufen',L:[
+    {id:'p4l1',h:'Listen',S:[
+      {t:'info',h:'Mehrere Werte in einer Variablen',p:'Eine Liste steht in eckigen Klammern. Der Index beginnt bei 0, negative Indizes zählen von hinten. append() hängt an, len() zählt.',c:'messwerte = [21.5, 22.0, 22.4]\nmesswerte.append(23.1)\nprint(messwerte[0])     # 21.5\nprint(messwerte[-1])    # 23.1\nprint(len(messwerte))   # 4'},
+      {t:'mc',q:'werte = [5, 8, 13]. Was ist werte[1]?',o:['8','5','13','Fehler'],a:0,e:'Index 0 ist das erste Element.'},
+      {t:'mc',q:'Was liefert werte[-1] bei werte = [5, 8, 13]?',o:['13','5','8','Fehler'],a:0,e:'-1 ist das letzte Element.'},
+      {t:'fill',q:'Hänge den Wert 42 an die Liste an.',c:'daten.___(42)',o:['append','push','add','insert_end'],a:'append',e:'push gibt es in JavaScript, nicht in Python.'}
+    ]},
+    {id:'p4l2',h:'Listen auswerten',S:[
+      {t:'info',h:'Eingebaute Helfer',p:'sum(), min(), max() und sorted() arbeiten direkt mit Listen. Mit einer for-Schleife geht man jedes Element durch.',c:'temps = [21.5, 22.0, 24.8, 22.4]\nmittel = sum(temps) / len(temps)\nprint(f"Mittel {mittel:.1f}, Max {max(temps)}")\n\nfor t in temps:\n    if t > 24:\n        print("Warnung:", t)'},
+      {t:'mc',q:'Was liefert sorted([3, 1, 2])?',o:['[1, 2, 3]','[3, 2, 1]','3','Fehler'],a:0,e:'sorted gibt eine neue, sortierte Liste zurück.'},
+      {t:'order',q:'Berechne den Mittelwert einer Liste – ordne die Zeilen.',l:['werte = [10, 20, 30]','summe = sum(werte)','mittel = summe / len(werte)','print(mittel)'],e:'Ergebnis: 20.0'}
+    ]},
+    {id:'p4l3',h:'Dictionaries',S:[
+      {t:'info',h:'Schlüssel → Wert',p:'Ein Dictionary speichert Paare aus Schlüssel und Wert in geschweiften Klammern – ideal für Einstellungen oder Sensordaten mit Namen.',c:'sensor = {"name": "Kühlschrank", "temp": 4.2, "ok": True}\nprint(sensor["temp"])\nsensor["temp"] = 5.0\nfor k, v in sensor.items():\n    print(k, v)'},
+      {t:'mc',q:'Wie greifst du auf den Wert zum Schlüssel "temp" zu?',o:['sensor["temp"]','sensor.temp','sensor(temp)','sensor[temp]'],a:0,e:'Schlüssel als Text in eckigen Klammern.'},
+      {t:'mc',q:'Wofür passt ein Dictionary besser als eine Liste?',o:['Werte, die über einen Namen gefunden werden sollen','Eine Messreihe in zeitlicher Reihenfolge','Zahlen, die sortiert werden','Gar nicht – Listen können alles'],a:0,e:'z. B. {"Pin_LED": 2, "Pin_Taster": 0}.'}
+    ]}
+  ]});
+  U.push({id:'p5',lang:['py'],ic:'🔧',h:'Python für Technik',s:'Fehler abfangen, Dateien, Messdaten',L:[
+    {id:'p5l1',h:'Fehler abfangen',S:[
+      {t:'info',h:'try und except',p:'Falsche Eingaben oder fehlende Dateien lösen Ausnahmen (Exceptions) aus. Mit try/except fängst du sie ab, statt dass das Programm abstürzt.',c:'try:\n    r = float(input("R in Ohm: "))\n    i = 12 / r\nexcept ValueError:\n    print("Bitte eine Zahl eingeben")\nexcept ZeroDivisionError:\n    print("R darf nicht 0 sein")'},
+      {t:'mc',q:'Welcher Fehler entsteht bei float("abc")?',o:['ValueError','ZeroDivisionError','TypeError','NameError'],a:0,e:'Der Text lässt sich nicht als Zahl lesen.'},
+      {t:'mc',q:'Welcher Fehler entsteht bei 10 / 0?',o:['ZeroDivisionError','ValueError','IndexError','Kein Fehler, Ergebnis ist 0'],a:0,e:'Division durch null ist nicht erlaubt.'}
+    ]},
+    {id:'p5l2',h:'Dateien lesen & schreiben',S:[
+      {t:'info',h:'with open(…)',p:'Mit with open() wird eine Datei geöffnet und am Ende des Blocks automatisch geschlossen. "w" schreibt neu, "a" hängt an, "r" liest.',c:'with open("log.csv", "a") as f:\n    f.write(f"{zeit};{temp}\\n")\n\nwith open("log.csv") as f:\n    for zeile in f:\n        print(zeile.strip())'},
+      {t:'mc',q:'Welcher Modus hängt Daten an eine bestehende Datei an?',o:['"a"','"w"','"r"','"x"'],a:0,e:'"w" würde die Datei überschreiben.'},
+      {t:'mc',q:'Warum with open(…) statt nur open(…)?',o:['Die Datei wird automatisch geschlossen, auch bei Fehlern','Es ist schneller','Sonst kann man nicht schreiben','Nur so funktionieren CSV-Dateien'],a:0,e:'Kein vergessenes close().'}
+    ]},
+    {id:'p5l3',h:'Messdaten auswerten',S:[
+      {t:'info',h:'Aus Text werden Zahlen',p:'Messdaten liegen oft als Text vor, z. B. "12.4;0.35". split() trennt den Text, float() macht Zahlen daraus.',c:'zeile = "12.4;0.35"\nu_txt, i_txt = zeile.split(";")\nleistung = float(u_txt) * float(i_txt)\nprint(f"P = {leistung:.2f} W")'},
+      {t:'mc',q:'Was liefert "a;b;c".split(";")?',o:['["a", "b", "c"]','"abc"','3','["a;b;c"]'],a:0,e:'split gibt eine Liste zurück.'},
+      {t:'mc',q:'Was macht strip() bei einer gelesenen Zeile?',o:['Entfernt Leerzeichen und Zeilenumbruch am Anfang und Ende','Teilt die Zeile','Wandelt in eine Zahl um','Löscht die Zeile'],a:0,e:'Praktisch, weil jede Zeile mit \\n endet.'}
+    ]}
+  ]});
+  U.push({id:'p6',lang:['py'],ic:'📟',h:'MicroPython auf dem ESP32',s:'Pins, Taster, Zeit, PWM und ADC',L:[
+    {id:'p6l1',h:'LED schalten',S:[
+      {t:'info',h:'Python auf dem Mikrocontroller',p:'MicroPython ist Python für Mikrocontroller wie den ESP32. Pins steuerst du über das Modul machine. Statt setup()/loop() gibt es einfach Code oben und eine while True-Schleife.',c:'from machine import Pin\nimport time\n\nled = Pin(2, Pin.OUT)\n\nwhile True:\n    led.value(1)\n    time.sleep(0.5)\n    led.value(0)\n    time.sleep(0.5)'},
+      {t:'fill',q:'Lege GPIO 2 als Ausgang an.',c:'led = Pin(2, Pin.___)',o:['OUT','OUTPUT','O','WRITE'],a:'OUT',e:'In MicroPython heißt es Pin.OUT, in Arduino OUTPUT.'},
+      {t:'mc',q:'Wie lange wartet time.sleep(0.5)?',o:['0,5 Sekunden','0,5 Millisekunden','5 Sekunden','500 Sekunden'],a:0,e:'sleep rechnet in Sekunden. Für Millisekunden gibt es time.sleep_ms(500).'}
+    ]},
+    {id:'p6l2',h:'Taster & nicht blockieren',S:[
+      {t:'info',h:'Eingang mit Pull-up',p:'Pin.IN mit Pin.PULL_UP aktiviert den internen Pull-up – gedrückt liefert value() dann 0. Für Zeitsteuerung ohne zu blockieren nutzt man time.ticks_ms() und time.ticks_diff().',c:'taster = Pin(0, Pin.IN, Pin.PULL_UP)\nletzte = time.ticks_ms()\n\nwhile True:\n    if taster.value() == 0:\n        print("gedrückt")\n    if time.ticks_diff(time.ticks_ms(), letzte) >= 1000:\n        letzte = time.ticks_ms()\n        led.value(not led.value())'},
+      {t:'mc',q:'Taster mit Pin.PULL_UP: Was liefert taster.value() beim Drücken?',o:['0','1','True','None'],a:0,e:'Gleiche Logik wie INPUT_PULLUP beim Arduino.'},
+      {t:'mc',q:'Wozu dient time.ticks_diff()?',o:['Zeitdifferenzen korrekt berechnen, auch wenn der Zähler überläuft','Das Programm anhalten','Die Uhrzeit setzen','Taster entprellen'],a:0,e:'Das MicroPython-Gegenstück zu millis() - letzte.'}
+    ]},
+    {id:'p6l3',h:'PWM & Analogwerte',S:[
+      {t:'info',h:'Dimmen und Messen',p:'PWM dimmt LEDs oder steuert Motoren, ADC misst Spannungen. read_u16() liefert 0 … 65535, duty_u16() erwartet 0 … 65535.',c:'from machine import Pin, PWM, ADC\n\npwm = PWM(Pin(25), freq=1000)\npoti = ADC(Pin(34))\n\nwhile True:\n    wert = poti.read_u16()     # 0 … 65535\n    pwm.duty_u16(wert)         # Helligkeit folgt dem Poti'},
+      {t:'mc',q:'Welchen Wertebereich liefert read_u16()?',o:['0 … 65535','0 … 1023','0 … 4095','0 … 255'],a:0,e:'u16 = vorzeichenlose 16 Bit.'},
+      {t:'mc',q:'Wie dimmst du eine LED auf etwa 50 %?',o:['pwm.duty_u16(32768)','pwm.duty_u16(50)','pwm.value(0.5)','led.value(50)'],a:0,e:'Die Hälfte von 65535.'}
+    ]}
+  ]});
+  U.push({id:'p7',lang:['py'],ic:'🕵️',h:'Python-Fehler-Detektiv',s:'Typische Fehlermeldungen verstehen',L:[
+    {id:'p7l1',h:'Fehlermeldungen lesen',S:[
+      {t:'info',h:'Die letzte Zeile zählt',p:'Python zeigt bei Fehlern einen Traceback. Die letzte Zeile nennt Fehlertyp und Ursache, darüber steht die Zeilennummer.',c:'Traceback (most recent call last):\n  File "main.py", line 3, in <module>\nTypeError: can only concatenate str (not "int") to str'},
+      {t:'mc',q:'Was ist hier falsch?',c:'temp = 21\nprint("Temperatur: " + temp)',o:['Text und Zahl lassen sich nicht mit + verbinden','print braucht ein Semikolon','temp ist zu klein','Anführungszeichen müssen einfach sein'],a:0,e:'Lösung: f"Temperatur: {temp}" oder str(temp).'},
+      {t:'mc',q:'Welcher Fehler entsteht hier?',c:'if wert > 10:\nprint("groß")',o:['IndentationError – die Zeile muss eingerückt sein','SyntaxError wegen des Doppelpunkts','NameError','Kein Fehler'],a:0,e:'Der Block nach if muss eingerückt werden.'}
+    ]},
+    {id:'p7l2',h:'Logikfehler',S:[
+      {t:'info',h:'Läuft, macht aber das Falsche',p:'Typische Logikfehler: range-Grenzen, Ganzzahl- statt Kommadivision, Vergleich mit = statt ==, falsch eingerückte Zeilen in Schleifen.'},
+      {t:'mc',q:'Die Schleife soll 1 bis 10 ausgeben, endet aber bei 9. Warum?',c:'for i in range(1, 10):\n    print(i)',o:['Das Ende von range ist exklusiv – range(1, 11) verwenden','print gibt nur 9 Werte aus','i startet bei 0','Die Einrückung ist falsch'],a:0,e:'Klassischer Off-by-one-Fehler.'},
+      {t:'mc',q:'Die Summe wird nur einmal ausgegeben statt nach jedem Wert. Warum?',c:'for w in werte:\n    summe += w\nprint(summe)',o:['print ist nicht eingerückt und steht damit nach der Schleife','summe += w ist falsch','werte ist leer','print braucht f-String'],a:0,e:'Die Einrückung entscheidet über die Zugehörigkeit zur Schleife.'}
+    ]}
+  ]});
+  U.forEach(u=>{ if(!u.lang) u.lang=u.sps?['kop','fup']:['ard']; });
+  (function(){ const i=U.findIndex(u=>u.id==='u8'); ['f1','k1'].forEach(id=>{ const j=U.findIndex(u=>u.id===id); if(j>=0&&i>=0){ const [x]=U.splice(j,1); U.splice(U.findIndex(u=>u.id==='u8')+1,0,x); } }); })();
   const ALL=[]; U.forEach(u=>u.L.forEach(l=>{ l.u=u; ALL.push(l); l.S.forEach((st,i)=>{ st._key=l.id+':'+i; st._u=u; }); }));
   const XP_STEP=10, XP_LESSON=10; const goal=()=>(window.uctSettings&&+window.uctSettings.goal)||50;
 
@@ -4604,24 +4848,26 @@ button.pf-stat{font:inherit;color:inherit;cursor:pointer;text-align:left}
     saveP();
   }
   const isDone=l=>!!P.done[l.id];
-  const TR={ard:U.filter(u=>!u.sps),sps:U.filter(u=>u.sps)};
-  const trackOf=u=>u&&u.sps?'sps':'ard';
-  const lessons=t=>[].concat(...TR[t].map(u=>u.L));
+  const LANGS={ard:'Arduino C++',py:'Python',kop:'SPS – KOP',fup:'SPS – FUP'};
+  const curLang=()=>{ try{ const l=localStorage.getItem('uct-lang'); return LANGS[l]?l:'ard'; }catch(e){ return 'ard'; } };
+  const units=t=>U.filter(u=>u.lang.includes(t));
+  const lessons=t=>[].concat(...units(t).map(u=>u.L));
+  const inLang=(u,t)=>!!(u&&u.lang&&u.lang.includes(t));
   const nextIdx=L=>{ const i=L.findIndex(l=>!isDone(l)); return i<0?L.length:i; };
 
   /* ---------- Übersicht ---------- */
   function ring(v){ const r=16,c=2*Math.PI*r, f=Math.min(1,v); return `<svg class="pf-ring" viewBox="0 0 40 40"><circle cx="20" cy="20" r="${r}" fill="none" stroke="#26323c" stroke-width="5"/><circle cx="20" cy="20" r="${r}" fill="none" stroke="${f>=1?'#35d07f':'#ffb020'}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${c*f} ${c}" transform="rotate(-90 20 20)"/></svg>`; }
   function renderTrack(t){
-    const host=document.getElementById(t==='sps'?'pfHostSps':'pfHost'); if(!host) return;
+    t=t||curLang(); const host=document.getElementById('pfHost'); if(!host) return;
     const L=lessons(t), nd=L.filter(isDone).length, ni=nextIdx(L), wl=wrongList(t).length;
     let h=`<div class="pf-head">
-      <div class="pf-stat pf-total"><div style="flex:1">${t==='sps'?'SPS-Fortschritt':'Gesamtfortschritt'} <small>${nd} von ${L.length} Lektionen</small><div class="pf-bar" style="margin-top:6px"><i style="width:${(nd/L.length*100).toFixed(1)}%"></i></div></div><b style="font-size:20px">${Math.round(nd/L.length*100)} %</b></div>
+      <div class="pf-stat pf-total"><div style="flex:1">Fortschritt ${E(LANGS[t])} <small>${nd} von ${L.length} Lektionen</small><div class="pf-bar" style="margin-top:6px"><i style="width:${(nd/L.length*100).toFixed(1)}%"></i></div></div><b style="font-size:20px">${Math.round(nd/L.length*100)} %</b></div>
       <div class="pf-stat"><span class="ic">🔥</span><div>${streakNow()} ${streakNow()===1?'Tag':'Tage'}<small>Serie</small></div></div>
       <div class="pf-stat">${ring(dayXp()/goal())}<div>${dayXp()} / ${goal()} XP<small>Tagesziel</small></div></div>
       <div class="pf-stat"><span class="ic">⭐</span><div>${P.xp} XP<small>gesamt</small></div></div>
       ${wl?`<button class="pf-stat pf-rev" data-rev="${t}"><span class="ic">🔁</span><div>Wiederholen<small>${wl} offene Fehler</small></div></button>`:''}
     </div>`;
-    TR[t].forEach(u=>{
+    units(t).forEach(u=>{
       const d=u.L.filter(isDone).length;
       h+=`<div class="pf-unit"><h3>${u.ic} ${E(u.h)}</h3><div class="sub">${E(u.s)} · ${d}/${u.L.length} Lektionen</div><div class="pf-bar"><i style="width:${d/u.L.length*100}%"></i></div><div class="pf-path">`;
       u.L.forEach(l=>{
@@ -4636,8 +4882,9 @@ button.pf-stat{font:inherit;color:inherit;cursor:pointer;text-align:left}
     host.querySelectorAll('.pf-node:not(.lock)').forEach(b=>b.onclick=()=>start(ALL.find(l=>l.id===b.dataset.l)));
     host.querySelectorAll('[data-rev]').forEach(b=>b.onclick=()=>startReview(b.dataset.rev));
   }
-  function renderPath(){ renderTrack('ard'); renderTrack('sps'); }
-  window.uctRenderTrack=renderTrack;
+  function renderPath(){ renderTrack(); }
+  window.uctRenderTrack=renderTrack; window.UCT_LANGS=LANGS; window.uctCurLang=curLang; window.uctLangProgress=t=>{ const L=lessons(t); return [L.filter(isDone).length,L.length]; };
+  window.uctSetLang=l=>{ try{ localStorage.setItem('uct-lang',l); }catch(e){} renderTrack(); renderExamSetup(); document.dispatchEvent(new CustomEvent('uct-lang',{detail:l})); };
 
   /* ---------- Lektion ---------- */
   let LS=null;   // {l, queue, pos, total, correct, tries, xp, state, pick, order}
@@ -4649,6 +4896,7 @@ button.pf-stat{font:inherit;color:inherit;cursor:pointer;text-align:left}
   $('#plX').onclick=()=>{ if(!LS||LS.state==='done'||confirm(LS.mode==='exam'?'Prüfung abbrechen? Sie wird nicht gewertet.':'Lektion beenden? Der Fortschritt dieser Lektion geht verloren.')) close(); };
   function bar(){ $('#plBar').style.width=(LS.solved/LS.total*100)+'%'; if(LS.mode==='exam'){ const r=Math.max(0,Math.ceil((LS.end-Date.now())/1000)); $('#plXp').textContent='⏱ '+Math.floor(r/60)+':'+String(r%60).padStart(2,'0'); } else $('#plXp').textContent='+'+LS.xp+' XP'; }
   function foot(state,msg,btn,dis){ const f=$('#plFoot'); f.className='pl-foot'+(state?' '+state:''); $('#plMsg').innerHTML=msg||''; const g=$('#plGo'); g.textContent=btn; g.disabled=!!dis; }
+  const diag=s=>s.net&&window.uctPlcSvg?`<div class="pl-diag">${window.uctPlcSvg(s.net,s.view||'KOP')}</div>`:'';
   function step(){
     bar();
     if(LS.pos>=LS.queue.length) return finish();
@@ -4656,13 +4904,13 @@ button.pf-stat{font:inherit;color:inherit;cursor:pointer;text-align:left}
     if(LS.mode==='exam') setTimeout(()=>{ const k=document.querySelector('.pl-kind'); if(k) k.textContent='Frage '+(LS.pos+1)+' von '+LS.total+' · '+s._u.h; },0);
     const In=$('#plIn'); In.scrollTop=0; $('.pl-body').scrollTop=0;
     if(s.t==='info'){
-      In.innerHTML=`<div class="pl-kind">💡 Neu</div><h2>${E(s.h)}</h2><p>${E(s.p)}</p>${s.c?`<pre>${HL(s.c)}</pre>`:''}`;
+      In.innerHTML=`<div class="pl-kind">💡 Neu</div><h2>${E(s.h)}</h2><p>${E(s.p)}</p>${s.c?`<pre>${HL(s.c)}</pre>`:''}${diag(s)}`;
       foot('','', 'Weiter',false); return;
     }
     if(s.t==='mc'){
       const opts=shuffle(s.o.map((o,i)=>({o,i})));
       const code=opts.some(x=>/[();=]/.test(x.o)&&x.o.length<60);
-      In.innerHTML=`<div class="pl-kind">❓ Frage</div><h2>${E(s.q)}</h2>${s.c?`<pre>${HL(s.c)}</pre>`:''}<div class="pl-opts">${opts.map(x=>`<button class="pl-opt${code?' code':''}" data-i="${x.i}">${E(x.o)}</button>`).join('')}</div>`;
+      In.innerHTML=`<div class="pl-kind">❓ Frage</div><h2>${E(s.q)}</h2>${s.c?`<pre>${HL(s.c)}</pre>`:''}${diag(s)}<div class="pl-opts">${opts.map(x=>`<button class="pl-opt${code?' code':''}" data-i="${x.i}">${E(x.o)}</button>`).join('')}</div>`;
       In.querySelectorAll('.pl-opt').forEach(b=>b.onclick=()=>{ if(LS.state!=='ask') return; In.querySelectorAll('.pl-opt').forEach(x=>x.classList.toggle('sel',x===b)); LS.pick=+b.dataset.i; foot('','', 'Prüfen',false); });
     }
     if(s.t==='fill'){
@@ -4719,7 +4967,7 @@ button.pf-stat{font:inherit;color:inherit;cursor:pointer;text-align:left}
     const first=!P.done[LS.l.id]; const gain=LS.xp+XP_LESSON;
     addXp(gain);
     P.done[LS.l.id]={acc:Math.max(acc,(P.done[LS.l.id]||{}).acc||0),date:today()}; saveP();
-    const TL=lessons(trackOf(LS.l.u)), idx=TL.indexOf(LS.l), nxt=TL[idx+1];
+    const TL=lessons(curLang()), idx=TL.indexOf(LS.l), nxt=TL[idx+1];
     $('#plIn').innerHTML=`<div class="pl-done"><div class="big">${acc===100?'🏆':'🎉'}</div><h2>Lektion geschafft!</h2><p>${E(LS.l.h)} · ${E(LS.l.u.h)}</p>
       <div class="row"><div class="pf-stat"><span class="ic">⭐</span>+${gain} XP<small>verdient</small></div><div class="pf-stat"><span class="ic">🎯</span>${acc} %<small>beim ersten Versuch richtig</small></div><div class="pf-stat"><span class="ic">🔥</span>${streakNow()}<small>${streakNow()===1?'Tag':'Tage'} Serie</small></div></div>
       ${dayXp()>=goal()&&dayXp()-gain<goal()?'<p>✅ <b>Tagesziel erreicht!</b></p>':''}${!first?'<p style="color:var(--muted)">Wiederholung – stark, dass du übst!</p>':''}</div>`;
@@ -4727,7 +4975,7 @@ button.pf-stat{font:inherit;color:inherit;cursor:pointer;text-align:left}
   }
 
   /* ---------- Wiederholung ---------- */
-  function wrongList(t){ return Object.entries(P.wrong).map(([k,w])=>({s:STEP(k),w})).filter(x=>x.s&&(!t||trackOf(x.s._u)===t)).sort((a,b)=>b.w.n-a.w.n||String(a.w.d).localeCompare(String(b.w.d))); }
+  function wrongList(t){ return Object.entries(P.wrong).map(([k,w])=>({s:STEP(k),w})).filter(x=>x.s&&(!t||inLang(x.s._u,t))).sort((a,b)=>b.w.n-a.w.n||String(a.w.d).localeCompare(String(b.w.d))); }
   function startReview(t){
     const list=wrongList(t).slice(0,8).map(x=>x.s); if(!list.length) return;
     LS={track:t,l:{id:'review',h:'Wiederholung',u:{h:'Deine Fehler von früher'},S:list},queue:list.map((s,i)=>({s,i})),pos:0,solved:0,total:list.length,correct:0,answered:0,xp:0,state:'ask',mode:'review'};
@@ -4744,8 +4992,8 @@ button.pf-stat{font:inherit;color:inherit;cursor:pointer;text-align:left}
   function renderExamSetup(){
     const host=$('#exHost'); if(!host) return;
     const last=P.exams.slice(-5).reverse();
-    host.innerHTML=`<div class="card ex-card"><h2>📝 Prüfungsmodus</h2><p class="ln-meta" style="margin:0 0 12px">Zufällige Aufgaben aus den gewählten Kapiteln, mit Zeitlimit und ohne Zwischen-Feedback. Am Ende gibt es Punkte, Note (IHK-Notenschlüssel) und eine Auswertung pro Thema.</p>
-      <div class="ex-units">${U.map(u=>`<label><input type="checkbox" value="${u.id}" checked> ${u.ic} ${E(u.h)}</label>`).join('')}</div>
+    host.innerHTML=`<div class="card ex-card"><h2>📝 Prüfungsmodus · ${E(LANGS[curLang()])}</h2><p class="ln-meta" style="margin:0 0 12px">Zufällige Aufgaben aus den gewählten Kapiteln, mit Zeitlimit und ohne Zwischen-Feedback. Am Ende gibt es Punkte, Note (IHK-Notenschlüssel) und eine Auswertung pro Thema.</p>
+      <div class="ex-units">${units(curLang()).map(u=>`<label><input type="checkbox" value="${u.id}" checked> ${u.ic} ${E(u.h)}</label>`).join('')}</div>
       <div class="ln-row" style="margin-top:12px"><label>Anzahl Aufgaben <select id="exN"><option>10</option><option selected>20</option><option>30</option></select></label>
       <label>Zeit pro Aufgabe <select id="exT"><option value="45">45 s</option><option value="60" selected>60 s</option><option value="90">90 s</option></select></label></div>
       <button class="pl-go" id="exGo" style="margin-top:14px">Prüfung starten</button></div>
@@ -5216,7 +5464,8 @@ void loop() {
   S.inMode=S.inMode||{}; S.view=S.view||'KOP';
   const save=()=>{ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){} };
   const prog=()=>S.items.find(x=>x.id===S.cur)||S.items[0];
-  const sym=op=>(prog().sym||{})[op]||'';
+  let SYMO=null;
+  const sym=op=>SYMO?(SYMO[op]||''):((prog().sym||{})[op]||'');
 
   /* ---------- Laufzeit ---------- */
   let R=null;   // {bits, tm:{T1:{et,q,inPrev}}, ct:{Z1:{cv,q,prev}}, edge:{}, timer, cyc}
@@ -5447,23 +5696,16 @@ void loop() {
   ins.addEventListener('contextmenu',e=>e.preventDefault());
   ins.addEventListener('click',e=>{ const m=e.target.closest('[data-md]'); if(!m) return; const o=m.dataset.md; S.inMode[o]=S.inMode[o]==='S'?'T':'S'; IN[o]=false; save(); renderIO(); paint(); });
   $('#plcSym').addEventListener('input',e=>{ const o=e.target.dataset.sym; if(!o) return; const p=prog(); p.sym=p.sym||{}; if(e.target.value) p.sym[o]=e.target.value; else delete p.sym[o]; save(); clearTimeout(window.__plcSymT); window.__plcSymT=setTimeout(()=>{ renderNets(); const keep=document.activeElement; renderIO(); paint(); const f=document.querySelector(`[data-sym="${o}"]`); if(f){ f.focus(); f.setSelectionRange(f.value.length,f.value.length); } },500); });
+  window.uctPlcSvg=(net,view,syms)=>{ const kr=running, ks=SYMO; running=false; SYMO=syms||{}; let out=''; try{ out=view==='FUP'?fup(net,-1):kop(net,-1); } finally { running=kr; SYMO=ks; } return out; };
   reset(); renderAll();
   document.addEventListener('visibilitychange',()=>{ if(document.hidden&&running) run(false); });
 })();
 </script>
-<!-- ===== SPS: Reiter Lernpfad / Simulator / Guideline ===== -->
+<!-- ===== SPS-Guideline-Regeln ===== -->
 <script>
 (function(){
   const $=s=>document.querySelector(s);
   const E=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  const v=$('#view-sps'); if(!v) return;
-  const sim=document.createElement('div'); sim.className='ln-pane'; sim.id='sp-sim';
-  while(v.firstChild) sim.appendChild(v.firstChild);
-  v.innerHTML=`<div class="ln-tabs" style="margin-bottom:14px"><button data-sp="pfad">🎯 Lernpfad</button><button data-sp="sim">🧪 Simulator</button><button data-sp="guide">✅ Coding-Guideline</button></div>
-    <div class="ln-pane" id="sp-pfad"><div id="pfHostSps"></div></div>`;
-  v.appendChild(sim);
-  const g=document.createElement('div'); g.className='ln-pane'; g.id='sp-guide'; v.appendChild(g);
-
   const R=[
    {h:'1. Symbolisch programmieren',p:'Im Programm stehen sprechende Namen statt absoluter Adressen. Die Zuordnungsliste (Symboltabelle) verbindet Name, Adresse, Datentyp und Kommentar.',
     bad:'A0.3 := E1.4 AND NOT E1.5;',good:'Foerderband := Start_Band AND NOT Stopp_Band;\n// Symboltabelle: Start_Band = E1.4, BOOL, „Taster Band EIN, S3“'},
@@ -5497,15 +5739,7 @@ void loop() {
     good:'// Testprotokoll NW 4–7: 18.11.26 LS\n// [x] Start/Stopp  [x] Stau-Abschaltung  [x] Not-Halt-Rückmeldung\n// Projekt gesichert: Anlage_Band_v1.3.zap'}
   ];
   const HL=c=>{ let x=E(c); x=x.replace(/(\/\/[^\n]*)/g,'<span class="t-com">$1</span>'); x=x.replace(/\b(IF|THEN|ELSIF|ELSE|END_IF|CASE|OF|END_CASE|AND|OR|NOT|XOR|TRUE|FALSE)\b/g,'<span class="t-kw">$1</span>'); x=x.replace(/\b(T#\w+)/g,'<span class="t-num">$1</span>'); return x; };
-  g.innerHTML=`<div class="ln-guide-intro card"><h2>Coding-Guideline für SPS-Programme</h2><p>Regeln für übersichtliche, sichere und wartbare Steuerungsprogramme – angelehnt an gängige Praxis (IEC 61131-3, Siemens TIA Portal). Beispiele in ST/SCL, gilt genauso für KOP und FUP.</p></div>
-    <div class="ln-guide">${R.map(r=>`<div class="card"><h3>${E(r.h)}</h3><p>${E(r.p)}</p>${r.bad?`<div class="lbl" style="color:var(--red)">✗ schlecht</div><pre class="bad">${HL(r.bad)}</pre>`:''}${r.good?`<div class="lbl" style="color:var(--green)">✓ gut</div><pre class="good">${HL(r.good)}</pre>`:''}</div>`).join('')}</div>`;
-
-  const tabs=v.querySelectorAll('[data-sp]');
-  function show(k){ tabs.forEach(b=>b.classList.toggle('on',b.dataset.sp===k)); v.querySelectorAll(':scope > .ln-pane').forEach(p=>p.classList.toggle('on',p.id==='sp-'+k)); if(k==='pfad'&&window.uctRenderTrack) window.uctRenderTrack('sps'); try{ sessionStorage.setItem('uct-sp-tab',k); }catch(e){} }
-  tabs.forEach(b=>b.onclick=()=>show(b.dataset.sp));
-  let k='pfad'; try{ k=sessionStorage.getItem('uct-sp-tab')||'pfad'; }catch(e){}
-  show(k);
-  const vt=$('#vt-sps-dummy');
+  window.UCT_SPS_RULES=R; window.UCT_SPS_HL=HL;
 })();
 </script>
 <!-- ===== Design 2.0 + Einstellungen ===== -->
@@ -5656,10 +5890,10 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
     mehr:I('<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>')
   };
   const META={
-    lernen:['Lernen','Lernpfad, Prüfung, Karteikarten, Glossar & Guideline'],
+    lernen:['Lernen','Arduino, Python und SPS – Lernpfad, Prüfung, Karteikarten & Guideline'],
     aufgaben:['Aufgaben','Programmieraufgaben mit automatischer Prüfung'],
     labor:['Labor','Schaltung aufbauen, Sketch schreiben, live simulieren'],
-    sps:['SPS','Lernpfad, Simulator (KOP/FUP) und Coding-Guideline'],
+    sps:['SPS-Simulator','Kontaktplan (KOP) und Funktionsplan (FUP) programmieren und testen'],
     struktogramm:['Struktogramm','Abläufe nach Nassi-Shneiderman entwerfen'],
     quiz:['Quiz','Schnelle Wissensfragen'],
     werkzeuge:['Werkzeuge','Elektro-Rechner und Projekt-Ideen'],
@@ -5747,6 +5981,35 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
 
   apply();
   if(!location.hash) { showView(ST.start); } else showView(location.hash.slice(1));
+})();
+</script>
+<!-- ===== Sprachauswahl im Bereich Lernen ===== -->
+<style>
+.lang-pick{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:12px}
+@media (max-width:700px){.lang-pick{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.lang-pick button{display:flex;align-items:center;gap:10px;text-align:left;background:var(--panel);border:1.5px solid var(--line2);border-radius:14px;padding:10px 12px;color:var(--text);cursor:pointer;font:inherit;position:relative;overflow:hidden}
+.lang-pick button .ic{font-size:22px;width:38px;height:38px;border-radius:10px;display:grid;place-items:center;background:var(--panel2);flex:none}
+.lang-pick button b{display:block;font-size:14.5px}
+.lang-pick button small{color:var(--muted);font-size:12px}
+.lang-pick button i{position:absolute;left:0;bottom:0;height:3px;background:var(--accent);opacity:.8}
+.lang-pick button.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--panel))}
+.lang-pick button.on .ic{background:linear-gradient(135deg,var(--accent),var(--accent2))}
+</style>
+<script>
+(function(){
+  const v=document.getElementById('view-lernen'); if(!v||!window.uctSetLang) return;
+  const L=[['ard','⚡','Arduino C++','Mikrocontroller'],['py','🐍','Python','inkl. MicroPython'],['kop','🪜','SPS – KOP','Kontaktplan'],['fup','🔲','SPS – FUP','Funktionsplan']];
+  const box=document.createElement('div'); box.className='lang-pick'; v.insertBefore(box,v.firstChild);
+  function render(){
+    const cur=window.uctCurLang();
+    box.innerHTML=L.map(([k,ic,n,sub])=>{ const [d,t]=window.uctLangProgress(k); const p=t?Math.round(d/t*100):0; return `<button data-lang="${k}" class="${k===cur?'on':''}"><span class="ic">${ic}</span><span><b>${n}</b><small>${sub} · ${p} %</small></span><i style="width:${p}%"></i></button>`; }).join('');
+    box.querySelectorAll('[data-lang]').forEach(b=>b.onclick=()=>{ window.uctSetLang(b.dataset.lang); render(); });
+  }
+  render();
+  document.addEventListener('uct-lang',render);
+  const so=showView; showView=function(x){ so(x); if(x==='lernen') render(); };
+  const mo=new MutationObserver(()=>{ if(!document.getElementById('pfLesson').classList.contains('on')) render(); });
+  mo.observe(document.getElementById('pfLesson'),{attributes:true,attributeFilter:['class']});
 })();
 </script>
 <!-- ===== Kompakt-Layout: Dropdowns im Labor & Struktogramm ===== -->
@@ -5883,7 +6146,7 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
 </div>
 <script>
 (function(){
-  var APP_VERSION = '1.8.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+  var APP_VERSION = '1.9.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
   window.UCT_VERSION = APP_VERSION;
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register('sw.js').catch(function(){});

@@ -1,4 +1,4 @@
 {
-  "version": "1.8.0",
-  "notes": "Kompakteres Layout: Bauteile im Labor per Dropdown, Projekt-Funktionen im ⋯-Menü, mehr Platz für die Schaltung."
+  "version": "1.9.0",
+  "notes": "Lernen mit Sprachauswahl: Arduino C++, neu Python (inkl. MicroPython), SPS – KOP und SPS – FUP getrennt. Lernpfad, Prüfung, Karteikarten, Glossar und Guideline je Sprache."
 }
