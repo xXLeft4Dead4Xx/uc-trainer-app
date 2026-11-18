@@ -4209,6 +4209,348 @@ b.bad{color:var(--red)}b.good{color:var(--green)}
   next(); renderGloss(); renderGuide();
 })();
 </script>
+<!-- ===== Lernpfad (Lektionen mit Fortschritt, XP, Serie) ===== -->
+<style>
+#ln-pfad .pf-head{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:12px}
+.pf-stat{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-weight:600}
+.pf-stat small{display:block;font-weight:400;color:var(--muted);font-size:11.5px}
+.pf-stat .ic{font-size:22px}
+.pf-total{flex:1 1 260px}
+.pf-bar{height:10px;background:#0b1014;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.pf-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--teal),#35d07f);border-radius:10px;transition:width .4s}
+.pf-ring{width:40px;height:40px}
+.pf-unit{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:12px}
+.pf-unit h3{margin:0;font-size:17px;display:flex;align-items:center;gap:8px}
+.pf-unit .sub{color:var(--muted);font-size:13px;margin:2px 0 10px}
+.pf-unit .pf-bar{margin-bottom:6px}
+.pf-path{display:flex;flex-direction:column;gap:6px;padding:6px 0}
+.pf-node{display:flex;align-items:center;gap:12px;background:none;border:0;color:var(--text);text-align:left;padding:4px;cursor:pointer;border-radius:12px;font:inherit}
+.pf-node:nth-child(4n+2){margin-left:36px}.pf-node:nth-child(4n+3){margin-left:72px}.pf-node:nth-child(4n+4){margin-left:36px}
+.pf-dot{width:54px;height:54px;flex:none;border-radius:50%;display:grid;place-items:center;font-size:22px;border:3px solid var(--line2);background:var(--panel2);box-shadow:0 4px 0 #0a0f12}
+.pf-node.done .pf-dot{background:var(--teal);border-color:#0f8f83;color:#04201d}
+.pf-node.next .pf-dot{background:#ffb020;border-color:#c98a10;color:#2a1a00;animation:pfPulse 1.6s infinite}
+.pf-node.lock{cursor:default;opacity:.5}
+.pf-node .t{font-weight:600}.pf-node .m{font-size:12.5px;color:var(--muted)}
+@keyframes pfPulse{0%,100%{box-shadow:0 4px 0 #8a5d08,0 0 0 0 rgba(255,176,32,.5)}50%{box-shadow:0 4px 0 #8a5d08,0 0 0 10px rgba(255,176,32,0)}}
+/* Lektion (Vollbild) */
+#pfLesson{position:fixed;inset:0;z-index:9000;background:var(--bg);display:none;flex-direction:column}
+#pfLesson.on{display:flex}
+.pl-top{display:flex;align-items:center;gap:12px;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;max-width:820px;width:100%;margin:0 auto}
+.pl-x{background:none;border:0;color:var(--muted);font-size:26px;cursor:pointer;line-height:1;padding:4px 8px}
+.pl-top .pf-bar{flex:1;height:14px}
+.pl-xp{font-family:var(--mono);color:var(--amber);font-weight:600;font-size:14px;min-width:56px;text-align:right}
+.pl-body{flex:1;overflow:auto;-webkit-overflow-scrolling:touch}
+.pl-in{max-width:760px;margin:0 auto;padding:12px 18px 30px}
+.pl-kind{font-size:12px;text-transform:uppercase;letter-spacing:1.2px;color:var(--teal);margin:6px 0 8px;font-weight:600}
+.pl-in h2{font-size:22px;margin:0 0 10px;line-height:1.3}
+.pl-in p{font-size:16.5px;line-height:1.55;margin:0 0 12px}
+.pl-in pre{background:#0a0f13;border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-family:var(--mono);font-size:14px;overflow:auto;line-height:1.55;margin:0 0 14px}
+.pl-opts{display:flex;flex-direction:column;gap:10px}
+.pl-opt{background:var(--panel2);border:2px solid var(--line2);border-radius:12px;padding:14px 16px;color:var(--text);font-size:16px;text-align:left;cursor:pointer;font-family:inherit;box-shadow:0 3px 0 #0a0f12}
+.pl-opt.code{font-family:var(--mono);font-size:15px}
+.pl-opt.sel{border-color:var(--teal);background:#11302d}
+.pl-opt.ok{border-color:var(--green);background:#123326}
+.pl-opt.bad{border-color:var(--red);background:#3a1714}
+.pl-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.pl-chip{background:var(--panel2);border:2px solid var(--line2);border-radius:10px;padding:10px 14px;color:var(--text);font-family:var(--mono);font-size:15px;cursor:pointer;box-shadow:0 3px 0 #0a0f12}
+.pl-chip.used{visibility:hidden}
+.pl-chip.sel{border-color:var(--teal);background:#11302d}
+.pl-blank{display:inline-block;min-width:70px;border-bottom:2px solid var(--teal);text-align:center;color:var(--teal);padding:0 4px}
+.pl-slot{min-height:56px;border:2px dashed var(--line2);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.pl-slot .pl-chip{text-align:left}
+.pl-slot:empty::before{content:'Tippe die Zeilen unten in der richtigen Reihenfolge an';color:var(--muted);font-size:14px;padding:8px}
+.pl-foot{border-top:1px solid var(--line);background:var(--panel);padding:14px 16px calc(14px + env(safe-area-inset-bottom))}
+.pl-foot.ok{background:#0f2a20;border-color:#1d5a3f}.pl-foot.bad{background:#2c1311;border-color:#5e2420}
+.pl-fin{max-width:760px;margin:0 auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.pl-msg{flex:1 1 260px;font-size:15px}
+.pl-msg b{font-size:17px;display:block}
+.pl-foot.ok .pl-msg b{color:var(--green)}.pl-foot.bad .pl-msg b{color:var(--red)}
+.pl-go{min-width:180px;padding:14px 22px;border-radius:12px;border:0;background:var(--teal);color:#04201d;font-weight:700;font-size:16px;cursor:pointer;box-shadow:0 4px 0 #0b6f66;font-family:inherit}
+.pl-go:disabled{background:var(--line2);color:var(--muted);box-shadow:none;cursor:default}
+.pl-foot.bad .pl-go{background:var(--red);box-shadow:0 4px 0 #8c2a22;color:#fff}
+.pl-done{text-align:center;padding-top:30px}
+.pl-done .big{font-size:64px}
+.pl-done .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:18px 0}
+.pl-done .pf-stat{flex-direction:column;min-width:120px}
+</style>
+<div id="pfLesson" role="dialog" aria-modal="true">
+  <div class="pl-top"><button class="pl-x" id="plX" aria-label="Lektion beenden">✕</button><div class="pf-bar"><i id="plBar"></i></div><span class="pl-xp" id="plXp"></span></div>
+  <div class="pl-body"><div class="pl-in" id="plIn"></div></div>
+  <div class="pl-foot" id="plFoot"><div class="pl-fin"><div class="pl-msg" id="plMsg"></div><button class="pl-go" id="plGo">Weiter</button></div></div>
+</div>
+<script>
+(function(){
+  const $=s=>document.querySelector(s);
+  const E=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const HL=c=>(typeof hl==='function'?hl(c):E(c));
+  const shuffle=a=>{ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; };
+
+  /* ================= Inhalte =================
+     Schritt-Typen:
+     {t:'info', h, p, c}                         Erklärung
+     {t:'mc', q, c?, o:[…], a:Index, e}          Auswahl
+     {t:'fill', q, c:'… ___ …', o:[…], a, e}     Lücke im Code
+     {t:'order', q, l:[Zeilen richtig], e}       Reihenfolge
+  */
+  const U=[
+   {id:'u1',ic:'🚀',h:'Erste Schritte',s:'Aufbau eines Sketches und die erste LED',L:[
+    {id:'u1l1',h:'Der Sketch',S:[
+      {t:'info',h:'Jeder Sketch hat zwei Teile',p:'Ein Arduino-Programm heißt Sketch. setup() läuft nach dem Einschalten genau einmal, loop() danach immer wieder – endlos.',c:'void setup() {\n  // einmal beim Start\n}\n\nvoid loop() {\n  // immer wieder\n}'},
+      {t:'mc',q:'Wie oft wird setup() ausgeführt?',o:['Einmal nach Start oder Reset','Endlos immer wieder','Nur wenn ein Taster gedrückt wird','Jede Sekunde einmal'],a:0,e:'setup() läuft genau einmal – ideal zum Einrichten der Pins.'},
+      {t:'mc',q:'Wo gehört der eigentliche Programmablauf hin, der ständig wiederholt werden soll?',o:['In loop()','In setup()','Vor setup()','In einen Kommentar'],a:0,e:'loop() wird endlos wiederholt.'},
+      {t:'info',h:'Semikolon & Kommentare',p:'Jede Anweisung endet mit einem Semikolon ;. Alles hinter // ist ein Kommentar – den ignoriert der Compiler.',c:'pinMode(13, OUTPUT);  // Pin 13 ist ein Ausgang'},
+      {t:'fill',q:'Ergänze das fehlende Zeichen am Ende der Anweisung.',c:'digitalWrite(13, HIGH)___',o:[';',':','.','}'],a:';',e:'Anweisungen enden in C++ immer mit einem Semikolon.'},
+      {t:'order',q:'Bringe den Sketch in die richtige Reihenfolge.',l:['void setup() {','  pinMode(13, OUTPUT);','}','void loop() {','  digitalWrite(13, HIGH);','}'],e:'Erst setup() mit pinMode, dann loop() mit dem Ablauf.'}
+    ]},
+    {id:'u1l2',h:'LED einschalten',S:[
+      {t:'info',h:'Pins als Ausgang',p:'Bevor ein Pin eine LED schalten kann, muss er mit pinMode() als Ausgang festgelegt werden. Danach schaltet digitalWrite() ihn auf HIGH (an) oder LOW (aus).',c:'pinMode(13, OUTPUT);\ndigitalWrite(13, HIGH);  // LED an\ndigitalWrite(13, LOW);   // LED aus'},
+      {t:'fill',q:'Lege Pin 13 als Ausgang fest.',c:'pinMode(13, ___);',o:['OUTPUT','INPUT','HIGH','LED'],a:'OUTPUT',e:'OUTPUT macht den Pin zum Ausgang.'},
+      {t:'mc',q:'Was bedeutet HIGH an einem Ausgang des Arduino Uno?',o:['Etwa 5 V liegen am Pin','0 V liegen am Pin','Der Pin ist ein Eingang','Die LED blinkt'],a:0,e:'HIGH = Versorgungsspannung (Uno 5 V, ESP32 3,3 V). LOW = 0 V.'},
+      {t:'mc',q:'Warum braucht eine LED einen Vorwiderstand (z. B. 220 Ω)?',o:['Er begrenzt den Strom, sonst brennt die LED durch','Damit die LED heller leuchtet','Damit der Pin ein Eingang wird','Er ist nur zur Deko'],a:0,e:'Ohne Vorwiderstand fließt zu viel Strom – LED und Pin können kaputtgehen.'},
+      {t:'fill',q:'Schalte die LED aus.',c:'digitalWrite(13, ___);',o:['LOW','OFF','0V','false()'],a:'LOW',e:'LOW schaltet den Ausgang auf 0 V.'}
+    ]},
+    {id:'u1l3',h:'Blinken mit delay()',S:[
+      {t:'info',h:'Warten mit delay()',p:'delay(ms) hält das Programm für die angegebene Zeit in Millisekunden an. 1000 ms = 1 Sekunde.',c:'void loop() {\n  digitalWrite(13, HIGH);\n  delay(1000);\n  digitalWrite(13, LOW);\n  delay(1000);\n}'},
+      {t:'mc',q:'Wie lange wartet delay(250)?',o:['250 Millisekunden = 0,25 s','250 Sekunden','2,5 Sekunden','25 Millisekunden'],a:0,e:'delay rechnet in Millisekunden.'},
+      {t:'order',q:'Baue einen Blink-Ablauf in loop(): an, warten, aus, warten.',l:['digitalWrite(13, HIGH);','delay(500);','digitalWrite(13, LOW);','delay(500);'],e:'Ohne das zweite delay wäre die LED praktisch immer an.'},
+      {t:'mc',q:'Was passiert, wenn das zweite delay() nach digitalWrite(13, LOW) fehlt?',o:['Die LED scheint dauerhaft zu leuchten','Die LED bleibt aus','Der Sketch lässt sich nicht kompilieren','Die LED blinkt doppelt so schnell sichtbar'],a:0,e:'Nach LOW springt loop() sofort wieder auf HIGH – das Aus ist zu kurz, um es zu sehen.'}
+    ]}
+   ]},
+   {id:'u2',ic:'📦',h:'Variablen & Datentypen',s:'Werte speichern und benennen',L:[
+    {id:'u2l1',h:'Variablen',S:[
+      {t:'info',h:'Speicher mit Namen',p:'Eine Variable speichert einen Wert unter einem Namen. Vor dem Namen steht der Datentyp.',c:'int zaehler = 0;\nzaehler = zaehler + 1;   // jetzt 1\nzaehler++;               // jetzt 2'},
+      {t:'mc',q:'Welchen Wert hat x danach?',c:'int x = 5;\nx = x + 3;\nx++;',o:['9','8','6','53'],a:0,e:'5 + 3 = 8, dann ++ → 9.'},
+      {t:'fill',q:'Lege eine Ganzzahl-Variable an.',c:'___ anzahl = 10;',o:['int','var','number','let'],a:'int',e:'int ist der Datentyp für ganze Zahlen.'},
+      {t:'mc',q:'Was ist der Unterschied zwischen = und == ?',o:['= weist zu, == vergleicht','Es gibt keinen Unterschied','== weist zu, = vergleicht','= ist nur für Texte'],a:0,e:'if (x = 5) ist ein klassischer Fehler – dort muss == stehen.'}
+    ]},
+    {id:'u2l2',h:'Datentypen',S:[
+      {t:'info',h:'Der richtige Typ',p:'bool speichert true/false, byte 0–255, int ganze Zahlen (Uno: −32 768 bis 32 767), unsigned long große positive Zahlen, float Kommazahlen.',c:'bool ledAn = false;\nbyte helligkeit = 200;\nint temperatur = -5;\nunsigned long zeit = millis();\nfloat spannung = 3.3;'},
+      {t:'mc',q:'Welcher Typ passt für einen Zustand „LED an/aus“?',o:['bool','float','unsigned long','char'],a:0,e:'bool kennt genau zwei Werte: true und false.'},
+      {t:'mc',q:'Welcher Typ ist richtig für Werte von millis()?',o:['unsigned long','int','byte','bool'],a:0,e:'millis() wird schnell größer als int auf dem Uno speichern kann (32 767).'},
+      {t:'fill',q:'Speichere eine Spannung mit Nachkommastellen.',c:'___ spannung = 4.85;',o:['float','int','byte','bool'],a:'float',e:'float speichert Kommazahlen – im Code mit Punkt geschrieben.'}
+    ]},
+    {id:'u2l3',h:'Konstanten',S:[
+      {t:'info',h:'Feste Werte mit const',p:'Pins ändern sich nicht. Mit const legst du sie einmal oben fest. Der Name macht den Code lesbar, und der Compiler verhindert versehentliches Ändern.',c:'const int LED = 13;\n\nvoid setup() {\n  pinMode(LED, OUTPUT);\n}'},
+      {t:'fill',q:'Mache den Pin zur Konstante.',c:'___ int TASTER = 7;',o:['const','static','final','fixed'],a:'const',e:'const = unveränderlich.'},
+      {t:'mc',q:'Warum ist pinMode(LED, OUTPUT) besser als pinMode(13, OUTPUT)?',o:['Lesbarer, und der Pin wird nur an einer Stelle geändert','Es ist schneller','13 ist kein gültiger Pin','Es spart Strom'],a:0,e:'Keine „magischen Zahlen“ – das ist Regel 2 der Coding-Guideline.'}
+    ]}
+   ]},
+   {id:'u3',ic:'🔘',h:'Eingänge & Taster',s:'digitalRead, Pull-up und Entprellen',L:[
+    {id:'u3l1',h:'digitalRead',S:[
+      {t:'info',h:'Eingänge lesen',p:'digitalRead(pin) liefert HIGH oder LOW. Der Pin muss vorher als Eingang festgelegt sein.',c:'pinMode(7, INPUT);\nint zustand = digitalRead(7);'},
+      {t:'fill',q:'Lies den Zustand von Pin 7.',c:'int t = ___(7);',o:['digitalRead','digitalWrite','analogWrite','readPin'],a:'digitalRead',e:'digitalRead liest, digitalWrite schreibt.'},
+      {t:'mc',q:'Was passiert an einem unbeschalteten (offenen) Eingang?',o:['Er liefert zufällige Werte (floating)','Er ist immer LOW','Er ist immer HIGH','Der Arduino geht kaputt'],a:0,e:'Offene Eingänge fangen Störungen auf – deshalb Pull-up oder Pull-down.'}
+    ]},
+    {id:'u3l2',h:'INPUT_PULLUP',S:[
+      {t:'info',h:'Interner Pull-up',p:'Mit INPUT_PULLUP schaltet der Arduino einen internen Widerstand nach HIGH. Der Taster verbindet den Pin mit GND. Achtung: gedrückt = LOW!',c:'pinMode(7, INPUT_PULLUP);\n\nif (digitalRead(7) == LOW) {\n  // Taster gedrückt\n}'},
+      {t:'mc',q:'Taster mit INPUT_PULLUP – welchen Wert liefert digitalRead, wenn er gedrückt ist?',o:['LOW','HIGH','1023','Es wechselt zufällig'],a:0,e:'Der Taster zieht den Pin auf GND → LOW.'},
+      {t:'fill',q:'Prüfe, ob der Taster (mit INPUT_PULLUP) gedrückt ist.',c:'if (digitalRead(TASTER) == ___) {',o:['LOW','HIGH','true','PRESSED'],a:'LOW',e:'Invertierte Logik bei Pull-up.'},
+      {t:'order',q:'Taster schaltet LED – bringe loop() in die richtige Reihenfolge.',l:['if (digitalRead(TASTER) == LOW) {','  digitalWrite(LED, HIGH);','} else {','  digitalWrite(LED, LOW);','}'],e:'Gedrückt → an, sonst → aus.'}
+    ]},
+    {id:'u3l3',h:'Prellen & Flanken',S:[
+      {t:'info',h:'Taster prellen',p:'Beim Drücken federt der Kontakt einige Millisekunden nach und erzeugt mehrere Wechsel. Wer Tastendrücke zählt, muss entprellen und die Flanke erkennen – den Moment, in dem sich der Zustand ändert.',c:'bool alt = HIGH;\n\nvoid loop() {\n  bool neu = digitalRead(TASTER);\n  if (alt == HIGH && neu == LOW) {  // fallende Flanke\n    zaehler++;\n    delay(20);                      // entprellen\n  }\n  alt = neu;\n}'},
+      {t:'mc',q:'Was ist eine Flanke?',o:['Der Wechsel eines Signals, z. B. von HIGH nach LOW','Ein dauerhaft hoher Pegel','Ein Widerstand am Taster','Die Kante der Platine'],a:0,e:'Steigende Flanke: LOW→HIGH, fallende: HIGH→LOW.'},
+      {t:'mc',q:'Warum zählt ein Zähler ohne Flankenerkennung bei einem Tastendruck oft hunderte Male?',o:['loop() läuft tausende Male, während der Taster gedrückt ist','Der Taster ist defekt','int läuft über','Wegen des Pull-up-Widerstands'],a:0,e:'Man darf nur beim Wechsel zählen, nicht solange gedrückt ist.'}
+    ]}
+   ]},
+   {id:'u4',ic:'🔀',h:'Entscheidungen & Schleifen',s:'if, Vergleiche, for, while, switch',L:[
+    {id:'u4l1',h:'if und else',S:[
+      {t:'info',h:'Verzweigung',p:'if prüft eine Bedingung. Ist sie wahr, läuft der erste Block, sonst der else-Block. Vergleiche: == != < > <= >=. Verknüpfen: && (und), || (oder), ! (nicht).',c:'if (temp > 30 && fensterZu) {\n  luefterAn();\n} else {\n  luefterAus();\n}'},
+      {t:'mc',q:'Wann wird luefterAn() aufgerufen?',c:'if (temp > 30 || alarm) {\n  luefterAn();\n}',o:['Wenn temp über 30 ODER alarm wahr ist','Nur wenn beides wahr ist','Nur wenn temp genau 30 ist','Nie'],a:0,e:'|| bedeutet oder: eine wahre Bedingung genügt.'},
+      {t:'fill',q:'Prüfe, ob x ungleich 0 ist.',c:'if (x ___ 0) {',o:['!=','<>','=!','=/='],a:'!=',e:'!= heißt „ungleich“.'},
+      {t:'mc',q:'Welches Struktogramm-Element entspricht if/else?',o:['Verzweigung (Dreieck mit ja/nein)','Kopfgesteuerte Schleife','Anweisungsblock','Fallauswahl'],a:0,e:'Probier es im Reiter „Struktogramm“ aus!'}
+    ]},
+    {id:'u4l2',h:'for-Schleife',S:[
+      {t:'info',h:'Zählschleife',p:'for wiederholt einen Block eine feste Anzahl Male. Start; Bedingung; Schritt.',c:'for (int i = 0; i < 5; i++) {\n  Serial.println(i);   // 0 1 2 3 4\n}'},
+      {t:'mc',q:'Wie oft läuft die Schleife?',c:'for (int i = 0; i < 3; i++) { … }',o:['3-mal (i = 0, 1, 2)','4-mal','2-mal','Endlos'],a:0,e:'Bei i = 3 ist i < 3 falsch → Ende.'},
+      {t:'fill',q:'Lass i bei jedem Durchlauf um 1 wachsen.',c:'for (int i = 0; i < 10; ___) {',o:['i++','i+','++','i=+1'],a:'i++',e:'i++ erhöht i um 1.'},
+      {t:'order',q:'Lauflicht über die Pins 2 bis 5 – ordne die Zeilen.',l:['for (int pin = 2; pin <= 5; pin++) {','  digitalWrite(pin, HIGH);','  delay(100);','  digitalWrite(pin, LOW);','}'],e:'Jeder Pin wird kurz an- und wieder ausgeschaltet.'}
+    ]},
+    {id:'u4l3',h:'while & switch',S:[
+      {t:'info',h:'Kopf- vs. fußgesteuert',p:'while prüft die Bedingung vor dem Durchlauf (kopfgesteuert) – der Block läuft eventuell nie. do … while prüft danach (fußgesteuert) – mindestens ein Durchlauf.',c:'while (digitalRead(TASTER) == HIGH) {\n  // warten, bis gedrückt\n}'},
+      {t:'mc',q:'Welche Schleife läuft auf jeden Fall mindestens einmal?',o:['do … while','while','for','Keine'],a:0,e:'Die Bedingung steht am Fuß – geprüft wird erst nach dem ersten Durchlauf.'},
+      {t:'info',h:'switch / case',p:'Für viele Fälle eines Werts ist switch übersichtlicher als viele ifs. Jeder Fall endet mit break, default fängt alles andere.',c:'switch (modus) {\n  case 0: allesAus(); break;\n  case 1: blinken();  break;\n  default: fehler();\n}'},
+      {t:'mc',q:'Was passiert, wenn break hinter case 0 fehlt?',o:['Das Programm läuft in case 1 weiter','Nur case 0 wird ausgeführt','Kompilierfehler','default wird übersprungen'],a:0,e:'Ohne break „fällt“ switch in den nächsten Fall durch.'}
+    ]}
+   ]},
+   {id:'u5',ic:'⏱️',h:'Zeit, Analog & PWM',s:'millis(), analogRead, analogWrite',L:[
+    {id:'u5l1',h:'millis() statt delay()',S:[
+      {t:'info',h:'Nicht blockieren',p:'Während delay() reagiert der Arduino auf nichts. millis() liefert die Zeit seit dem Start – damit prüfst du, ob genug Zeit vergangen ist, und das Programm läuft weiter.',c:'unsigned long letzte = 0;\n\nvoid loop() {\n  if (millis() - letzte >= 500) {\n    letzte = millis();\n    ledAn = !ledAn;\n    digitalWrite(LED, ledAn);\n  }\n  // hier kann gleichzeitig ein Taster abgefragt werden\n}'},
+      {t:'mc',q:'Was ist der Hauptnachteil von delay()?',o:['Es blockiert – Eingaben werden währenddessen ignoriert','Es ist ungenau um mehrere Sekunden','Es funktioniert nur auf dem ESP32','Es braucht viel Speicher'],a:0,e:'Deshalb: millis() für alles, was parallel passieren soll.'},
+      {t:'fill',q:'Prüfe, ob 1000 ms vergangen sind.',c:'if (millis() - letzte ___ 1000) {',o:['>=','==','<','='],a:'>=',e:'Mit == könnte man den genauen Moment verpassen.'}
+    ]},
+    {id:'u5l2',h:'analogRead',S:[
+      {t:'info',h:'Spannungen messen',p:'analogRead() misst eine Spannung mit dem ADC. Uno: 10 Bit → 0 … 1023 für 0 … 5 V. ESP32: 12 Bit → 0 … 4095 für 0 … 3,3 V.',c:'int roh = analogRead(A0);          // 0 … 1023\nfloat u = roh * 5.0 / 1023.0;     // in Volt'},
+      {t:'mc',q:'Uno: analogRead liefert 512. Ungefähr welche Spannung liegt an?',o:['2,5 V','5 V','0,5 V','512 mV'],a:0,e:'512 ist etwa die Hälfte von 1023 → halbe Versorgungsspannung.'},
+      {t:'mc',q:'Welche Auflösung hat der ADC des ESP32?',o:['12 Bit (0–4095)','10 Bit (0–1023)','8 Bit (0–255)','16 Bit (0–65535)'],a:0,e:'2^12 = 4096 Stufen.'}
+    ]},
+    {id:'u5l3',h:'PWM & analogWrite',S:[
+      {t:'info',h:'Dimmen mit PWM',p:'Ein digitaler Pin kann nur an/aus. PWM schaltet sehr schnell um – der Anteil der Einschaltzeit (Tastgrad) bestimmt die Helligkeit. Uno: analogWrite(pin, 0 … 255) an den ~-Pins 3, 5, 6, 9, 10, 11.',c:'analogWrite(9, 0);    // aus\nanalogWrite(9, 127);  // ca. 50 %\nanalogWrite(9, 255);  // voll'},
+      {t:'fill',q:'Setze die LED an Pin 9 auf volle Helligkeit.',c:'analogWrite(9, ___);',o:['255','1023','100','HIGH'],a:'255',e:'analogWrite nutzt 8 Bit: 0 … 255.'},
+      {t:'mc',q:'Ein Poti (0–1023) soll eine LED dimmen. Was ist richtig?',o:['analogWrite(LED, analogRead(POTI) / 4);','analogWrite(LED, analogRead(POTI));','digitalWrite(LED, analogRead(POTI));','analogRead(LED, POTI);'],a:0,e:'1023 / 4 ≈ 255 – oder eleganter mit map(wert, 0, 1023, 0, 255).'}
+    ]}
+   ]},
+   {id:'u6',ic:'📶',h:'ESP32 & Netzwerk',s:'3,3 V, GPIOs, WLAN und Webserver',L:[
+    {id:'u6l1',h:'Besonderheiten des ESP32',S:[
+      {t:'info',h:'Anders als der Uno',p:'Der ESP32 arbeitet mit 3,3 V – 5 V an einem Pin können ihn zerstören. Pins heißen GPIO-Nummern. GPIO 34–39 sind nur Eingänge. Er hat WLAN und Bluetooth eingebaut.',c:'const int LED = 2;      // GPIO 2 (Onboard-LED bei vielen Boards)\nconst int POTI = 34;    // nur Eingang, ADC'},
+      {t:'mc',q:'Ein Sensor liefert 5-V-Signale. Was musst du am ESP32 tun?',o:['Pegel mit Spannungsteiler oder Pegelwandler auf 3,3 V anpassen','Nichts, der ESP32 verträgt 5 V','Einen anderen GPIO nehmen','analogWrite verwenden'],a:0,e:'Die ESP32-Pins sind nicht 5-V-tolerant.'},
+      {t:'mc',q:'Kannst du GPIO 35 als Ausgang für eine LED verwenden?',o:['Nein, GPIO 34–39 sind nur Eingänge','Ja, jeder GPIO kann alles','Nur mit INPUT_PULLUP','Nur mit PWM'],a:0,e:'GPIO 34–39 haben keine Ausgangsstufe.'}
+    ]},
+    {id:'u6l2',h:'WLAN verbinden',S:[
+      {t:'info',h:'Ins WLAN',p:'Mit der WiFi-Bibliothek verbindet sich der ESP32 als Station mit einem Router. Danach hat er eine IP-Adresse.',c:'#include <WiFi.h>\n\nvoid setup() {\n  Serial.begin(115200);\n  WiFi.begin("MeinWLAN", "passwort");\n  while (WiFi.status() != WL_CONNECTED) {\n    delay(500);\n  }\n  Serial.println(WiFi.localIP());\n}'},
+      {t:'order',q:'Ordne den Verbindungsaufbau.',l:['WiFi.begin(SSID, PASS);','while (WiFi.status() != WL_CONNECTED) {','  delay(500);','}','Serial.println(WiFi.localIP());'],e:'Erst starten, dann warten, bis verbunden, dann IP ausgeben.'},
+      {t:'mc',q:'Wie heißt der Modus, in dem der ESP32 selbst ein WLAN aufmacht?',o:['Access Point (AP)','Station (STA)','Bluetooth','Router-Modus'],a:0,e:'WiFi.softAP("Name") – praktisch, wenn kein Router da ist, z. B. im Camper.'}
+    ]},
+    {id:'u6l3',h:'Webserver',S:[
+      {t:'info',h:'Steuern per Browser',p:'Der ESP32 kann Webseiten ausliefern. Für jede Adresse (Route) legst du fest, welche Funktion antwortet. In loop() muss server.handleClient() ständig laufen.',c:'WebServer server(80);\n\nserver.on("/an", []() {\n  digitalWrite(LED, HIGH);\n  server.send(200, "text/plain", "LED an");\n});\nserver.begin();\n\nvoid loop() {\n  server.handleClient();\n}'},
+      {t:'fill',q:'Was muss in loop() immer wieder aufgerufen werden?',c:'void loop() {\n  server.___();\n}',o:['handleClient','begin','send','listen'],a:'handleClient',e:'Ohne handleClient() werden keine Anfragen bearbeitet.'},
+      {t:'mc',q:'Was bedeutet der Statuscode 200 in server.send(200, …)?',o:['OK – Anfrage erfolgreich','Seite nicht gefunden','Serverfehler','Weiterleitung'],a:0,e:'200 = OK, 404 = nicht gefunden, 500 = Serverfehler.'}
+    ]}
+   ]}
+  ];
+  const ALL=[]; U.forEach(u=>u.L.forEach(l=>{ l.u=u; ALL.push(l); }));
+  const XP_STEP=10, XP_LESSON=10, GOAL=50;
+
+  /* ---------- Fortschritt ---------- */
+  const KEY='uct-path-v1';
+  let P; try{ P=JSON.parse(localStorage.getItem(KEY))||{}; }catch(e){ P={}; }
+  P.done=P.done||{}; P.xp=P.xp||0; P.streak=P.streak||{last:null,days:0}; P.day=P.day||{date:null,xp:0};
+  const saveP=()=>{ try{ localStorage.setItem(KEY,JSON.stringify(P)); }catch(e){} };
+  const today=()=>{ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+  const dayDiff=(a,b)=>Math.round((new Date(b)-new Date(a))/864e5);
+  function streakNow(){ const s=P.streak; if(!s.last) return 0; return dayDiff(s.last,today())<=1?s.days:0; }
+  function dayXp(){ return P.day.date===today()?P.day.xp:0; }
+  function addXp(n){
+    const t=today(); if(P.day.date!==t){ P.day={date:t,xp:0}; }
+    P.day.xp+=n; P.xp+=n;
+    const s=P.streak; if(s.last!==t){ s.days=(s.last&&dayDiff(s.last,t)===1)?s.days+1:1; s.last=t; }
+    saveP();
+  }
+  const isDone=l=>!!P.done[l.id];
+  const nextIdx=()=>{ const i=ALL.findIndex(l=>!isDone(l)); return i<0?ALL.length:i; };
+
+  /* ---------- Übersicht ---------- */
+  function ring(v){ const r=16,c=2*Math.PI*r, f=Math.min(1,v); return `<svg class="pf-ring" viewBox="0 0 40 40"><circle cx="20" cy="20" r="${r}" fill="none" stroke="#26323c" stroke-width="5"/><circle cx="20" cy="20" r="${r}" fill="none" stroke="${f>=1?'#35d07f':'#ffb020'}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${c*f} ${c}" transform="rotate(-90 20 20)"/></svg>`; }
+  function renderPath(){
+    const host=$('#pfHost'); if(!host) return;
+    const nd=ALL.filter(isDone).length, ni=nextIdx();
+    let h=`<div class="pf-head">
+      <div class="pf-stat pf-total"><div style="flex:1">Gesamtfortschritt <small>${nd} von ${ALL.length} Lektionen</small><div class="pf-bar" style="margin-top:6px"><i style="width:${(nd/ALL.length*100).toFixed(1)}%"></i></div></div><b style="font-size:20px">${Math.round(nd/ALL.length*100)} %</b></div>
+      <div class="pf-stat"><span class="ic">🔥</span><div>${streakNow()} ${streakNow()===1?'Tag':'Tage'}<small>Serie</small></div></div>
+      <div class="pf-stat">${ring(dayXp()/GOAL)}<div>${dayXp()} / ${GOAL} XP<small>Tagesziel</small></div></div>
+      <div class="pf-stat"><span class="ic">⭐</span><div>${P.xp} XP<small>gesamt</small></div></div>
+    </div>`;
+    U.forEach(u=>{
+      const d=u.L.filter(isDone).length;
+      h+=`<div class="pf-unit"><h3>${u.ic} ${E(u.h)}</h3><div class="sub">${E(u.s)} · ${d}/${u.L.length} Lektionen</div><div class="pf-bar"><i style="width:${d/u.L.length*100}%"></i></div><div class="pf-path">`;
+      u.L.forEach(l=>{
+        const i=ALL.indexOf(l), done=isDone(l), next=i===ni, lock=i>ni;
+        const st=done?'done':next?'next':lock?'lock':'';
+        const meta=done?`✓ abgeschlossen · ${P.done[l.id].acc} % richtig`:next?`Weiter geht’s · ${l.S.length} Schritte`:lock?'🔒 gesperrt':'';
+        h+=`<button class="pf-node ${st}" data-l="${l.id}" ${lock?'disabled':''}><span class="pf-dot">${done?'✓':lock?'🔒':u.ic}</span><span><span class="t">${E(l.h)}</span><br><span class="m">${meta}</span></span></button>`;
+      });
+      h+='</div></div>';
+    });
+    host.innerHTML=h;
+    host.querySelectorAll('.pf-node:not(.lock)').forEach(b=>b.onclick=()=>start(ALL.find(l=>l.id===b.dataset.l)));
+  }
+
+  /* ---------- Lektion ---------- */
+  let LS=null;   // {l, queue, pos, total, correct, tries, xp, state, pick, order}
+  function start(l){
+    LS={l,queue:l.S.map((s,i)=>({s,i})),pos:0,solved:0,total:l.S.length,correct:0,answered:0,xp:0,state:'ask'};
+    $('#pfLesson').classList.add('on'); document.body.style.overflow='hidden'; step();
+  }
+  function close(){ $('#pfLesson').classList.remove('on'); document.body.style.overflow=''; LS=null; renderPath(); }
+  $('#plX').onclick=()=>{ if(!LS||LS.state==='done'||confirm('Lektion beenden? Der Fortschritt dieser Lektion geht verloren.')) close(); };
+  function bar(){ $('#plBar').style.width=(LS.solved/LS.total*100)+'%'; $('#plXp').textContent='+'+LS.xp+' XP'; }
+  function foot(state,msg,btn,dis){ const f=$('#plFoot'); f.className='pl-foot'+(state?' '+state:''); $('#plMsg').innerHTML=msg||''; const g=$('#plGo'); g.textContent=btn; g.disabled=!!dis; }
+  function step(){
+    bar();
+    if(LS.pos>=LS.queue.length) return finish();
+    const {s}=LS.queue[LS.pos]; LS.state='ask'; LS.pick=null; LS.order=[];
+    const In=$('#plIn'); In.scrollTop=0; $('.pl-body').scrollTop=0;
+    if(s.t==='info'){
+      In.innerHTML=`<div class="pl-kind">💡 Neu</div><h2>${E(s.h)}</h2><p>${E(s.p)}</p>${s.c?`<pre>${HL(s.c)}</pre>`:''}`;
+      foot('','', 'Weiter',false); return;
+    }
+    if(s.t==='mc'){
+      const opts=shuffle(s.o.map((o,i)=>({o,i})));
+      const code=opts.some(x=>/[();=]/.test(x.o)&&x.o.length<60);
+      In.innerHTML=`<div class="pl-kind">❓ Frage</div><h2>${E(s.q)}</h2>${s.c?`<pre>${HL(s.c)}</pre>`:''}<div class="pl-opts">${opts.map(x=>`<button class="pl-opt${code?' code':''}" data-i="${x.i}">${E(x.o)}</button>`).join('')}</div>`;
+      In.querySelectorAll('.pl-opt').forEach(b=>b.onclick=()=>{ if(LS.state!=='ask') return; In.querySelectorAll('.pl-opt').forEach(x=>x.classList.toggle('sel',x===b)); LS.pick=+b.dataset.i; foot('','', 'Prüfen',false); });
+    }
+    if(s.t==='fill'){
+      const opts=shuffle(s.o);
+      const codeHtml=()=>{ const parts=s.c.split('___'); return HL(parts[0])+`<span class="pl-blank">${LS.pick!=null?E(LS.pick):'&nbsp;'}</span>`+HL(parts[1]||''); };
+      In.innerHTML=`<div class="pl-kind">✏️ Lücke füllen</div><h2>${E(s.q)}</h2><pre id="plCode"></pre><div class="pl-chips">${opts.map(o=>`<button class="pl-chip" data-o="${E(o)}">${E(o)}</button>`).join('')}</div>`;
+      $('#plCode').innerHTML=codeHtml();
+      In.querySelectorAll('.pl-chip').forEach(b=>b.onclick=()=>{ if(LS.state!=='ask') return; LS.pick=b.dataset.o; In.querySelectorAll('.pl-chip').forEach(x=>x.classList.toggle('sel',x===b)); $('#plCode').innerHTML=codeHtml(); foot('','', 'Prüfen',false); });
+    }
+    if(s.t==='order'){
+      const items=shuffle(s.l.map((l,i)=>({l,i})));
+      In.innerHTML=`<div class="pl-kind">🧩 Reihenfolge</div><h2>${E(s.q)}</h2><div class="pl-slot" id="plSlot"></div><div class="pl-chips" id="plPool">${items.map((x,k)=>`<button class="pl-chip" data-k="${k}">${E(x.l.trim())}</button>`).join('')}</div>`;
+      const redraw=()=>{
+        $('#plSlot').innerHTML=LS.order.map((k,j)=>`<button class="pl-chip" data-j="${j}" style="margin-left:${(items[k].l.match(/^ */)[0].length)*7}px">${E(items[k].l.trim())}</button>`).join('');
+        In.querySelectorAll('#plPool .pl-chip').forEach(b=>b.classList.toggle('used',LS.order.includes(+b.dataset.k)));
+        $('#plSlot').querySelectorAll('.pl-chip').forEach(b=>b.onclick=()=>{ if(LS.state!=='ask') return; LS.order.splice(+b.dataset.j,1); redraw(); });
+        foot('','', 'Prüfen',LS.order.length!==items.length);
+      };
+      In.querySelectorAll('#plPool .pl-chip').forEach(b=>b.onclick=()=>{ if(LS.state!=='ask') return; const k=+b.dataset.k; if(!LS.order.includes(k)){ LS.order.push(k); redraw(); } });
+      LS.items=items; redraw(); return;
+    }
+    foot('','', 'Prüfen',true);
+  }
+  function check(){
+    const q=LS.queue[LS.pos], s=q.s; let ok=false, sol='';
+    if(s.t==='mc'){ ok=LS.pick===s.a; sol=s.o[s.a];
+      $('#plIn').querySelectorAll('.pl-opt').forEach(b=>{ const i=+b.dataset.i; if(i===s.a) b.classList.add('ok'); else if(i===LS.pick) b.classList.add('bad'); b.classList.remove('sel'); }); }
+    if(s.t==='fill'){ ok=LS.pick===s.a; sol=s.a; }
+    if(s.t==='order'){ ok=LS.order.every((k,j)=>LS.items[k].l.trim()===s.l[j].trim()); sol=s.l.map(x=>x.trim()).join('  ⏎  '); }
+    LS.answered++; LS.state='checked';
+    if(ok){ if(!q.retry) LS.correct++; LS.xp+=XP_STEP; LS.solved++; foot('ok',`<b>${['Richtig!','Super!','Genau!','Stark!'][Math.floor(Math.random()*4)]}</b>${E(s.e||'')}`,'Weiter',false); }
+    else if(!q.retry){ LS.queue.push({s,i:q.i,retry:true}); foot('bad',`<b>Nicht ganz.</b>Richtig: <code>${E(sol)}</code><br>${E(s.e||'')}<br><small style="color:var(--muted)">Die Aufgabe kommt am Ende nochmal.</small>`,'Verstanden',false); }
+    else { LS.solved++; foot('bad',`<b>Nicht ganz.</b>Richtig: <code>${E(sol)}</code><br>${E(s.e||'')}<br><small style="color:var(--muted)">Merk dir die Lösung – sie kommt beim Wiederholen der Lektion wieder.</small>`,'Verstanden',false); }
+    bar();
+  }
+  $('#plGo').onclick=()=>{
+    if(!LS) return;
+    if(LS.state==='done'){ close(); return; }
+    const s=LS.queue[LS.pos].s;
+    if(s.t==='info'){ LS.solved++; LS.pos++; return step(); }
+    if(LS.state==='ask') return check();
+    LS.pos++; step();
+  };
+  function finish(){
+    LS.state='done'; LS.solved=LS.total; bar();
+    const asks=LS.l.S.filter(s=>s.t!=='info').length, acc=asks?Math.round(LS.correct/asks*100):100;
+    const first=!P.done[LS.l.id]; const gain=LS.xp+XP_LESSON;
+    addXp(gain);
+    P.done[LS.l.id]={acc:Math.max(acc,(P.done[LS.l.id]||{}).acc||0),date:today()}; saveP();
+    const idx=ALL.indexOf(LS.l), nxt=ALL[idx+1];
+    $('#plIn').innerHTML=`<div class="pl-done"><div class="big">${acc===100?'🏆':'🎉'}</div><h2>Lektion geschafft!</h2><p>${E(LS.l.h)} · ${E(LS.l.u.h)}</p>
+      <div class="row"><div class="pf-stat"><span class="ic">⭐</span>+${gain} XP<small>verdient</small></div><div class="pf-stat"><span class="ic">🎯</span>${acc} %<small>beim ersten Versuch richtig</small></div><div class="pf-stat"><span class="ic">🔥</span>${streakNow()}<small>${streakNow()===1?'Tag':'Tage'} Serie</small></div></div>
+      ${dayXp()>=GOAL&&dayXp()-gain<GOAL?'<p>✅ <b>Tagesziel erreicht!</b></p>':''}${!first?'<p style="color:var(--muted)">Wiederholung – stark, dass du übst!</p>':''}</div>`;
+    foot('ok',nxt?`Als Nächstes: <b style="display:inline;font-size:15px">${E(nxt.h)}</b>`:'<b>Alle Lektionen abgeschlossen!</b>', 'Fertig',false);
+  }
+
+  /* ---------- in „Lernen“ einhängen ---------- */
+  const tabs=document.querySelector('.ln-tabs'), first=tabs&&tabs.querySelector('[data-lt]');
+  if(tabs){
+    const b=document.createElement('button'); b.dataset.lt='pfad'; b.textContent='🎯 Lernpfad';
+    tabs.insertBefore(b,tabs.firstChild);
+    const pane=document.createElement('div'); pane.className='ln-pane'; pane.id='ln-pfad'; pane.innerHTML='<div id="pfHost"></div>';
+    const v=document.getElementById('view-lernen'); v.insertBefore(pane,v.querySelector('.ln-pane'));
+    // Karteikarten-Tab umbenennen
+    const k=tabs.querySelector('[data-lt="karten"]'); if(k) k.textContent='🃏 Karteikarten';
+    // Lernpfad als Standard
+    tabs.querySelectorAll('[data-lt]').forEach(x=>x.classList.toggle('on',x===b));
+    v.querySelectorAll('.ln-pane').forEach(p=>p.classList.toggle('on',p===pane));
+    b.onclick=()=>{ tabs.querySelectorAll('[data-lt]').forEach(x=>x.classList.toggle('on',x===b)); v.querySelectorAll('.ln-pane').forEach(p=>p.classList.toggle('on',p===pane)); renderPath(); };
+  }
+  renderPath();
+})();
+</script>
 <!-- ===== App-Update (µC-Trainer als iPad-App) ===== -->
 <style>
 #upd{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translate(-50%,150%);z-index:9999;
@@ -4229,7 +4571,7 @@ b.bad{color:var(--red)}b.good{color:var(--green)}
 </div>
 <script>
 (function(){
-  var APP_VERSION = '1.2.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+  var APP_VERSION = '1.3.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register('sw.js').catch(function(){});
   var box = document.getElementById('upd');
