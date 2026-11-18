@@ -312,13 +312,14 @@ h3{margin:18px 0 8px;font-size:16px}
       <button data-v="quiz">Quiz</button>
       <button data-v="struktogramm">Struktogramm</button>
       <button data-v="lernen">Lernen</button>
+      <button data-v="werkzeuge">Werkzeuge</button>
       <button data-v="referenz">Referenz</button>
     </nav>
     <button class="btn bk" id="bkBtn">💾 Sichern</button>
   </div>
   <div class="bkpanel" id="bkPanel" hidden>
     <div class="hwrap2">
-      <div><b>Gesamten Stand als Datei sichern</b><br><span>Fortschritt, dein Code zu allen Aufgaben und das Labor – z. B. in „Dateien“ auf dem iPad oder in „Dokumente“ am PC. Später hier wieder laden.</span></div>
+      <div><b>Gesamten Stand als Datei sichern</b><br><span>Fortschritt, Aufgaben-Code, Labor, Lernpfad, Karteikarten und Struktogramme – z. B. in „Dateien“ auf dem iPad oder in „Dokumente“ am PC. Später hier wieder laden.</span></div>
       <div class="bkbtns"><button class="btn primary" id="bkSave">⬇ Sicherung speichern</button><button class="btn" id="bkLoad">⬆ Sicherung laden</button></div>
     </div>
   </div>
@@ -450,6 +451,7 @@ h3{margin:18px 0 8px;font-size:16px}
         <button class="btn mini" id="sgUndo">↶ Rückgängig</button>
         <button class="btn mini" id="sgPng">🖼 Als Bild</button>
         <button class="btn mini" id="sgCode">⌨ Arduino-Code</button>
+        <button class="btn mini primary" id="sgLab">▶ Ins Labor</button>
         <button class="btn mini" id="sgExample">📘 Beispiel laden</button>
       </div>
       <div class="sg-out" id="sgOut" hidden></div>
@@ -497,6 +499,7 @@ h3{margin:18px 0 8px;font-size:16px}
     </div>
   </section>
 
+  <section class="view" id="view-werkzeuge"></section>
   <section class="view" id="view-referenz">
     <div class="ref" id="ref"></div>
   </section>
@@ -3634,7 +3637,8 @@ $('#labName').value=lab.name||'Mein Projekt';
 // Gesamtsicherung
 $('#bkBtn').onclick=()=>{ const p=$('#bkPanel'); p.hidden=!p.hidden; };
 $('#bkSave').onclick=()=>{ saveLab(); const d=new Date(); const stamp=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  saveFile('uC-Trainer-Sicherung-'+stamp+'.json',JSON.stringify({app:'uC-Trainer',kind:'backup',v:1,data:DATA})); };
+  const extra={}; ['uct-sg-v1','uct-learn-v1','uct-learn-v1-ui','uct-path-v1','uct-plc-v1'].forEach(k=>{ try{ const v=localStorage.getItem(k); if(v!=null) extra[k]=v; }catch(e){} });
+  saveFile('uC-Trainer-Sicherung-'+stamp+'.json',JSON.stringify({app:'uC-Trainer',kind:'backup',v:2,data:DATA,extra})); };
 $('#bkLoad').onclick=async()=>{
   const f=await pickFile('.json,application/json'); if(!f) return;
   let p=null; try{ p=JSON.parse(f.text); }catch(e){}
@@ -3642,13 +3646,15 @@ $('#bkLoad').onclick=async()=>{
   if(!(p && p.app==='uC-Trainer' && p.kind==='backup' && p.data)){ toast('Das ist keine µC-Trainer-Sicherung.'); return; }
   const d=p.data; DATA.solved=d.solved||{}; DATA.code=d.code||{}; DATA.cur=d.cur||0; if(d.lab) DATA.lab=d.lab; store.save(DATA);
   const L=loadLab(); if(L){ labStop(); L.sound=lab.sound; lab=L; Lab.runs={}; switchDev(lab.cur); $('#labName').value=lab.name||'Mein Projekt'; }
-  openEx(Math.min(DATA.cur||0,EXERCISES.length-1)); $('#bkPanel').hidden=true; toast('Sicherung geladen: Fortschritt, Aufgaben-Code und Labor wiederhergestellt.');
+  openEx(Math.min(DATA.cur||0,EXERCISES.length-1)); $('#bkPanel').hidden=true;
+  if(p.extra){ Object.entries(p.extra).forEach(([k,v])=>{ if(/^uct-/.test(k)) try{ localStorage.setItem(k,v); }catch(e){} }); toast('Sicherung geladen – App wird neu gestartet …'); setTimeout(()=>location.reload(),1200); return; }
+  toast('Sicherung geladen: Fortschritt, Aufgaben-Code und Labor wiederhergestellt.');
 };
 
 /* ---------- nav ---------- */
 function showView(v){
   if(v==='sandbox') v='labor';
-  if(!['aufgaben','labor','quiz','struktogramm','lernen','referenz'].includes(v)) v='aufgaben';
+  if(!['aufgaben','labor','quiz','struktogramm','lernen','werkzeuge','referenz'].includes(v)) v='aufgaben';
   if(v==='labor') setTimeout(scheduleWires,30);
   document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id==='view-'+v));
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
@@ -3928,6 +3934,7 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
     showOut('<pre>'+esc(code)+'</pre><button class="btn mini" id="sgCopy">📋 Kopieren</button>');
     $('#sgCopy').onclick=()=>{ (navigator.clipboard?navigator.clipboard.writeText(code):Promise.reject()).then(()=>{ $('#sgCopy').textContent='✓ Kopiert'; }).catch(()=>{ const r=document.createRange(); r.selectNodeContents($('#sgOut pre')); const s=getSelection(); s.removeAllRanges(); s.addRange(r); }); };
   };
+  $('#sgLab').onclick=()=>{ if(window.uctCodeToLab) window.uctCodeToLab(arduinoCode(), doc().title); };
   $('#sgPng').onclick=()=>{
     const svg=svgFor(true), img=new Image(), scale=2;
     img.onload=()=>{
@@ -4232,6 +4239,12 @@ b.bad{color:var(--red)}b.good{color:var(--green)}
 .pf-node.lock{cursor:default;opacity:.5}
 .pf-node .t{font-weight:600}.pf-node .m{font-size:12.5px;color:var(--muted)}
 @keyframes pfPulse{0%,100%{box-shadow:0 4px 0 #8a5d08,0 0 0 0 rgba(255,176,32,.5)}50%{box-shadow:0 4px 0 #8a5d08,0 0 0 10px rgba(255,176,32,0)}}
+button.pf-stat{font:inherit;color:inherit;cursor:pointer;text-align:left}
+.pf-rev{border-color:#ffb020 !important}
+.ex-units{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px}
+.ex-units label{display:flex;gap:8px;align-items:center;background:var(--panel2);border:1px solid var(--line2);border-radius:8px;padding:8px 10px;font-size:14px}
+.pl-in h3{margin:18px 0 6px}
+.pl-in .ln-g code{font-family:var(--mono);font-size:13px}
 /* Lektion (Vollbild) */
 #pfLesson{position:fixed;inset:0;z-index:9000;background:var(--bg);display:none;flex-direction:column}
 #pfLesson.on{display:flex}
@@ -4408,13 +4421,36 @@ b.bad{color:var(--red)}b.good{color:var(--green)}
     ]}
    ]}
   ];
-  const ALL=[]; U.forEach(u=>u.L.forEach(l=>{ l.u=u; ALL.push(l); }));
+  U.push({id:'u7',ic:'🕵️',h:'Fehler-Detektiv',s:'Finde die Bugs – wie bei der Fehlersuche im echten Projekt',L:[
+    {id:'u7l1',h:'Syntaxfehler',S:[
+      {t:'info',h:'Der Compiler meckert',p:'Syntaxfehler findet der Compiler beim Hochladen. Die Fehlermeldung nennt oft die Zeile danach – schau also auch eine Zeile weiter oben.',c:"error: expected ';' before '}' token"},
+      {t:'mc',q:'Wo ist der Fehler?',c:'void setup() {\n  pinMode(13, OUTPUT)\n}',o:['Semikolon fehlt nach pinMode(…)','OUTPUT muss klein geschrieben sein','setup braucht einen Parameter','Die Klammer } ist falsch'],a:0,e:'Jede Anweisung endet mit ;'},
+      {t:'mc',q:'Der Code kompiliert nicht. Warum?',c:'digitalwrite(13, HIGH);',o:['Groß-/Kleinschreibung: richtig ist digitalWrite','HIGH muss in Anführungszeichen','13 ist kein gültiger Pin','Es fehlt delay()'],a:0,e:'C++ unterscheidet Groß- und Kleinschreibung.'},
+      {t:'mc',q:'Was ist hier falsch?',c:'if (wert > 100) {\n  digitalWrite(LED, HIGH);\n\nvoid loop() {',o:['Die schließende Klammer } des if fehlt','wert muss in Klammern','> ist kein Operator','loop() darf nicht nach if stehen'],a:0,e:'Zu jeder { gehört eine }. Einrückung hilft beim Finden.'},
+      {t:'fill',q:'Korrigiere den Vergleich.',c:'if (zustand ___ HIGH) {',o:['==','=','=>','==='],a:'==',e:'= wäre eine Zuweisung – die Bedingung wäre dann immer wahr.'}
+    ]},
+    {id:'u7l2',h:'Logikfehler',S:[
+      {t:'info',h:'Kompiliert – macht aber Unsinn',p:'Logikfehler sind gemeiner: Der Code läuft, tut aber nicht, was er soll. Hilfreich: Werte mit Serial.println() ausgeben und Schritt für Schritt prüfen.'},
+      {t:'mc',q:'Die LED leuchtet immer – außer wenn der Taster gedrückt wird. Warum?',c:'pinMode(TASTER, INPUT_PULLUP);\nif (digitalRead(TASTER) == HIGH) {\n  digitalWrite(LED, HIGH);\n}',o:['Mit INPUT_PULLUP ist gedrückt = LOW – die Abfrage ist invertiert','pinMode fehlt für die LED','HIGH muss true heißen','Der Taster prellt'],a:0,e:'Mit Pull-up muss auf LOW geprüft werden.'},
+      {t:'mc',q:'Der Taster reagiert nur manchmal. Woran liegt es?',c:'void loop() {\n  if (digitalRead(TASTER) == LOW) zaehler++;\n  digitalWrite(LED, HIGH);\n  delay(2000);\n  digitalWrite(LED, LOW);\n  delay(2000);\n}',o:['delay() blockiert 4 s – der Taster wird nur selten abgefragt','zaehler++ ist falsch','LOW muss HIGH sein','Es fehlt Serial.begin'],a:0,e:'Lösung: Blinken mit millis() statt delay().'},
+      {t:'mc',q:'Nach ca. 33 Sekunden spielt die Zeitsteuerung auf dem Uno verrückt. Warum?',c:'int letzte = 0;\nif (millis() - letzte > 1000) {\n  letzte = millis();\n}',o:['int läuft über – für millis() unsigned long verwenden','1000 ist zu groß','millis() geht nach 33 s kaputt','Es fehlt ein delay'],a:0,e:'int reicht auf dem Uno nur bis 32 767.'},
+      {t:'mc',q:'Das Programm stürzt ab oder liefert Unsinn. Was ist falsch?',c:'int werte[5];\nfor (int i = 0; i <= 5; i++) {\n  werte[i] = 0;\n}',o:['i <= 5 greift auf werte[5] zu – der höchste Index ist 4','Arrays brauchen new','int werte[5] ist zu klein für 0','i++ muss ++i sein'],a:0,e:'Richtig: i < 5. Zugriffe außerhalb des Arrays überschreiben fremden Speicher.'}
+    ]},
+    {id:'u7l3',h:'Hardware im Code',S:[
+      {t:'info',h:'Code und Schaltung müssen zusammenpassen',p:'Viele „Programmfehler“ sind eigentlich Verdrahtungs- oder Konfigurationsfehler: falscher Pin, fehlendes pinMode, falsche Baudrate oder ein Pin, der die Funktion gar nicht kann.'},
+      {t:'mc',q:'Die LED leuchtet nur ganz schwach. Was fehlt?',c:'void setup() { }\n\nvoid loop() {\n  digitalWrite(13, HIGH);\n}',o:['pinMode(13, OUTPUT) in setup()','Ein delay()','Serial.begin()','analogWrite statt digitalWrite'],a:0,e:'Ohne pinMode schaltet digitalWrite nur den internen Pull-up – das reicht kaum für eine LED.'},
+      {t:'mc',q:'Uno: Die LED an Pin 7 lässt sich nicht dimmen, sie ist nur an oder aus. Warum?',c:'analogWrite(7, 128);',o:['Pin 7 ist kein PWM-Pin (PWM: 3, 5, 6, 9, 10, 11)','128 ist zu klein','analogWrite braucht pinMode INPUT','Die LED ist defekt'],a:0,e:'Nur die mit ~ markierten Pins können PWM.'},
+      {t:'mc',q:'Im seriellen Monitor erscheinen nur seltsame Zeichen. Ursache?',c:'Serial.begin(115200);\n// Monitor steht auf 9600 Baud',o:['Baudrate im Monitor passt nicht zum Sketch','Serial.println ist falsch geschrieben','Der USB-Treiber fehlt','Text muss in einfache Anführungszeichen'],a:0,e:'Beide Seiten müssen dieselbe Baudrate verwenden.'},
+      {t:'mc',q:'ESP32: Die LED an GPIO 35 bleibt aus. Warum?',c:'pinMode(35, OUTPUT);\ndigitalWrite(35, HIGH);',o:['GPIO 34–39 sind nur Eingänge','35 ist ein PWM-Pin','Der ESP32 braucht 5 V','HIGH ist beim ESP32 LOW'],a:0,e:'Einen anderen GPIO nehmen, z. B. 25 oder 26.'}
+    ]}
+  ]});
+  const ALL=[]; U.forEach(u=>u.L.forEach(l=>{ l.u=u; ALL.push(l); l.S.forEach((st,i)=>{ st._key=l.id+':'+i; st._u=u; }); }));
   const XP_STEP=10, XP_LESSON=10, GOAL=50;
 
   /* ---------- Fortschritt ---------- */
   const KEY='uct-path-v1';
   let P; try{ P=JSON.parse(localStorage.getItem(KEY))||{}; }catch(e){ P={}; }
-  P.done=P.done||{}; P.xp=P.xp||0; P.streak=P.streak||{last:null,days:0}; P.day=P.day||{date:null,xp:0};
+  P.done=P.done||{}; P.wrong=P.wrong||{}; P.exams=P.exams||[]; P.xp=P.xp||0; P.streak=P.streak||{last:null,days:0}; P.day=P.day||{date:null,xp:0};
   const saveP=()=>{ try{ localStorage.setItem(KEY,JSON.stringify(P)); }catch(e){} };
   const today=()=>{ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
   const dayDiff=(a,b)=>Math.round((new Date(b)-new Date(a))/864e5);
@@ -4439,6 +4475,7 @@ b.bad{color:var(--red)}b.good{color:var(--green)}
       <div class="pf-stat"><span class="ic">🔥</span><div>${streakNow()} ${streakNow()===1?'Tag':'Tage'}<small>Serie</small></div></div>
       <div class="pf-stat">${ring(dayXp()/GOAL)}<div>${dayXp()} / ${GOAL} XP<small>Tagesziel</small></div></div>
       <div class="pf-stat"><span class="ic">⭐</span><div>${P.xp} XP<small>gesamt</small></div></div>
+      ${wrongList().length?`<button class="pf-stat pf-rev" id="pfRev"><span class="ic">🔁</span><div>Wiederholen<small>${wrongList().length} offene Fehler</small></div></button>`:''}
     </div>`;
     U.forEach(u=>{
       const d=u.L.filter(isDone).length;
@@ -4453,6 +4490,7 @@ b.bad{color:var(--red)}b.good{color:var(--green)}
     });
     host.innerHTML=h;
     host.querySelectorAll('.pf-node:not(.lock)').forEach(b=>b.onclick=()=>start(ALL.find(l=>l.id===b.dataset.l)));
+    const rv=$('#pfRev'); if(rv) rv.onclick=startReview;
   }
 
   /* ---------- Lektion ---------- */
@@ -4461,14 +4499,15 @@ b.bad{color:var(--red)}b.good{color:var(--green)}
     LS={l,queue:l.S.map((s,i)=>({s,i})),pos:0,solved:0,total:l.S.length,correct:0,answered:0,xp:0,state:'ask'};
     $('#pfLesson').classList.add('on'); document.body.style.overflow='hidden'; step();
   }
-  function close(){ $('#pfLesson').classList.remove('on'); document.body.style.overflow=''; LS=null; renderPath(); }
-  $('#plX').onclick=()=>{ if(!LS||LS.state==='done'||confirm('Lektion beenden? Der Fortschritt dieser Lektion geht verloren.')) close(); };
-  function bar(){ $('#plBar').style.width=(LS.solved/LS.total*100)+'%'; $('#plXp').textContent='+'+LS.xp+' XP'; }
+  function close(){ if(LS&&LS.timer) clearInterval(LS.timer); $('#pfLesson').classList.remove('on'); document.body.style.overflow=''; LS=null; renderPath(); renderExamSetup(); }
+  $('#plX').onclick=()=>{ if(!LS||LS.state==='done'||confirm(LS.mode==='exam'?'Prüfung abbrechen? Sie wird nicht gewertet.':'Lektion beenden? Der Fortschritt dieser Lektion geht verloren.')) close(); };
+  function bar(){ $('#plBar').style.width=(LS.solved/LS.total*100)+'%'; if(LS.mode==='exam'){ const r=Math.max(0,Math.ceil((LS.end-Date.now())/1000)); $('#plXp').textContent='⏱ '+Math.floor(r/60)+':'+String(r%60).padStart(2,'0'); } else $('#plXp').textContent='+'+LS.xp+' XP'; }
   function foot(state,msg,btn,dis){ const f=$('#plFoot'); f.className='pl-foot'+(state?' '+state:''); $('#plMsg').innerHTML=msg||''; const g=$('#plGo'); g.textContent=btn; g.disabled=!!dis; }
   function step(){
     bar();
     if(LS.pos>=LS.queue.length) return finish();
     const {s}=LS.queue[LS.pos]; LS.state='ask'; LS.pick=null; LS.order=[];
+    if(LS.mode==='exam') setTimeout(()=>{ const k=document.querySelector('.pl-kind'); if(k) k.textContent='Frage '+(LS.pos+1)+' von '+LS.total+' · '+s._u.h; },0);
     const In=$('#plIn'); In.scrollTop=0; $('.pl-body').scrollTop=0;
     if(s.t==='info'){
       In.innerHTML=`<div class="pl-kind">💡 Neu</div><h2>${E(s.h)}</h2><p>${E(s.p)}</p>${s.c?`<pre>${HL(s.c)}</pre>`:''}`;
@@ -4501,6 +4540,9 @@ b.bad{color:var(--red)}b.good{color:var(--green)}
     }
     foot('','', 'Prüfen',true);
   }
+  const STEP=k=>{ for(const l of ALL) for(const st of l.S) if(st._key===k) return st; return null; };
+  function markWrong(s){ if(!s._key) return; const w=P.wrong[s._key]||{n:0}; w.n++; w.d=today(); P.wrong[s._key]=w; saveP(); }
+  function markRight(s){ if(s._key&&P.wrong[s._key]){ delete P.wrong[s._key]; saveP(); } }
   function check(){
     const q=LS.queue[LS.pos], s=q.s; let ok=false, sol='';
     if(s.t==='mc'){ ok=LS.pick===s.a; sol=s.o[s.a];
@@ -4508,9 +4550,11 @@ b.bad{color:var(--red)}b.good{color:var(--green)}
     if(s.t==='fill'){ ok=LS.pick===s.a; sol=s.a; }
     if(s.t==='order'){ ok=LS.order.every((k,j)=>LS.items[k].l.trim()===s.l[j].trim()); sol=s.l.map(x=>x.trim()).join('  ⏎  '); }
     LS.answered++; LS.state='checked';
+    if(ok&&!q.retry) markRight(s); if(!ok) markWrong(s);
+    if(LS.mode==='exam'){ LS.res.push({s,ok}); if(ok) LS.correct++; LS.solved++; LS.pos++; return step(); }
     if(ok){ if(!q.retry) LS.correct++; LS.xp+=XP_STEP; LS.solved++; foot('ok',`<b>${['Richtig!','Super!','Genau!','Stark!'][Math.floor(Math.random()*4)]}</b>${E(s.e||'')}`,'Weiter',false); }
-    else if(!q.retry){ LS.queue.push({s,i:q.i,retry:true}); foot('bad',`<b>Nicht ganz.</b>Richtig: <code>${E(sol)}</code><br>${E(s.e||'')}<br><small style="color:var(--muted)">Die Aufgabe kommt am Ende nochmal.</small>`,'Verstanden',false); }
-    else { LS.solved++; foot('bad',`<b>Nicht ganz.</b>Richtig: <code>${E(sol)}</code><br>${E(s.e||'')}<br><small style="color:var(--muted)">Merk dir die Lösung – sie kommt beim Wiederholen der Lektion wieder.</small>`,'Verstanden',false); }
+    else if(!q.retry && LS.mode!=='review'){ LS.queue.push({s,i:q.i,retry:true}); foot('bad',`<b>Nicht ganz.</b>Richtig: <code>${E(sol)}</code><br>${E(s.e||'')}<br><small style="color:var(--muted)">Die Aufgabe kommt am Ende nochmal.</small>`,'Verstanden',false); }
+    else { LS.solved++; foot('bad',`<b>Nicht ganz.</b>Richtig: <code>${E(sol)}</code><br>${E(s.e||'')}<br><small style="color:var(--muted)">Kommt bei „Wiederholen“ wieder.</small>`,'Verstanden',false); }
     bar();
   }
   $('#plGo').onclick=()=>{
@@ -4522,6 +4566,8 @@ b.bad{color:var(--red)}b.good{color:var(--green)}
     LS.pos++; step();
   };
   function finish(){
+    if(LS.mode==='exam') return finishExam();
+    if(LS.mode==='review') return finishReview();
     LS.state='done'; LS.solved=LS.total; bar();
     const asks=LS.l.S.filter(s=>s.t!=='info').length, acc=asks?Math.round(LS.correct/asks*100):100;
     const first=!P.done[LS.l.id]; const gain=LS.xp+XP_LESSON;
@@ -4532,6 +4578,54 @@ b.bad{color:var(--red)}b.good{color:var(--green)}
       <div class="row"><div class="pf-stat"><span class="ic">⭐</span>+${gain} XP<small>verdient</small></div><div class="pf-stat"><span class="ic">🎯</span>${acc} %<small>beim ersten Versuch richtig</small></div><div class="pf-stat"><span class="ic">🔥</span>${streakNow()}<small>${streakNow()===1?'Tag':'Tage'} Serie</small></div></div>
       ${dayXp()>=GOAL&&dayXp()-gain<GOAL?'<p>✅ <b>Tagesziel erreicht!</b></p>':''}${!first?'<p style="color:var(--muted)">Wiederholung – stark, dass du übst!</p>':''}</div>`;
     foot('ok',nxt?`Als Nächstes: <b style="display:inline;font-size:15px">${E(nxt.h)}</b>`:'<b>Alle Lektionen abgeschlossen!</b>', 'Fertig',false);
+  }
+
+  /* ---------- Wiederholung ---------- */
+  function wrongList(){ return Object.entries(P.wrong).map(([k,w])=>({s:STEP(k),w})).filter(x=>x.s).sort((a,b)=>b.w.n-a.w.n||String(a.w.d).localeCompare(String(b.w.d))); }
+  function startReview(){
+    const list=wrongList().slice(0,8).map(x=>x.s); if(!list.length) return;
+    LS={l:{id:'review',h:'Wiederholung',u:{h:'Deine Fehler von früher'},S:list},queue:list.map((s,i)=>({s,i})),pos:0,solved:0,total:list.length,correct:0,answered:0,xp:0,state:'ask',mode:'review'};
+    $('#pfLesson').classList.add('on'); document.body.style.overflow='hidden'; step();
+  }
+  function finishReview(){
+    LS.state='done'; LS.solved=LS.total; bar(); addXp(LS.xp);
+    const left=wrongList().length;
+    $('#plIn').innerHTML=`<div class="pl-done"><div class="big">🔁</div><h2>Wiederholung geschafft!</h2><p>${LS.correct} von ${LS.total} jetzt richtig.</p><div class="row"><div class="pf-stat"><span class="ic">⭐</span>+${LS.xp} XP<small>verdient</small></div><div class="pf-stat"><span class="ic">📌</span>${left}<small>noch offen</small></div></div></div>`;
+    foot('ok',left?'Offene Aufgaben kommen bei der nächsten Wiederholung.':'<b>Alles aufgeholt!</b>','Fertig',false);
+  }
+  /* ---------- Prüfung ---------- */
+  const GRADE=p=>p>=92?[1,'sehr gut']:p>=81?[2,'gut']:p>=67?[3,'befriedigend']:p>=50?[4,'ausreichend']:p>=30?[5,'mangelhaft']:[6,'ungenügend'];
+  function renderExamSetup(){
+    const host=$('#exHost'); if(!host) return;
+    const last=P.exams.slice(-5).reverse();
+    host.innerHTML=`<div class="card ex-card"><h2>📝 Prüfungsmodus</h2><p class="ln-meta" style="margin:0 0 12px">Zufällige Aufgaben aus den gewählten Kapiteln, mit Zeitlimit und ohne Zwischen-Feedback. Am Ende gibt es Punkte, Note (IHK-Notenschlüssel) und eine Auswertung pro Thema.</p>
+      <div class="ex-units">${U.map(u=>`<label><input type="checkbox" value="${u.id}" checked> ${u.ic} ${E(u.h)}</label>`).join('')}</div>
+      <div class="ln-row" style="margin-top:12px"><label>Anzahl Aufgaben <select id="exN"><option>10</option><option selected>20</option><option>30</option></select></label>
+      <label>Zeit pro Aufgabe <select id="exT"><option value="45">45 s</option><option value="60" selected>60 s</option><option value="90">90 s</option></select></label></div>
+      <button class="pl-go" id="exGo" style="margin-top:14px">Prüfung starten</button></div>
+      ${last.length?`<div class="card" style="margin-top:12px"><h3 style="margin-top:0">Letzte Prüfungen</h3>${last.map(x=>`<div class="ln-g"><b>Note ${x.g}</b> · ${x.p} % <span class="c">${E(x.d)} · ${x.n} Aufgaben</span></div>`).join('')}</div>`:''}`;
+    $('#exGo').onclick=()=>{
+      const ids=[...host.querySelectorAll('.ex-units input:checked')].map(i=>i.value); if(!ids.length){ alert('Bitte mindestens ein Kapitel wählen.'); return; }
+      const pool=[]; U.filter(u=>ids.includes(u.id)).forEach(u=>u.L.forEach(l=>l.S.forEach(st=>{ if(st.t!=='info') pool.push(st); })));
+      const n=Math.min(+$('#exN').value,pool.length), list=shuffle(pool).slice(0,n), secs=n*(+$('#exT').value);
+      LS={l:{id:'exam',h:'Prüfung',u:{h:''},S:list},queue:list.map((s,i)=>({s,i})),pos:0,solved:0,total:n,correct:0,answered:0,xp:0,state:'ask',mode:'exam',res:[],end:Date.now()+secs*1000};
+      LS.timer=setInterval(()=>{ if(!LS||LS.mode!=='exam'||LS.state==='done') return; bar(); if(Date.now()>=LS.end){ finishExam(true); } },500);
+      $('#pfLesson').classList.add('on'); document.body.style.overflow='hidden'; step();
+    };
+  }
+  function finishExam(timeout){
+    if(LS.state==='done') return; clearInterval(LS.timer); LS.state='done';
+    const n=LS.total, ok=LS.res.filter(r=>r.ok).length, p=Math.round(ok/n*100), [g,gt]=GRADE(p);
+    LS.queue.slice(LS.res.length).forEach(q=>LS.res.push({s:q.s,ok:false,skip:true}));
+    const by={}; LS.res.forEach(r=>{ const u=r.s._u.h; by[u]=by[u]||{ok:0,n:0}; by[u].n++; if(r.ok) by[u].ok++; });
+    P.exams.push({d:today(),p,g,n}); if(P.exams.length>30) P.exams.shift(); addXp(ok*5);
+    const wrong=LS.res.filter(r=>!r.ok);
+    const sol=s=>s.t==='mc'?s.o[s.a]:s.t==='fill'?s.a:s.l.map(x=>x.trim()).join(' ⏎ ');
+    $('#plIn').innerHTML=`<div class="pl-done"><div class="big">${g<=2?'🏆':g<=4?'📄':'📚'}</div><h2>${timeout?'Zeit abgelaufen – ':''}Note ${g} (${gt})</h2><p>${ok} von ${n} Aufgaben richtig · ${p} %</p>
+      <div class="row">${Object.entries(by).map(([u,v])=>`<div class="pf-stat"><span class="ic">${Math.round(v.ok/v.n*100)} %</span>${E(u)}<small>${v.ok} / ${v.n}</small></div>`).join('')}</div></div>
+      ${wrong.length?`<h3>Das solltest du nochmal anschauen</h3>${wrong.map(r=>`<div class="ln-g"><b>${E(r.s.q||r.s.h||'')}</b>${r.skip?'<span class="c">nicht bearbeitet</span>':''}<p>Richtig: <code>${E(sol(r.s))}</code> – ${E(r.s.e||'')}</p></div>`).join('')}<p class="ln-meta">Falsche Aufgaben landen automatisch in „Wiederholen“.</p>`:''}`;
+    $('.pl-body').scrollTop=0; bar(); $('#plXp').textContent='';
+    foot(g<=4?'ok':'bad',`<b>${p} %</b>${g<=4?'Bestanden':'Nicht bestanden'} – +${ok*5} XP`,'Fertig',false);
   }
 
   /* ---------- in „Lernen“ einhängen ---------- */
@@ -4547,8 +4641,340 @@ b.bad{color:var(--red)}b.good{color:var(--green)}
     tabs.querySelectorAll('[data-lt]').forEach(x=>x.classList.toggle('on',x===b));
     v.querySelectorAll('.ln-pane').forEach(p=>p.classList.toggle('on',p===pane));
     b.onclick=()=>{ tabs.querySelectorAll('[data-lt]').forEach(x=>x.classList.toggle('on',x===b)); v.querySelectorAll('.ln-pane').forEach(p=>p.classList.toggle('on',p===pane)); renderPath(); };
+    const eb=document.createElement('button'); eb.dataset.lt='pruefung'; eb.textContent='📝 Prüfung';
+    tabs.insertBefore(eb,b.nextSibling);
+    const ep=document.createElement('div'); ep.className='ln-pane'; ep.id='ln-pruefung'; ep.innerHTML='<div id="exHost"></div>';
+    v.insertBefore(ep,pane.nextSibling);
+    eb.onclick=()=>{ tabs.querySelectorAll('[data-lt]').forEach(x=>x.classList.toggle('on',x===eb)); v.querySelectorAll('.ln-pane').forEach(p=>p.classList.toggle('on',p===ep)); renderExamSetup(); };
   }
+  renderExamSetup();
   renderPath();
+})();
+</script>
+<!-- ===== Werkzeuge: Elektro-Rechner & Projekt-Ideen ===== -->
+<style>
+.wz-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px}
+@media (max-width:600px){.wz-grid{grid-template-columns:1fr}}
+.wz-card h3{margin:0 0 4px;font-size:16px}
+.wz-card .d{color:var(--muted);font-size:13px;margin:0 0 10px}
+.wz-in{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.wz-in label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+.wz-in .u{display:flex;align-items:center;gap:6px}
+.wz-in input,.wz-in select{width:100%;min-width:0;background:var(--panel2);color:var(--text);border:1px solid var(--line2);border-radius:8px;padding:8px 10px;font-size:15px;font-family:var(--mono)}
+.wz-in .u span{font-family:var(--mono);color:var(--muted);font-size:13px;min-width:22px}
+.wz-out{margin-top:10px;background:#0a0f13;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-family:var(--mono);font-size:13.5px;line-height:1.7}
+.wz-out .r{color:var(--teal);font-weight:600;font-size:15px}
+.wz-out .w{color:var(--amber)}
+.wz-out .m{color:var(--muted)}
+.pj-card h3{margin:0;font-size:17px}
+.pj-meta{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 8px}
+.pj-card p{margin:0 0 8px;font-size:14px}
+.pj-card ul{margin:0 0 8px;padding-left:18px;font-size:13.5px}
+.pj-card details{margin:6px 0}
+.pj-card summary{cursor:pointer;color:var(--teal);font-size:13.5px}
+.pj-card pre{background:#0a0f13;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-family:var(--mono);font-size:12.5px;overflow:auto;max-height:340px}
+.pj-act{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+</style>
+<script>
+(function(){
+  const $=s=>document.querySelector(s);
+  const E=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const HL=c=>(typeof hl==='function'?hl(c):E(c));
+  const num=v=>{ const x=parseFloat(String(v).replace(',','.')); return isFinite(x)?x:NaN; };
+  const PRE=[[1e9,'G'],[1e6,'M'],[1e3,'k'],[1,''],[1e-3,'m'],[1e-6,'µ']];
+  function si(v,u,d=3){ if(!isFinite(v)) return '–'; if(v===0) return '0 '+u; const a=Math.abs(v); for(const [f,p] of PRE){ if(a>=f*0.9995) return String(+(v/f).toPrecision(d)).replace('.',',')+' '+p+u; } return String(+(v/1e-6).toPrecision(d)).replace('.',',')+' µ'+u; }
+  const fx=(v,d=3)=>isFinite(v)?String(+v.toPrecision(d)).replace('.',','):'–';
+  const E12=[1.0,1.2,1.5,1.8,2.2,2.7,3.3,3.9,4.7,5.6,6.8,8.2];
+  function e12up(r){ if(!(r>0)) return NaN; const dec=Math.pow(10,Math.floor(Math.log10(r))); for(const k of E12.concat([10])){ const v=+(k*dec).toPrecision(3); if(v>=r*0.999) return v; } return 10*dec; }
+  function e12near(r){ if(!(r>0)) return NaN; const dec=Math.pow(10,Math.floor(Math.log10(r))); let best=NaN,bd=1e99; for(const k of E12.concat([10])){ const v=k*dec; const d=Math.abs(Math.log(v/r)); if(d<bd){bd=d;best=+v.toPrecision(3);} } return best; }
+  const fld=(id,label,unit,val,ph)=>`<label>${label}<span class="u"><input id="${id}" inputmode="decimal" value="${val??''}" placeholder="${ph||''}"><span>${unit}</span></span></label>`;
+
+  /* ---------- Rechner ---------- */
+  const CALC=[
+   {id:'ohm',h:'Ohmsches Gesetz & Leistung',d:'Zwei Werte eingeben, der dritte wird berechnet. U = R · I, P = U · I',
+    f:fld('cU','Spannung U','V','12')+fld('cR','Widerstand R','Ω','')+fld('cI','Strom I','mA','500'),
+    run(){ let U=num($('#cU').value),R=num($('#cR').value),I=num($('#cI').value)/1000; const have=[U,R,I].filter(isFinite).length;
+      if(have<2) return '<span class="m">Bitte zwei der drei Werte eingeben.</span>';
+      let s='';
+      if(!isFinite(R)){ R=U/I; s+=`R = U / I = ${fx(U)} V / ${fx(I)} A<br><span class="r">R = ${si(R,'Ω')}</span>`; }
+      else if(!isFinite(I)){ I=U/R; s+=`I = U / R = ${fx(U)} V / ${fx(R)} Ω<br><span class="r">I = ${si(I,'A')}</span>`; }
+      else if(!isFinite(U)){ U=R*I; s+=`U = R · I = ${fx(R)} Ω · ${fx(I)} A<br><span class="r">U = ${si(U,'V')}</span>`; }
+      else { s+=`<span class="w">Alle drei Werte angegeben – lass einen frei.</span><br>Kontrolle: R · I = ${si(R*I,'V')}`; }
+      const P=U*I; s+=`<br>P = U · I = ${fx(U)} V · ${fx(I)} A<br><span class="r">P = ${si(P,'W')}</span>`;
+      return s; }},
+   {id:'led',h:'LED-Vorwiderstand',d:'R = (U_B − U_F) / I_F, dann nächstgrößerer Normwert (E12)',
+    f:fld('lU','Versorgung U_B','V','5')+`<label>LED-Farbe<span class="u"><select id="lC"><option value="2.0">rot (≈ 2,0 V)</option><option value="2.1">gelb (≈ 2,1 V)</option><option value="2.2">grün (≈ 2,2 V)</option><option value="3.2">blau/weiß (≈ 3,2 V)</option><option value="">eigener Wert</option></select></span></label>`+fld('lF','Flussspannung U_F','V','2.0')+fld('lI','Strom I_F','mA','15'),
+    init(){ $('#lC').onchange=()=>{ if($('#lC').value) $('#lF').value=$('#lC').value; CALCrun('led'); }; },
+    run(){ const U=num($('#lU').value),F=num($('#lF').value),I=num($('#lI').value)/1000;
+      if(![U,F,I].every(isFinite)||I<=0) return '<span class="m">Werte eingeben.</span>';
+      if(U<=F) return '<span class="w">U_B muss größer als U_F sein – sonst leuchtet die LED nicht.</span>';
+      const R=(U-F)/I, Rn=e12up(R), In=(U-F)/Rn, P=In*In*Rn;
+      return `R = (U_B − U_F) / I_F = (${fx(U)} V − ${fx(F)} V) / ${fx(I)} A<br>R = ${si(R,'Ω')}<br><span class="r">Normwert E12: ${si(Rn,'Ω')}</span><br>tatsächlicher Strom: ${si(In,'A')}<br>Verlustleistung im Widerstand: ${si(P,'W')} → ${P<0.2?'¼-W-Widerstand reicht':P<0.4?'½-W-Widerstand nehmen':'<span class="w">Leistungswiderstand nötig!</span>'}${U===3.3||U<3.4&&F>3?'<br><span class="w">Hinweis: Bei 3,3 V und blauer/weißer LED bleibt kaum Spannung für den Widerstand.</span>':''}`; }},
+   {id:'div',h:'Spannungsteiler',d:'U_aus = U_ein · R2 / (R1 + R2) – z. B. 12-V-Batterie an einen Analog-Pin',
+    f:fld('dU','U_ein','V','12')+fld('d1','R1 (oben)','kΩ','30')+fld('d2','R2 (unten)','kΩ','10')+fld('dT','Ziel U_aus (optional)','V',''),
+    run(){ const U=num($('#dU').value),R1=num($('#d1').value)*1e3,R2=num($('#d2').value)*1e3,T=num($('#dT').value);
+      if(![U,R1,R2].every(isFinite)) return '<span class="m">Werte eingeben.</span>';
+      const Ua=U*R2/(R1+R2), I=U/(R1+R2);
+      let s=`U_aus = ${fx(U)} V · ${si(R2,'Ω')} / (${si(R1,'Ω')} + ${si(R2,'Ω')})<br><span class="r">U_aus = ${si(Ua,'V')}</span><br>Querstrom: ${si(I,'A')} · Faktor zurückrechnen: U_ein = U_aus · ${fx((R1+R2)/R2)}`;
+      if(Ua>5) s+='<br><span class="w">Über 5 V – zu viel für den Analog-Pin des Uno!</span>'; else if(Ua>3.3) s+='<br><span class="w">Über 3,3 V – zu viel für den ESP32!</span>';
+      if(isFinite(T)&&T>0&&T<U){ const r2=R1*T/(U-T), n=e12near(r2); s+=`<br><br>Für U_aus = ${fx(T)} V bei R1 = ${si(R1,'Ω')}:<br>R2 = R1 · U_aus / (U_ein − U_aus) = ${si(r2,'Ω')}<br><span class="r">Normwert E12: ${si(n,'Ω')}</span> → U_aus = ${si(U*n/(R1+n),'V')}`; }
+      return s; }},
+   {id:'rr',h:'Reihen- & Parallelschaltung',d:'Widerstandswerte mit Komma oder Leerzeichen trennen (in Ω, „k“ und „M“ erlaubt)',
+    f:`<label style="grid-column:1/-1">Widerstände<span class="u"><input id="rV" value="220 330 1k"><span>Ω</span></span></label>`,
+    run(){ const v=String($('#rV').value).split(/[\s;]+/).map(t=>{ const m=t.replace(',','.').match(/^([\d.]+)\s*([kKmM]?)/); if(!m) return NaN; return parseFloat(m[1])*(m[2]==='k'||m[2]==='K'?1e3:m[2]==='M'?1e6:1); }).filter(x=>x>0);
+      if(!v.length) return '<span class="m">Werte eingeben.</span>';
+      const rs=v.reduce((a,b)=>a+b,0), rp=1/v.reduce((a,b)=>a+1/b,0);
+      return `Reihe: R = ${v.map(x=>si(x,'Ω')).join(' + ')}<br><span class="r">R_reihe = ${si(rs,'Ω')}</span><br>Parallel: 1/R = ${v.map(x=>'1/'+si(x,'Ω')).join(' + ')}<br><span class="r">R_parallel = ${si(rp,'Ω')}</span>${v.length===2?`<br><span class="m">(zwei Widerstände: R1·R2/(R1+R2))</span>`:''}`; }},
+   {id:'adc',h:'ADC umrechnen',d:'Rohwert ↔ Spannung. U = Rohwert · U_ref / (2ⁿ − 1)',
+    f:`<label>Board<span class="u"><select id="aB"><option value="uno">Uno (10 Bit, 5 V)</option><option value="esp">ESP32 (12 Bit, 3,3 V)</option></select></span></label>`+fld('aR','Rohwert','','512')+fld('aV','oder Spannung','V',''),
+    init(){ $('#aV').oninput=()=>{ $('#aR').value=''; CALCrun('adc'); }; $('#aR').oninput=()=>{ $('#aV').value=''; CALCrun('adc'); }; },
+    run(){ const esp=$('#aB').value==='esp', n=esp?12:10, ref=esp?3.3:5, mx=Math.pow(2,n)-1; const r=num($('#aR').value), u=num($('#aV').value);
+      let s=`${n} Bit → ${mx+1} Stufen, Auflösung ${si(ref/mx,'V')} pro Stufe<br>`;
+      if(isFinite(r)) s+=`U = ${fx(r)} · ${fx(ref)} V / ${mx}<br><span class="r">U = ${si(r*ref/mx,'V')}</span>`;
+      else if(isFinite(u)) s+=`Rohwert = ${fx(u)} V · ${mx} / ${fx(ref)} V<br><span class="r">Rohwert ≈ ${Math.round(u*mx/ref)}</span>`;
+      if(esp) s+='<br><span class="m">Hinweis: Der ESP32-ADC ist an den Rändern (nahe 0 V und 3,3 V) ungenau.</span>';
+      return s; }},
+   {id:'bat',h:'Akku-Laufzeit (Camper)',d:'Wie lange hält die Bordbatterie? t = nutzbare Kapazität / Strom',
+    f:fld('bC','Kapazität','Ah','100')+`<label>Akkutyp<span class="u"><select id="bT"><option value="0.5">Blei/AGM (≈ 50 % nutzbar)</option><option value="0.9">LiFePO4 (≈ 90 % nutzbar)</option><option value="1">100 % (theoretisch)</option></select></span></label>`+fld('bI','Verbraucher-Strom','mA','350'),
+    run(){ const C=num($('#bC').value),k=num($('#bT').value),I=num($('#bI').value)/1000; if(![C,k,I].every(isFinite)||I<=0) return '<span class="m">Werte eingeben.</span>';
+      const h=C*k/I; return `nutzbar: ${fx(C)} Ah · ${Math.round(k*100)} % = ${fx(C*k)} Ah<br>t = ${fx(C*k)} Ah / ${fx(I)} A<br><span class="r">t ≈ ${fx(h)} h = ${fx(h/24)} Tage</span><br><span class="m">Richtwert – Temperatur, Alter und Selbstentladung verkürzen die Zeit.</span>`; }}
+  ];
+  window.CALCrun=id=>{ const c=CALC.find(x=>x.id===id); const o=document.getElementById('o-'+id); if(c&&o) o.innerHTML=c.run(); };
+
+  /* ---------- Projekte ---------- */
+  const PJ=[
+   {name:'Camper-Temperaturwächter',lvl:'Einsteiger',board:'uno',
+    p:'Überwacht die Temperatur im Wohnraum. Grün = alles ok, rot + Summer bei Überhitzung (z. B. für Haustiere im Camper).',
+    learn:['TMP36 auslesen und in °C umrechnen','Grenzwerte mit if/else','Ausgabe im seriellen Monitor mit millis()'],
+    more:['Hysterese einbauen, damit der Alarm nicht flattert','Zweite Grenze für „zu kalt“ (Frostschutz)','Mit ESP32: Temperatur als Webseite anzeigen'],
+    comps:[['tmp36',{o:14}],['led',{a:3},{color:'grün'}],['led',{a:4},{color:'rot'}],['buzzer',{s:8}]],
+    code:`// Camper-Temperaturwächter
+const int SENSOR = A0;
+const int LED_OK = 3;
+const int LED_ALARM = 4;
+const int SUMMER = 8;
+const float GRENZE = 30.0;   // °C
+
+unsigned long letzteAusgabe = 0;
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(LED_OK, OUTPUT);
+  pinMode(LED_ALARM, OUTPUT);
+  pinMode(SUMMER, OUTPUT);
+}
+
+void loop() {
+  int roh = analogRead(SENSOR);
+  float spannung = roh * 5.0 / 1023.0;
+  float temp = (spannung - 0.5) * 100.0;   // TMP36: 10 mV pro °C, 0,5 V bei 0 °C
+
+  if (temp > GRENZE) {
+    digitalWrite(LED_OK, LOW);
+    digitalWrite(LED_ALARM, HIGH);
+    tone(SUMMER, 1000);
+  } else {
+    digitalWrite(LED_OK, HIGH);
+    digitalWrite(LED_ALARM, LOW);
+    noTone(SUMMER);
+  }
+
+  if (millis() - letzteAusgabe >= 1000) {
+    letzteAusgabe = millis();
+    Serial.print("Temperatur: ");
+    Serial.print(temp);
+    Serial.println(" °C");
+  }
+}
+`},
+   {name:'Batteriewächter 12 V',lvl:'Einsteiger',board:'uno',
+    p:'Misst die Spannung der Bordbatterie über einen Spannungsteiler (30 kΩ / 10 kΩ) und zeigt den Zustand mit drei LEDs. Im Labor simuliert das Poti die geteilte Spannung.',
+    learn:['Spannungsteiler zurückrechnen','analogRead → Volt','Mehrstufige Verzweigung'],
+    more:['Mittelwert über 10 Messungen gegen Flackern','Warnung erst nach 5 s Unterspannung (millis)','Werte für LiFePO4 anpassen'],
+    comps:[['pot',{w:15}],['led',{a:5},{color:'rot'}],['led',{a:6},{color:'gelb'}],['led',{a:7},{color:'grün'}]],
+    code:`// Batteriewächter 12 V (Blei/AGM, Ruhespannung – Richtwerte)
+const int MESS = A1;
+const int ROT = 5;
+const int GELB = 6;
+const int GRUEN = 7;
+const float TEILER = 4.0;   // (30k + 10k) / 10k
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(ROT, OUTPUT);
+  pinMode(GELB, OUTPUT);
+  pinMode(GRUEN, OUTPUT);
+}
+
+void loop() {
+  float uPin = analogRead(MESS) * 5.0 / 1023.0;
+  float uAkku = uPin * TEILER;
+
+  digitalWrite(ROT, LOW);
+  digitalWrite(GELB, LOW);
+  digitalWrite(GRUEN, LOW);
+
+  if (uAkku >= 12.4) {
+    digitalWrite(GRUEN, HIGH);      // gut geladen
+  } else if (uAkku >= 12.0) {
+    digitalWrite(GELB, HIGH);       // halb leer
+  } else {
+    digitalWrite(ROT, HIGH);        // bald laden!
+  }
+
+  Serial.print("Akku: ");
+  Serial.print(uAkku);
+  Serial.println(" V");
+  delay(500);
+}
+`},
+   {name:'Dämmerungsschalter mit Hysterese',lvl:'Fortgeschritten',board:'uno',
+    p:'Schaltet bei Dunkelheit über ein Relais die Außenbeleuchtung ein. Zwei Schwellen (Hysterese) verhindern ständiges Klicken in der Dämmerung.',
+    learn:['LDR als Lichtsensor','Hysterese mit Zustandsvariable','Relais-Modul ansteuern'],
+    more:['Licht nach 2 Stunden automatisch aus','Taster für „Licht jetzt an“','Schwellen per Poti einstellbar'],
+    comps:[['ldr',{s:14}],['relay',{in:7}]],
+    code:`// Dämmerungsschalter mit Hysterese
+const int LDR = A0;
+const int RELAIS = 7;
+const int DUNKEL = 300;   // darunter: Licht an
+const int HELL = 400;     // darüber: Licht aus
+
+bool lichtAn = false;
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(RELAIS, OUTPUT);
+}
+
+void loop() {
+  int licht = analogRead(LDR);   // hell = hoher Wert
+
+  if (!lichtAn && licht < DUNKEL) {
+    lichtAn = true;
+    Serial.println("Dunkel -> Licht an");
+  } else if (lichtAn && licht > HELL) {
+    lichtAn = false;
+    Serial.println("Hell -> Licht aus");
+  }
+
+  digitalWrite(RELAIS, lichtAn ? HIGH : LOW);
+  delay(100);
+}
+`},
+   {name:'Kühlschranktür-Alarm',lvl:'Fortgeschritten',board:'uno',
+    p:'Ein Schalter meldet „Tür offen“. Bleibt die Tür länger als 10 Sekunden offen, piept es – ohne delay(), damit das Programm reaktionsfähig bleibt.',
+    learn:['Zeitmessung mit millis()','Flankenerkennung (Tür geht auf)','Zustände sauber trennen'],
+    more:['Alarm-Ton im Takt (an/aus)','Zähler: wie oft wurde die Tür geöffnet?','Längere Zeit, dann LED als Vorwarnung'],
+    comps:[['switch',{s:2}],['buzzer',{s:8}],['led',{a:13},{color:'gelb'}]],
+    code:`// Kühlschranktür-Alarm
+const int TUER = 2;        // Schalter: HIGH = Tür offen
+const int SUMMER = 8;
+const int LED = 13;
+const unsigned long ALARM_NACH = 10000;   // 10 s
+
+bool warOffen = false;
+unsigned long offenSeit = 0;
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(TUER, INPUT);
+  pinMode(SUMMER, OUTPUT);
+  pinMode(LED, OUTPUT);
+}
+
+void loop() {
+  bool offen = digitalRead(TUER) == HIGH;
+
+  if (offen && !warOffen) {          // Tür wurde gerade geöffnet
+    offenSeit = millis();
+    Serial.println("Tür offen");
+  }
+  if (!offen && warOffen) {
+    Serial.println("Tür zu");
+  }
+  warOffen = offen;
+
+  digitalWrite(LED, offen ? HIGH : LOW);
+
+  if (offen && millis() - offenSeit >= ALARM_NACH) {
+    tone(SUMMER, 2000);
+  } else {
+    noTone(SUMMER);
+  }
+}
+`},
+   {name:'ESP32: Füllstand als Webseite',lvl:'Profi',board:'esp32',
+    p:'Ein Sensor (im Labor: Poti) misst den Füllstand des Frischwassertanks. Der ESP32 zeigt den Wert als Webseite – abrufbar mit dem Handy im WLAN.',
+    learn:['ESP32 ins WLAN bringen','WebServer mit eigener Route','Messwert in Prozent umrechnen'],
+    more:['Seite lädt sich alle 5 s selbst neu','Warnung bei unter 20 %','Zusätzlich /api als JSON ausgeben'],
+    comps:[['pot',{w:34}],['led',{a:2},{color:'blau'}]],
+    code:`#include <WiFi.h>
+#include <WebServer.h>
+
+const int SENSOR = 34;
+const int LED = 2;
+WebServer server(80);
+
+int fuellstand() {
+  return map(analogRead(SENSOR), 0, 4095, 0, 100);
+}
+
+void startseite() {
+  int p = fuellstand();
+  String html = "<!DOCTYPE html><html><head><meta charset='utf-8'></head><body style='font-family:sans-serif;text-align:center'>";
+  html += "<h1>Frischwasser</h1>";
+  html += "<p style='font-size:48px'>" + String(p) + " %</p>";
+  if (p < 20) {
+    html += "<p style='color:red'>Bitte auffüllen!</p>";
+  }
+  html += "</body></html>";
+  server.send(200, "text/html", html);
+}
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(LED, OUTPUT);
+  WiFi.begin("Labor-WLAN", "arduino123");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+  }
+  Serial.print("Webseite: http://");
+  Serial.println(WiFi.localIP());
+  server.on("/", startseite);
+  server.begin();
+}
+
+void loop() {
+  server.handleClient();
+  digitalWrite(LED, fuellstand() < 20 ? HIGH : LOW);
+}
+`}
+  ];
+
+  function openInLab(T){
+    if(typeof fromTemplate!=='function'){ alert('Labor nicht verfügbar.'); return; }
+    showView('labor'); try{ history.replaceState(null,'','#labor'); }catch(e){}
+    askConfirm('„'+T.name+'“ ins Labor laden? Deine aktuelle Schaltung und dein Code werden ersetzt.',()=>{
+      labStop(); const snd=lab.sound; lab=fromTemplate(T); lab.sound=snd; Lab.runs={}; if(typeof Net!=='undefined') Net.log=[];
+      switchDev(0); $('#labName').value=lab.name; saveLab(); toast('Projekt geladen – drück ▶ Start.');
+    });
+  }
+  window.uctOpenInLab=openInLab;
+  window.uctCodeToLab=(code,name)=>{
+    showView('labor'); try{ history.replaceState(null,'','#labor'); }catch(e){}
+    askConfirm('Code aus dem Struktogramm in den aktuellen Sketch übernehmen? Der bisherige Code wird ersetzt (die Schaltung bleibt).',()=>{
+      labStop(); cd.code=code; switchDev(lab.cur); if(name){ lab.name=name; $('#labName').value=name; } saveLab(); toast('Code übernommen – Pins deklarieren und ▶ Start drücken.');
+    });
+  };
+
+  /* ---------- Aufbau ---------- */
+  const v=$('#view-werkzeuge');
+  v.innerHTML=`<div class="ln-tabs"><button class="on" data-wt="calc">🧮 Elektro-Rechner</button><button data-wt="proj">🛠 Projekt-Ideen</button></div>
+    <div class="ln-pane on" id="wt-calc"><div class="wz-grid">${CALC.map(c=>`<div class="card wz-card"><h3>${E(c.h)}</h3><p class="d">${E(c.d)}</p><div class="wz-in" data-c="${c.id}">${c.f}</div><div class="wz-out" id="o-${c.id}"></div></div>`).join('')}</div></div>
+    <div class="ln-pane" id="wt-proj"><div class="wz-grid">${PJ.map((p,i)=>`<div class="card pj-card"><h3>${E(p.name)}</h3><div class="pj-meta"><span class="badge ${p.board==='esp32'?'esp32':'uno'}">${p.board==='esp32'?'ESP32':'Arduino Uno'}</span><span class="badge">${E(p.lvl)}</span></div><p>${E(p.p)}</p><b style="font-size:13px">Das lernst du</b><ul>${p.learn.map(x=>'<li>'+E(x)+'</li>').join('')}</ul><details><summary>Erweiterungs-Aufgaben</summary><ul>${p.more.map(x=>'<li>'+E(x)+'</li>').join('')}</ul></details><details><summary>Code ansehen</summary><pre>${HL(p.code)}</pre></details><div class="pj-act"><button class="btn primary" data-pj="${i}">▶ Im Labor öffnen</button></div></div>`).join('')}</div></div>`;
+  v.querySelectorAll('[data-wt]').forEach(b=>b.onclick=()=>{ v.querySelectorAll('[data-wt]').forEach(x=>x.classList.toggle('on',x===b)); v.querySelectorAll('.ln-pane').forEach(p=>p.classList.toggle('on',p.id==='wt-'+b.dataset.wt)); });
+  v.querySelectorAll('[data-pj]').forEach(b=>b.onclick=()=>openInLab(PJ[+b.dataset.pj]));
+  CALC.forEach(c=>{ if(c.init) c.init(); v.querySelectorAll(`[data-c="${c.id}"] input,[data-c="${c.id}"] select`).forEach(i=>{ if(!i.oninput) i.oninput=()=>CALCrun(c.id); if(i.tagName==='SELECT'&&!i.onchange) i.onchange=()=>CALCrun(c.id); }); CALCrun(c.id); });
 })();
 </script>
 <!-- ===== App-Update (µC-Trainer als iPad-App) ===== -->
@@ -4571,7 +4997,7 @@ b.bad{color:var(--red)}b.good{color:var(--green)}
 </div>
 <script>
 (function(){
-  var APP_VERSION = '1.3.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+  var APP_VERSION = '1.4.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register('sw.js').catch(function(){});
   var box = document.getElementById('upd');
