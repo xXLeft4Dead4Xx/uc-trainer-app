@@ -4333,6 +4333,14 @@ button.pf-stat{font:inherit;color:inherit;cursor:pointer;text-align:left}
 .pl-in h3{margin:18px 0 6px}
 .pl-in .ln-g code{font-family:var(--mono);font-size:13px}
 /* Lektion (Vollbild) */
+.pl-num{display:flex;align-items:center;gap:10px;margin:4px 0 12px}
+.pl-num input{flex:1;max-width:260px;background:var(--panel2);color:var(--text);border:2px solid var(--line2);border-radius:12px;padding:12px 14px;font-size:22px;font-family:var(--mono)}
+.pl-num input:focus{border-color:var(--accent);outline:none}
+.pl-num input.ok{border-color:var(--green);background:#123326}.pl-num input.bad{border-color:var(--red);background:#3a1714}
+.pl-num span{font-size:18px;color:var(--muted);font-family:var(--mono)}
+.pl-numkeys{display:grid;grid-template-columns:repeat(3,64px);gap:8px}
+.pl-numkeys button{height:52px;border-radius:12px;border:1px solid var(--line2);background:var(--panel2);color:var(--text);font-size:20px;font-family:var(--mono);cursor:pointer;box-shadow:0 3px 0 #0a0f12}
+.pl-numkeys button.w2{grid-column:span 3}
 .pl-diag{background:#0a0f13;border:1px solid var(--line);border-radius:10px;padding:8px;overflow:auto;margin:0 0 14px}
 .pl-diag svg{display:block;max-width:100%;height:auto}
 #pfLesson{position:fixed;inset:0;z-index:9000;background:var(--bg);display:none;flex-direction:column}
@@ -4671,6 +4679,120 @@ button.pf-stat{font:inherit;color:inherit;cursor:pointer;text-align:left}
       {t:'mc',q:'PNP-Sensor an einer Eingangskarte für NPN-Sensoren (sinkend/quellend vertauscht). Folge?',o:['Das Signal wird nicht erkannt','Das Signal ist doppelt so stark','Kein Unterschied','Die Karte zählt Impulse'],a:0,e:'In Europa sind PNP-Sensoren und plusschaltende (stromziehende) Eingänge üblich – Datenblatt prüfen.'}
     ]}
   ]});
+  /* ---------- Arduino C++: zusätzliche Kapitel ---------- */
+  U.push({id:'a1',lang:['ard'],ic:'🧮',h:'Rechnen in C++',s:'Operatoren, Ganzzahl-Division, Modulo, Typumwandlung',L:[
+    {id:'a1l1',h:'Grundrechenarten',S:[
+      {t:'info',h:'+ − * / und Klammern',p:'C++ rechnet mit den üblichen Operatoren. Es gilt Punkt vor Strich, Klammern zuerst. Mit += , -= , *= kürzt man Zuweisungen ab.',c:'int a = 2 + 3 * 4;      // 14\nint b = (2 + 3) * 4;    // 20\nint z = 10;\nz += 5;                 // 15\nz *= 2;                 // 30'},
+      {t:'num',q:'Welchen Wert hat x?',c:'int x = 10 - 2 * 3 + 4;',a:8,e:'Erst 2 * 3 = 6, dann 10 − 6 + 4 = 8.'},
+      {t:'num',q:'Welchen Wert hat y am Ende?',c:'int y = 4;\ny += 6;\ny *= 3;\ny -= 5;',a:25,e:'4 → 10 → 30 → 25.'},
+      {t:'mc',q:'Was bedeutet zaehler++?',o:['zaehler wird um 1 erhöht','zaehler wird verdoppelt','zaehler wird mit sich selbst addiert und ausgegeben','Nichts, das ist ein Fehler'],a:0,e:'Kurzform für zaehler = zaehler + 1.'}
+    ]},
+    {id:'a1l2',h:'Ganzzahl-Division & Modulo',S:[
+      {t:'info',h:'int teilt ohne Rest',p:'Werden zwei ganze Zahlen geteilt, schneidet C++ die Nachkommastellen ab. Der Rest kommt mit dem Modulo-Operator %.',c:'int a = 17 / 5;   // 3   (nicht 3.4!)\nint r = 17 % 5;   // 2   (Rest)\n\n// typisch: Sekunden in Minuten und Sekunden\nint gesamt = 135;\nint min = gesamt / 60;   // 2\nint sek = gesamt % 60;   // 15'},
+      {t:'num',q:'Was ergibt 29 / 4 als int?',a:7,e:'29 / 4 = 7,25 → abgeschnitten 7.'},
+      {t:'num',q:'Was ergibt 29 % 4?',a:1,e:'4 · 7 = 28, Rest 1.'},
+      {t:'mc',q:'Wie prüfst du, ob eine Zahl n gerade ist?',o:['if (n % 2 == 0)','if (n / 2 == 0)','if (n % 2 == 1)','if (n == 2)'],a:0,e:'Gerade Zahlen haben beim Teilen durch 2 keinen Rest.'},
+      {t:'num',q:'Eine Laufzeit von 3725 Sekunden: Wie viele volle Stunden sind das (3725 / 3600 als int)?',a:1,e:'Den Rest bekommst du mit 3725 % 3600 = 125 s.'}
+    ]},
+    {id:'a1l3',h:'Typumwandlung & Kommazahlen',S:[
+      {t:'info',h:'Die int-Falle',p:'Auch wenn das Ergebnis in einer float-Variablen landet: Sind beide Operanden int, wird zuerst ganzzahlig gerechnet. Abhilfe: einen Operanden als Kommazahl schreiben (2.0) oder umwandeln mit (float).',c:'float a = 7 / 2;          // 3.0  – falsch gedacht!\nfloat b = 7.0 / 2;        // 3.5\nint x = 7, y = 2;\nfloat c = (float)x / y;   // 3.5'},
+      {t:'num',q:'Welchen Wert hat f?',c:'float f = 9 / 4;',a:2,e:'9 / 4 wird als int gerechnet (2) und erst dann in 2.0 umgewandelt.'},
+      {t:'num',q:'Welchen Wert hat g?',c:'float g = 9.0 / 4;',a:2.25,tol:0.001,e:'Ein Operand ist float → Kommadivision.'},
+      {t:'mc',q:'Uno: Was passiert bei int x = 32767; x = x + 1; ?',o:['x läuft über und wird −32768','x wird 32768','Das Programm stoppt','x bleibt 32767'],a:0,e:'int hat auf dem Uno nur 16 Bit. Für größere Werte long verwenden.'},
+      {t:'fill',q:'Wandle die Ganzzahl summe für die Division in eine Kommazahl um.',c:'float mittel = (___)summe / anzahl;',o:['float','int','double()','(real)'],a:'float',e:'Der Cast (float) sorgt für eine Kommadivision.'}
+    ]}
+  ]});
+  U.push({id:'a2',lang:['ard'],ic:'📊',h:'Arrays, Summe & Mittelwert',s:'Messreihen speichern und auswerten',L:[
+    {id:'a2l1',h:'Arrays durchlaufen',S:[
+      {t:'info',h:'Viele Werte, ein Name',p:'Ein Array speichert mehrere Werte gleichen Typs. Der Index beginnt bei 0. Mit einer for-Schleife greifst du auf alle Elemente zu. Die Anzahl der Elemente bekommst du mit sizeof(arr) / sizeof(arr[0]).',c:'int werte[5] = {12, 15, 9, 20, 14};\nconst int N = sizeof(werte) / sizeof(werte[0]);   // 5\n\nfor (int i = 0; i < N; i++) {\n  Serial.println(werte[i]);\n}'},
+      {t:'num',q:'int werte[5] = {12, 15, 9, 20, 14}; Welchen Wert hat werte[3]?',a:20,e:'Index 0 = 12, 1 = 15, 2 = 9, 3 = 20.'},
+      {t:'num',q:'Wie viele Bytes belegt int messung[10] auf dem Uno (int = 2 Byte)?',a:20,e:'10 · 2 Byte. Auf dem ESP32 (int = 4 Byte) wären es 40.'},
+      {t:'mc',q:'Was ist der höchste gültige Index bei int a[8]?',o:['7','8','9','0'],a:0,e:'Indizes 0 … 7. a[8] liegt schon außerhalb!'}
+    ]},
+    {id:'a2l2',h:'Summe & Mittelwert',S:[
+      {t:'info',h:'Aufsummieren in der Schleife',p:'Für den Mittelwert alle Werte in einer Schleife aufsummieren und durch die Anzahl teilen. Die Summe vorher auf 0 setzen – und für die Division an Kommazahlen denken.',c:'int werte[4] = {10, 20, 25, 40};\nlong summe = 0;\nfor (int i = 0; i < 4; i++) {\n  summe += werte[i];\n}\nfloat mittel = (float)summe / 4;   // 23.75'},
+      {t:'num',q:'Mittelwert von 12, 15, 18 und 21?',a:16.5,tol:0.01,e:'(12 + 15 + 18 + 21) / 4 = 66 / 4 = 16,5'},
+      {t:'num',q:'Welchen Wert hat m hier (Achtung, int)?',c:'int a[3] = {4, 5, 7};\nint summe = a[0] + a[1] + a[2];\nint m = summe / 3;',a:5,e:'16 / 3 = 5,33 → als int 5.'},
+      {t:'order',q:'Berechne den Mittelwert – ordne die Zeilen.',l:['long summe = 0;','for (int i = 0; i < N; i++) {','  summe += werte[i];','}','float mittel = (float)summe / N;'],e:'Erst initialisieren, dann summieren, dann teilen.'},
+      {t:'mc',q:'Warum ist long summe sicherer als int summe, wenn 100 ADC-Werte (0–1023) addiert werden?',o:['Die Summe kann bis 102300 gehen – int läuft auf dem Uno über','long ist schneller','int kann keine Summen','Weil analogRead long liefert'],a:0,e:'int reicht auf dem Uno nur bis 32767.'}
+    ]},
+    {id:'a2l3',h:'Minimum & Maximum',S:[
+      {t:'info',h:'Den größten Wert finden',p:'Starte mit dem ersten Element als bisherigem Maximum und vergleiche jedes weitere Element. Für das Minimum genauso mit <.',c:'int maxWert = werte[0];\nint minWert = werte[0];\nfor (int i = 1; i < N; i++) {\n  if (werte[i] > maxWert) maxWert = werte[i];\n  if (werte[i] < minWert) minWert = werte[i];\n}'},
+      {t:'num',q:'Spannweite (Max − Min) der Werte 18, 7, 25, 13, 9?',a:18,e:'25 − 7 = 18.'},
+      {t:'mc',q:'Warum startet man mit maxWert = werte[0] statt mit 0?',o:['Bei lauter negativen Werten wäre 0 falsch das Maximum','0 ist verboten','Weil die Schleife bei 0 beginnt','Spart Speicher'],a:0,e:'Mit dem ersten echten Wert ist das Ergebnis immer richtig.'},
+      {t:'fill',q:'Ergänze den Vergleich für das Minimum.',c:'if (werte[i] ___ minWert) minWert = werte[i];',o:['<','>','==','<='],a:'<',e:'Kleiner gefunden → neues Minimum.'}
+    ]}
+  ]});
+  U.push({id:'a3',lang:['ard'],ic:'📈',h:'Messwerte verarbeiten',s:'Umrechnen, skalieren, glätten, begrenzen',L:[
+    {id:'a3l1',h:'ADC-Wert in Volt',S:[
+      {t:'info',h:'Vom Rohwert zur Spannung',p:'analogRead liefert beim Uno 0 … 1023 für 0 … 5 V. Spannung U = Rohwert · 5,0 / 1023. Beim ESP32: 0 … 4095 für 0 … 3,3 V.',c:'int roh = analogRead(A0);\nfloat u = roh * 5.0 / 1023.0;\nSerial.print(u, 2);   // 2 Nachkommastellen\nSerial.println(" V");'},
+      {t:'num',q:'Uno: analogRead liefert 614. Welche Spannung in Volt (2 Nachkommastellen)?',a:3.0,tol:0.01,unit:'V',e:'614 · 5 / 1023 ≈ 3,00 V'},
+      {t:'num',q:'ESP32: Rohwert 2048. Welche Spannung in Volt?',a:1.65,tol:0.01,unit:'V',e:'2048 · 3,3 / 4095 ≈ 1,65 V'},
+      {t:'num',q:'TMP36: Ausgangsspannung 0,75 V. Temperatur in °C? (T = (U − 0,5) · 100)',a:25,tol:0.1,unit:'°C',e:'(0,75 − 0,5) · 100 = 25 °C'}
+    ]},
+    {id:'a3l2',h:'map() & Prozent',S:[
+      {t:'info',h:'Bereiche umrechnen',p:'map(wert, vonMin, vonMax, nachMin, nachMax) rechnet linear um – nur mit ganzen Zahlen. constrain(x, a, b) begrenzt einen Wert auf a … b.',c:'int prozent = map(analogRead(A0), 0, 1023, 0, 100);\nint pwm = map(prozent, 0, 100, 0, 255);\npwm = constrain(pwm, 0, 255);'},
+      {t:'num',q:'Was liefert map(512, 0, 1023, 0, 100)?',a:50,e:'512 · 100 / 1023 = 50,05 → als ganze Zahl 50.'},
+      {t:'num',q:'Was liefert map(300, 0, 1023, 0, 5000) (Millivolt)?',a:1466,e:'300 · 5000 / 1023 = 1466,3 → 1466. map schneidet ab, rundet nicht.'},
+      {t:'num',q:'Was liefert constrain(280, 0, 255)?',a:255,e:'Werte über der Obergrenze werden auf 255 gesetzt.'},
+      {t:'num',q:'Füllstand: Sensor 0 … 1023 entspricht 0 … 80 Liter. Wie viele Liter bei Rohwert 767? (map, ganze Zahl)',a:59,e:'767 · 80 / 1023 = 59,98 → map liefert 59.'}
+    ]},
+    {id:'a3l3',h:'Glätten mit gleitendem Mittelwert',S:[
+      {t:'info',h:'Rauschen wegfiltern',p:'Messwerte schwanken. Ein gleitender Mittelwert bildet den Durchschnitt der letzten N Messungen. Dafür speichert man die Werte in einem Ringpuffer.',c:'const int N = 4;\nint puffer[N];\nint pos = 0;\nlong summe = 0;\n\nint glaetten(int neu) {\n  summe -= puffer[pos];     // ältesten Wert abziehen\n  puffer[pos] = neu;\n  summe += neu;\n  pos = (pos + 1) % N;      // Ringpuffer\n  return summe / N;\n}'},
+      {t:'num',q:'Gleitender Mittelwert der letzten 4 Werte 20, 22, 24, 26?',a:23,e:'(20 + 22 + 24 + 26) / 4 = 23.'},
+      {t:'num',q:'Danach kommt der Messwert 30 dazu (der älteste, 20, fällt raus). Neuer Mittelwert?',a:25.5,tol:0.01,e:'(22 + 24 + 26 + 30) / 4 = 25,5'},
+      {t:'mc',q:'Wozu dient pos = (pos + 1) % N?',o:['Die Position springt nach dem letzten Platz wieder auf 0','pos wird verdoppelt','N wird erhöht','Der Puffer wird geleert'],a:0,e:'Modulo macht aus dem Array einen Ring.'},
+      {t:'mc',q:'Was ist der Nachteil eines großen N?',o:['Der Wert reagiert träger auf echte Änderungen','Er wird ungenauer','Er rauscht mehr','Gar keiner'],a:0,e:'Glätten und schnelle Reaktion sind ein Kompromiss.'}
+    ]},
+    {id:'a3l4',h:'Grenzwerte & Hysterese',S:[
+      {t:'info',h:'Nicht flattern lassen',p:'Schaltet ein Lüfter genau bei 30 °C ein und aus, flattert er um den Grenzwert. Mit Hysterese gibt es zwei Schwellen: ein bei 30 °C, aus erst unter 27 °C.',c:'const float EIN = 30.0, AUS = 27.0;\nbool luefter = false;\n\nif (!luefter && temp > EIN) luefter = true;\nif (luefter && temp < AUS) luefter = false;\ndigitalWrite(LUEFTER, luefter);'},
+      {t:'num',q:'Einschalten bei 30 °C, Hysterese 3 K. Bei welcher Temperatur schaltet der Lüfter wieder aus?',a:27,unit:'°C',e:'30 − 3 = 27 °C'},
+      {t:'mc',q:'Lüfter ist an, die Temperatur fällt auf 28 °C. Was passiert?',o:['Er bleibt an – erst unter 27 °C geht er aus','Er geht aus','Er blinkt','Er schaltet bei 28 °C neu ein'],a:0,e:'Zwischen den Schwellen bleibt der Zustand erhalten.'}
+    ]}
+  ]});
+  U.push({id:'a4',lang:['ard'],ic:'🧩',h:'Eigene Funktionen',s:'Rechnungen in Funktionen packen',L:[
+    {id:'a4l1',h:'Funktionen mit Rückgabewert',S:[
+      {t:'info',h:'Einmal schreiben, oft nutzen',p:'Eine Funktion hat einen Rückgabetyp, einen Namen und Parameter. Mit return gibt sie das Ergebnis zurück. Funktionen ohne Rückgabe haben den Typ void.',c:'float vorwiderstand(float ub, float uf, float i) {\n  return (ub - uf) / i;\n}\n\nvoid setup() {\n  Serial.begin(9600);\n  Serial.println(vorwiderstand(5.0, 2.0, 0.02));   // 150.00\n}'},
+      {t:'num',q:'Was gibt vorwiderstand(5.0, 2.0, 0.02) zurück (in Ohm)?',a:150,unit:'Ω',e:'(5 − 2) / 0,02 = 150 Ω'},
+      {t:'num',q:'Was gibt leistung(12.0, 0.5) zurück?',c:'float leistung(float u, float i) {\n  return u * i;\n}',a:6,unit:'W',e:'P = U · I = 12 V · 0,5 A = 6 W'},
+      {t:'fill',q:'Welcher Rückgabetyp passt für eine Funktion, die nur etwas ausgibt?',c:'___ zeigeWert(int w) {\n  Serial.println(w);\n}',o:['void','int','return','null'],a:'void',e:'void = kein Rückgabewert.'}
+    ]},
+    {id:'a4l2',h:'Arrays an Funktionen',S:[
+      {t:'info',h:'Mittelwert als Funktion',p:'Arrays übergibt man zusammen mit ihrer Länge. So funktioniert dieselbe Funktion für Messreihen jeder Größe.',c:'float mittelwert(int werte[], int n) {\n  long summe = 0;\n  for (int i = 0; i < n; i++) summe += werte[i];\n  return (float)summe / n;\n}\n\nint t[5] = {21, 22, 22, 23, 24};\nfloat m = mittelwert(t, 5);'},
+      {t:'num',q:'Welches Ergebnis liefert mittelwert(t, 5) mit t = {21, 22, 22, 23, 24}?',a:22.4,tol:0.01,e:'112 / 5 = 22,4'},
+      {t:'mc',q:'Warum braucht die Funktion den Parameter n?',o:['Sie kann die Länge eines übergebenen Arrays nicht selbst ermitteln','Weil float das verlangt','Damit sie schneller ist','Er ist überflüssig'],a:0,e:'In der Funktion ist werte nur ein Zeiger – sizeof hilft dort nicht mehr.'}
+    ]},
+    {id:'a4l3',h:'bool-Funktionen',S:[
+      {t:'info',h:'Ja/Nein-Fragen',p:'Funktionen mit Rückgabetyp bool machen if-Abfragen lesbar.',c:'bool istZuWarm(float t) {\n  return t > 30.0;\n}\n\nif (istZuWarm(temp)) {\n  alarm();\n}'},
+      {t:'mc',q:'Was liefert istZuWarm(30.0)?',o:['false','true','30','Fehler'],a:0,e:'30 > 30 ist falsch.'},
+      {t:'order',q:'Funktion: liegt ein Wert im Bereich von min bis max? Ordne die Zeilen.',l:['bool imBereich(int w, int min, int max) {','  return w >= min && w <= max;','}'],e:'&& verknüpft beide Bedingungen.'}
+    ]}
+  ]});
+  U.push({id:'a5',lang:['ard'],ic:'🚦',h:'Zustandsautomaten',s:'Abläufe mit enum, switch und millis()',L:[
+    {id:'a5l1',h:'Zustände mit enum',S:[
+      {t:'info',h:'Benannte Zustände',p:'Ein Zustandsautomat kennt feste Zustände. Mit enum gibst du ihnen Namen, switch führt je Zustand den passenden Code aus. Das ist das Arduino-Gegenstück zur SPS-Schrittkette.',c:'enum Zustand { ROT, ROT_GELB, GRUEN, GELB };\nZustand ampel = ROT;\n\nswitch (ampel) {\n  case ROT:      /* … */ break;\n  case ROT_GELB: /* … */ break;\n  case GRUEN:    /* … */ break;\n  case GELB:     /* … */ break;\n}'},
+      {t:'mc',q:'Welchen Zahlenwert hat GRUEN in enum { ROT, ROT_GELB, GRUEN, GELB }?',o:['2','3','1','0'],a:0,e:'Aufzählungen beginnen bei 0: ROT = 0, ROT_GELB = 1, GRUEN = 2.'},
+      {t:'mc',q:'Was passiert, wenn break nach case ROT fehlt?',o:['Der Code von case ROT_GELB läuft gleich mit','Nichts','Kompilierfehler','Das Programm stoppt'],a:0,e:'switch „fällt durch“ in den nächsten Fall.'}
+    ]},
+    {id:'a5l2',h:'Zeit pro Zustand',S:[
+      {t:'info',h:'Wechseln nach Ablauf der Zeit',p:'Jeder Zustand merkt sich, wann er begonnen hat. Ist seine Dauer abgelaufen, wechselt der Automat – ohne delay().',c:'unsigned long seit = 0;\n\nvoid wechsle(Zustand neu) {\n  ampel = neu;\n  seit = millis();\n}\n\ncase GRUEN:\n  if (millis() - seit >= 5000) wechsle(GELB);\n  break;'},
+      {t:'num',q:'Ampelphasen: Rot 6 s, Rot-Gelb 1 s, Grün 5 s, Gelb 2 s. Wie viele Sekunden dauert ein kompletter Umlauf?',a:14,unit:'s',e:'6 + 1 + 5 + 2 = 14 s'},
+      {t:'num',q:'Wie viele komplette Umläufe schafft diese Ampel in 7 Minuten?',a:30,e:'420 s / 14 s = 30'},
+      {t:'mc',q:'Warum ist millis() hier besser als delay()?',o:['Während der Wartezeit können z. B. Fußgänger-Taster weiter abgefragt werden','millis() ist genauer als die Ampel','delay() funktioniert nicht im switch','Kein Unterschied'],a:0,e:'Nicht-blockierend = reaktionsfähig.'}
+    ]}
+  ]});
+  U.push({id:'a6',lang:['ard'],ic:'💬',h:'Serieller Monitor & Text',s:'Ausgeben, formatieren, einlesen',L:[
+    {id:'a6l1',h:'Werte formatiert ausgeben',S:[
+      {t:'info',h:'print, println und Nachkommastellen',p:'Serial.print gibt ohne, Serial.println mit Zeilenumbruch aus. Bei float legt die zweite Zahl die Nachkommastellen fest. Mit Tabulator "\\t" entstehen Spalten – ideal für den seriellen Plotter.',c:'Serial.print("U = ");\nSerial.print(spannung, 3);   // 3 Nachkommastellen\nSerial.println(" V");\n\nSerial.print(temp);\nSerial.print("\\t");\nSerial.println(feuchte);'},
+      {t:'mc',q:'Was gibt Serial.println(3.14159, 2) aus?',o:['3.14','3.14159','3','3,14'],a:0,e:'Die 2 legt die Nachkommastellen fest; der Punkt ist das Dezimalzeichen.'},
+      {t:'mc',q:'Was gibt Serial.println(255, HEX) aus?',o:['FF','255','11111111','0xFF'],a:0,e:'Mit BIN, OCT, HEX lässt sich das Zahlenformat wählen.'}
+    ]},
+    {id:'a6l2',h:'Eingaben einlesen',S:[
+      {t:'info',h:'Befehle vom PC',p:'Serial.available() meldet, ob Zeichen angekommen sind. Serial.parseInt() liest eine Zahl, Serial.read() ein einzelnes Zeichen.',c:'if (Serial.available() > 0) {\n  int wert = Serial.parseInt();\n  wert = constrain(wert, 0, 255);\n  analogWrite(LED, wert);\n}'},
+      {t:'mc',q:'Was liefert Serial.available()?',o:['Wie viele Zeichen im Empfangspuffer warten','Ob der Monitor offen ist','Die Baudrate','Das zuletzt gesendete Zeichen'],a:0,e:'0 bedeutet: nichts angekommen.'},
+      {t:'num',q:'Nutzer tippt 300. Welcher Wert landet nach constrain(wert, 0, 255) bei analogWrite?',a:255,e:'Begrenzung auf den gültigen PWM-Bereich.'}
+    ]}
+  ]});
   /* ---------- SPS: KOP-spezifisch ---------- */
   const NET=(b,c)=>({branches:b,coil:c}), K=(op,t)=>({op,t:t||'NO'});
   U.push({id:'k1',lang:['kop'],ic:'🪜',h:'Kontaktplan (KOP)',s:'Kontakte, Spulen und Strompfade lesen',L:[
@@ -4830,6 +4952,7 @@ button.pf-stat{font:inherit;color:inherit;cursor:pointer;text-align:left}
     ]}
   ]});
   U.forEach(u=>{ if(!u.lang) u.lang=u.sps?['kop','fup']:['ard']; });
+  (function(){ const ORD=['u1','u2','a1','u3','u4','a2','a3','a4','u5','a5','a6','u6','u7']; const ard=ORD.map(id=>U.find(u=>u.id===id)).filter(Boolean); const rest=U.filter(u=>!ORD.includes(u.id)); U.length=0; U.push(...ard,...rest); })();
   (function(){ const i=U.findIndex(u=>u.id==='u8'); ['f1','k1'].forEach(id=>{ const j=U.findIndex(u=>u.id===id); if(j>=0&&i>=0){ const [x]=U.splice(j,1); U.splice(U.findIndex(u=>u.id==='u8')+1,0,x); } }); })();
   const ALL=[]; U.forEach(u=>u.L.forEach(l=>{ l.u=u; ALL.push(l); l.S.forEach((st,i)=>{ st._key=l.id+':'+i; st._u=u; }); }));
   const XP_STEP=10, XP_LESSON=10; const goal=()=>(window.uctSettings&&+window.uctSettings.goal)||50;
@@ -4885,7 +5008,7 @@ button.pf-stat{font:inherit;color:inherit;cursor:pointer;text-align:left}
     host.querySelectorAll('[data-rev]').forEach(b=>b.onclick=()=>startReview(b.dataset.rev));
   }
   function renderPath(){ renderTrack(); }
-  window.uctRenderTrack=renderTrack; window.UCT_LANGS=LANGS; window.uctCurLang=curLang; window.UCT_ALL=ALL; window.uctLangProgress=t=>{ const L=lessons(t); return [L.filter(isDone).length,L.length]; };
+  window.uctRenderTrack=renderTrack; window.UCT_LANGS=LANGS; window.uctCurLang=curLang; window.uctLangProgress=t=>{ const L=lessons(t); return [L.filter(isDone).length,L.length]; };
   window.uctSetLang=l=>{ try{ localStorage.setItem('uct-lang',l); }catch(e){} renderTrack(); renderExamSetup(); document.dispatchEvent(new CustomEvent('uct-lang',{detail:l})); };
 
   /* ---------- Lektion ---------- */
@@ -4914,6 +5037,13 @@ button.pf-stat{font:inherit;color:inherit;cursor:pointer;text-align:left}
       const code=opts.some(x=>/[();=]/.test(x.o)&&x.o.length<60);
       In.innerHTML=`<div class="pl-kind">❓ Frage</div><h2>${E(s.q)}</h2>${s.c?`<pre>${HL(s.c)}</pre>`:''}${diag(s)}<div class="pl-opts">${opts.map(x=>`<button class="pl-opt${code?' code':''}" data-i="${x.i}">${E(x.o)}</button>`).join('')}</div>`;
       In.querySelectorAll('.pl-opt').forEach(b=>b.onclick=()=>{ if(LS.state!=='ask') return; In.querySelectorAll('.pl-opt').forEach(x=>x.classList.toggle('sel',x===b)); LS.pick=+b.dataset.i; foot('','', 'Prüfen',false); });
+    }
+    if(s.t==='num'){
+      In.innerHTML=`<div class="pl-kind">🧮 Rechnen</div><h2>${E(s.q)}</h2>${s.c?`<pre>${HL(s.c)}</pre>`:''}<div class="pl-num"><input id="plNum" inputmode="decimal" autocomplete="off" placeholder="Ergebnis"><span>${E(s.unit||'')}</span></div><div class="pl-numkeys">${['7','8','9','4','5','6','1','2','3','−','0',','].map(k=>`<button data-k="${k}">${k}</button>`).join('')}<button data-k="⌫" class="w2">⌫</button></div>`;
+      const inp=$('#plNum'); const upd=()=>{ LS.pick=inp.value.trim(); foot('','', 'Prüfen',!LS.pick); };
+      inp.oninput=upd; inp.onkeydown=e=>{ if(e.key==='Enter'&&inp.value.trim()) $('#plGo').click(); };
+      In.querySelectorAll('.pl-numkeys button').forEach(b=>b.onclick=()=>{ if(LS.state!=='ask') return; const k=b.dataset.k; if(k==='⌫') inp.value=inp.value.slice(0,-1); else if(k==='−') inp.value=inp.value.startsWith('-')?inp.value.slice(1):'-'+inp.value; else inp.value+=k; upd(); });
+      foot('','', 'Prüfen',true); return;
     }
     if(s.t==='fill'){
       const opts=shuffle(s.o);
@@ -4944,6 +5074,7 @@ button.pf-stat{font:inherit;color:inherit;cursor:pointer;text-align:left}
     if(s.t==='mc'){ ok=LS.pick===s.a; sol=s.o[s.a];
       $('#plIn').querySelectorAll('.pl-opt').forEach(b=>{ const i=+b.dataset.i; if(i===s.a) b.classList.add('ok'); else if(i===LS.pick) b.classList.add('bad'); b.classList.remove('sel'); }); }
     if(s.t==='fill'){ ok=LS.pick===s.a; sol=s.a; }
+    if(s.t==='num'){ const v=parseFloat(String(LS.pick).replace(',','.').replace('−','-')); const tol=s.tol!=null?s.tol:1e-9; ok=isFinite(v)&&Math.abs(v-s.a)<=tol+1e-9; sol=String(s.a).replace('.',',')+(s.unit?' '+s.unit:''); const i=$('#plNum'); if(i){ i.disabled=true; i.classList.add(ok?'ok':'bad'); } }
     if(s.t==='order'){ ok=LS.order.every((k,j)=>LS.items[k].l.trim()===s.l[j].trim()); sol=s.l.map(x=>x.trim()).join('  ⏎  '); }
     LS.answered++; LS.state='checked';
     if(ok&&!q.retry) markRight(s); if(!ok) markWrong(s);
@@ -5016,7 +5147,7 @@ button.pf-stat{font:inherit;color:inherit;cursor:pointer;text-align:left}
     const by={}; LS.res.forEach(r=>{ const u=r.s._u.h; by[u]=by[u]||{ok:0,n:0}; by[u].n++; if(r.ok) by[u].ok++; });
     P.exams.push({d:today(),p,g,n}); if(P.exams.length>30) P.exams.shift(); addXp(ok*5);
     const wrong=LS.res.filter(r=>!r.ok);
-    const sol=s=>s.t==='mc'?s.o[s.a]:s.t==='fill'?s.a:s.l.map(x=>x.trim()).join(' ⏎ ');
+    const sol=s=>s.t==='mc'?s.o[s.a]:s.t==='fill'?s.a:s.t==='num'?String(s.a).replace('.',',')+(s.unit?' '+s.unit:''):s.l.map(x=>x.trim()).join(' ⏎ ');
     $('#plIn').innerHTML=`<div class="pl-done"><div class="big">${g<=2?'🏆':g<=4?'📄':'📚'}</div><h2>${timeout?'Zeit abgelaufen – ':''}Note ${g} (${gt})</h2><p>${ok} von ${n} Aufgaben richtig · ${p} %</p>
       <div class="row">${Object.entries(by).map(([u,v])=>`<div class="pf-stat"><span class="ic">${Math.round(v.ok/v.n*100)} %</span>${E(u)}<small>${v.ok} / ${v.n}</small></div>`).join('')}</div></div>
       ${wrong.length?`<h3>Das solltest du nochmal anschauen</h3>${wrong.map(r=>`<div class="ln-g"><b>${E(r.s.q||r.s.h||'')}</b>${r.skip?'<span class="c">nicht bearbeitet</span>':''}<p>Richtig: <code>${E(sol(r.s))}</code> – ${E(r.s.e||'')}</p></div>`).join('')}<p class="ln-meta">Falsche Aufgaben landen automatisch in „Wiederholen“.</p>`:''}`;
@@ -6666,7 +6797,7 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
 </div>
 <script>
 (function(){
-  var APP_VERSION = '2.1.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+  var APP_VERSION = '2.2.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
   window.UCT_VERSION = APP_VERSION;
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register('sw.js').catch(function(){});

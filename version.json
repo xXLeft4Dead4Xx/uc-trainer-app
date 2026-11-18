@@ -1,4 +1,4 @@
 {
-  "version": "2.1.0",
-  "notes": "Neu im Labor: „Von Hand verkabeln“ – echtes Uno- bzw. ESP32-Board mit allen Pins, Kabel selbst ziehen, beim Start wird alles geprüft und Fehler werden angezeigt."
+  "version": "2.2.0",
+  "notes": "Arduino C++ ausführlicher: 6 neue Kapitel (Rechnen, Arrays & Mittelwert, Messwerte verarbeiten, Funktionen, Zustandsautomaten, Serieller Monitor) mit neuen Rechenaufgaben."
 }
