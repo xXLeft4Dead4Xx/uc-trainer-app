@@ -310,6 +310,7 @@ h3{margin:18px 0 8px;font-size:16px}
       <button data-v="aufgaben" class="on">Aufgaben</button>
       <button data-v="labor">Labor</button>
       <button data-v="quiz">Quiz</button>
+      <button data-v="struktogramm">Struktogramm</button>
       <button data-v="referenz">Referenz</button>
     </nav>
     <button class="btn bk" id="bkBtn">💾 Sichern</button>
@@ -417,6 +418,41 @@ h3{margin:18px 0 8px;font-size:16px}
   <section class="view" id="view-quiz">
     <p class="score" id="qScore"></p>
     <div class="quiz" id="quiz"></div>
+  </section>
+
+  <section class="view" id="view-struktogramm">
+    <div class="card sg-card">
+      <div class="sg-top">
+        <select id="sgPick" aria-label="Struktogramm wählen"></select>
+        <input id="sgTitle" type="text" placeholder="Titel des Struktogramms" aria-label="Titel">
+        <button class="btn mini" id="sgNew">＋ Neu</button>
+        <button class="btn mini" id="sgDel">🗑 Löschen</button>
+      </div>
+
+      <div class="sg-ins">
+        <span class="sg-lbl">Einfügen:</span>
+        <button class="btn mini" data-ins="stmt">▭ Anweisung</button>
+        <button class="btn mini" data-ins="if">◿◺ Verzweigung</button>
+        <button class="btn mini" data-ins="switch">⋔ Fallauswahl</button>
+        <button class="btn mini" data-ins="while">⊏ Kopfgesteuert</button>
+        <button class="btn mini" data-ins="do">⊑ Fußgesteuert</button>
+        <button class="btn mini" data-ins="forever">∞ Endlos (loop)</button>
+        <button class="btn mini" data-ins="call">▯ Aufruf</button>
+      </div>
+
+      <div class="sg-edit" id="sgEdit"></div>
+
+      <div class="sg-canvas" id="sgCanvas"></div>
+      <p class="sg-hint">Tippe einen Block an, um ihn zu bearbeiten. Neue Blöcke werden <b>unter</b> dem markierten Block eingefügt – oder in ein markiertes leeres Feld.</p>
+
+      <div class="sg-bottom">
+        <button class="btn mini" id="sgUndo">↶ Rückgängig</button>
+        <button class="btn mini" id="sgPng">🖼 Als Bild</button>
+        <button class="btn mini" id="sgCode">⌨ Arduino-Code</button>
+        <button class="btn mini" id="sgExample">📘 Beispiel laden</button>
+      </div>
+      <div class="sg-out" id="sgOut" hidden></div>
+    </div>
   </section>
 
   <section class="view" id="view-referenz">
@@ -3570,7 +3606,7 @@ $('#bkLoad').onclick=async()=>{
 /* ---------- nav ---------- */
 function showView(v){
   if(v==='sandbox') v='labor';
-  if(!['aufgaben','labor','quiz','referenz'].includes(v)) v='aufgaben';
+  if(!['aufgaben','labor','quiz','struktogramm','referenz'].includes(v)) v='aufgaben';
   if(v==='labor') setTimeout(scheduleWires,30);
   document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id==='view-'+v));
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
@@ -3578,6 +3614,292 @@ function showView(v){
 document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{ try{history.replaceState(null,'','#'+b.dataset.v);}catch(e){} showView(b.dataset.v); });
 window.addEventListener('hashchange',()=>showView(location.hash.slice(1)));
 renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
+</script>
+<!-- ===== Struktogramm-Editor (Nassi-Shneiderman, DIN 66261) ===== -->
+<style>
+.sg-card{display:flex;flex-direction:column;gap:10px}
+.sg-top,.sg-ins,.sg-bottom{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.sg-top select{flex:0 1 200px;min-width:0}
+.sg-top input{flex:1 1 200px;min-width:0;background:var(--panel2);color:var(--text);border:1px solid var(--line2);border-radius:8px;padding:8px 10px;font-size:15px}
+.sg-lbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-right:2px}
+.sg-edit{background:#0f171c;border:1px dashed var(--line2);border-radius:8px;padding:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+.sg-edit label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted);flex:1 1 220px}
+.sg-edit input{background:var(--panel2);color:var(--text);border:1px solid var(--line2);border-radius:8px;padding:8px 10px;font-size:15px;font-family:var(--mono)}
+.sg-edit .acts{display:flex;gap:6px;flex-wrap:wrap}
+.sg-edit .none{color:var(--muted);font-size:13.5px}
+.sg-canvas{background:#fff;border-radius:8px;padding:12px;overflow:auto;-webkit-overflow-scrolling:touch}
+.sg-canvas svg{display:block;width:100%;height:auto;min-width:520px;touch-action:manipulation}
+.sg-canvas g[data-k]{cursor:pointer}
+.sg-hint{margin:0;color:var(--muted);font-size:12.5px}
+.sg-out{background:#0b1014;border:1px solid var(--line);border-radius:8px;padding:10px}
+.sg-out pre{margin:0 0 8px;white-space:pre;overflow:auto;font-family:var(--mono);font-size:13px;max-height:420px}
+.sg-out img{max-width:100%;background:#fff;border-radius:6px;display:block;margin-bottom:8px}
+.sg-out p{margin:0 0 8px;color:var(--muted);font-size:13px}
+</style>
+<script>
+(function(){
+  const $=s=>document.querySelector(s);
+  const KEY='uct-sg-v1';
+  const FONT='14px "IBM Plex Sans", system-ui, sans-serif';
+  const LH=18, P=7, BAR=26, EMPTY=34, W=680;
+  const uid=()=>Math.random().toString(36).slice(2,9);
+
+  /* ---------- Daten ---------- */
+  const EXAMPLE=()=>({id:uid(),title:'Taster schaltet LED',body:[
+    {t:'stmt',text:'pinMode(LED, OUTPUT);'},
+    {t:'stmt',text:'pinMode(TASTER, INPUT_PULLUP);'},
+    {t:'forever',body:[
+      {t:'stmt',text:'zustand = digitalRead(TASTER);'},
+      {t:'if',cond:'zustand == LOW',yes:[{t:'stmt',text:'digitalWrite(LED, HIGH);'}],no:[{t:'stmt',text:'digitalWrite(LED, LOW);'}]},
+      {t:'call',text:'delay(20)'}
+    ]}
+  ]});
+  function load(){ try{ const d=JSON.parse(localStorage.getItem(KEY)); if(d&&d.items&&d.items.length) return d; }catch(e){} const ex=EXAMPLE(); return {cur:ex.id,items:[ex]}; }
+  function save(){ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){} }
+  let S=load();
+  const doc=()=>S.items.find(i=>i.id===S.cur)||S.items[0];
+  let sel=null;            // {kind:'node'|'slot', key}
+  let hist=[];
+  function snap(){ hist.push(JSON.stringify(doc().body)); if(hist.length>60) hist.shift(); }
+
+  /* ---------- Text messen & umbrechen ---------- */
+  const ctx=document.createElement('canvas').getContext('2d'); ctx.font=FONT;
+  function wrap(text,maxW){
+    const out=[]; String(text||'').split('\n').forEach(par=>{
+      const words=par.split(/\s+/).filter(Boolean); let line='';
+      if(!words.length){ out.push(''); return; }
+      words.forEach(w=>{
+        const t=line?line+' '+w:w;
+        if(ctx.measureText(t).width<=maxW||!line){ line=t;
+          while(ctx.measureText(line).width>maxW&&line.length>1){ let i=line.length-1; while(i>1&&ctx.measureText(line.slice(0,i)).width>maxW) i--; out.push(line.slice(0,i)); line=line.slice(i); }
+        } else { out.push(line); line=w; }
+      });
+      out.push(line);
+    });
+    return out.length?out:[''];
+  }
+  const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  /* ---------- Messen ---------- */
+  function hList(list,w){ return list.length?list.reduce((a,n)=>a+hNode(n,w),0):EMPTY; }
+  function cases(n){ return n.cases; }
+  function hNode(n,w){
+    switch(n.t){
+      case 'stmt': return wrap(n.text,w-2*P).length*LH+2*P;
+      case 'call': return wrap(n.text,w-2*P-20).length*LH+2*P;
+      case 'if':   return wrap(n.cond,w*0.62).length*LH+2*P+LH + Math.max(hList(n.yes,w/2),hList(n.no,w/2));
+      case 'switch': { const k=cases(n).length; return wrap(n.expr,w*0.6).length*LH+2*P+LH + Math.max(...cases(n).map(c=>hList(c.body,w/k))); }
+      case 'while': case 'do': return wrap(n.cond,w-2*P).length*LH+2*P + hList(n.body,w-BAR);
+      case 'forever': return wrap(foreverLabel(n),w-2*P).length*LH+2*P + hList(n.body,w-BAR) + 12;
+    }
+    return LH+2*P;
+  }
+  const foreverLabel=n=>n.text||'wiederhole endlos (loop)';
+
+  /* ---------- Zeichnen ---------- */
+  let out;
+  function txt(lines,x,y,anchor){ return lines.map((l,i)=>`<text x="${x}" y="${y+P+LH*(i+1)-5}" text-anchor="${anchor||'start'}">${esc(l)}</text>`).join(''); }
+  function rect(x,y,w,h){ return `<rect x="${x}" y="${y}" width="${w}" height="${h}" class="b"/>`; }
+  function selBox(k,x,y,w,h){ return (sel&&sel.key===k)?`<rect x="${x+1.5}" y="${y+1.5}" width="${w-3}" height="${h-3}" class="sel"/>`:''; }
+  function dList(list,key,x,y,w,minH){
+    let s='';
+    if(!list.length){
+      const h=Math.max(EMPTY,minH||0);
+      s+=`<g data-k="${key}" data-kind="slot">${rect(x,y,w,h)}${sel&&sel.key===key?`<rect x="${x+1.5}" y="${y+1.5}" width="${w-3}" height="${h-3}" class="sel"/>`:''}<text x="${x+w/2}" y="${y+h/2+5}" text-anchor="middle" class="ph">∅ leer – tippen</text></g>`;
+      return s;
+    }
+    let cy=y;
+    list.forEach((n,i)=>{ const h=hNode(n,w); s+=dNode(n,key+'/'+i,x,cy,w,h); cy+=h; });
+    if(minH && cy-y<minH){ s+=rect(x,cy,w,minH-(cy-y)); }
+    return s;
+  }
+  function dNode(n,k,x,y,w,h){
+    let s=`<g data-k="${k}" data-kind="node">`;
+    if(n.t==='stmt'){
+      s+=rect(x,y,w,h)+txt(wrap(n.text,w-2*P),x+P,y);
+    } else if(n.t==='call'){
+      s+=rect(x,y,w,h)+`<line x1="${x+10}" y1="${y}" x2="${x+10}" y2="${y+h}" class="l"/><line x1="${x+w-10}" y1="${y}" x2="${x+w-10}" y2="${y+h}" class="l"/>`+txt(wrap(n.text,w-2*P-20),x+w/2,y,'middle');
+    } else if(n.t==='if'){
+      const cl=wrap(n.cond,w*0.62), hh=cl.length*LH+2*P+LH, hw=w/2;
+      s+=rect(x,y,w,hh)+`<line x1="${x}" y1="${y}" x2="${x+hw}" y2="${y+hh}" class="l"/><line x1="${x+w}" y1="${y}" x2="${x+hw}" y2="${y+hh}" class="l"/>`;
+      s+=txt(cl,x+hw,y,'middle')+`<text x="${x+P}" y="${y+hh-6}" class="sm">ja</text><text x="${x+w-P}" y="${y+hh-6}" text-anchor="end" class="sm">nein</text>`;
+      s+=selBox(k,x,y,w,hh)+'</g>';
+      const bh=h-hh;
+      return s+dList(n.yes,k+':y',x,y+hh,hw,bh)+dList(n.no,k+':n',x+hw,y+hh,w-hw,bh);
+    } else if(n.t==='switch'){
+      const C=cases(n), kk=C.length, cl=wrap(n.expr,w*0.6), hh=cl.length*LH+2*P+LH, cw=w/kk, px=x+cw*(kk-1);
+      s+=rect(x,y,w,hh)+`<line x1="${x}" y1="${y}" x2="${px}" y2="${y+hh}" class="l"/><line x1="${x+w}" y1="${y}" x2="${px}" y2="${y+hh}" class="l"/>`;
+      s+=txt(cl,x+w*0.45,y,'middle');
+      C.forEach((c,i)=>{ s+=`<text x="${x+cw*i+cw/2}" y="${y+hh-6}" text-anchor="middle" class="sm">${esc(c.label)}</text>`; });
+      s+=selBox(k,x,y,w,hh)+'</g>';
+      const bh=h-hh;
+      C.forEach((c,i)=>{ s+=dList(c.body,k+':c'+i,x+cw*i,y+hh,i===kk-1?w-cw*i:cw,bh); });
+      return s;
+    } else if(n.t==='while'||n.t==='forever'){
+      const lab=n.t==='while'?n.cond:foreverLabel(n), cl=wrap(lab,w-2*P), hh=cl.length*LH+2*P, foot=n.t==='forever'?12:0;
+      s+=rect(x,y,w,h)+txt(cl,x+P,y);
+      if(foot) s+=`<line x1="${x+BAR}" y1="${y+h-foot}" x2="${x+w}" y2="${y+h-foot}" class="l"/>`;
+      s+=selBox(k,x,y,w,hh)+'</g>';
+      return s+dList(n.body,k+':b',x+BAR,y+hh,w-BAR,h-hh-foot);
+    } else if(n.t==='do'){
+      const cl=wrap(n.cond,w-2*P), fh=cl.length*LH+2*P;
+      s+=rect(x,y,w,h)+txt(cl,x+P,y+h-fh);
+      s+=selBox(k,x,y+h-fh,w,fh)+'</g>';
+      return s+dList(n.body,k+':b',x+BAR,y,w-BAR,h-fh);
+    }
+    return s+selBox(k,x,y,w,h)+'</g>';
+  }
+  function svgFor(forExport){
+    const d=doc(), body=d.body, tl=wrap(d.title||'Struktogramm',W-2*P), th=tl.length*LH+2*P;
+    const H=th+hList(body,W);
+    const st=`<style>.b{fill:#fff;stroke:#111;stroke-width:1.4}.l{stroke:#111;stroke-width:1.2}text{font:${FONT};fill:#111}.sm{font-size:12px;fill:#333}.ph{fill:#999;font-size:12.5px}.sel{fill:rgba(25,181,165,.18);stroke:#19b5a5;stroke-width:3}.t{font-weight:700}</style>`;
+    let s=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 ${W+4} ${H+4}" width="${W+4}" height="${H+4}">${st}`;
+    s+=`<rect x="-2" y="-2" width="${W+4}" height="${H+4}" fill="#fff"/>`;
+    s+=`<g>${rect(0,0,W,th)}${tl.map((l,i)=>`<text x="${P}" y="${P+LH*(i+1)-5}" class="t">${esc(l)}</text>`).join('')}</g>`;
+    const keep=sel; if(forExport) sel=null;
+    s+=dList(body,'r',0,th,W,0);
+    sel=keep;
+    return s+'</svg>';
+  }
+
+  /* ---------- Schlüssel auflösen ---------- */
+  function listByKey(key){
+    if(key==='r') return doc().body;
+    const m=key.match(/^(.*):(y|n|b|c(\d+))$/); if(!m) return null;
+    const node=nodeByKey(m[1]); if(!node) return null;
+    if(m[2]==='y') return node.yes; if(m[2]==='n') return node.no; if(m[2]==='b') return node.body;
+    return node.cases[+m[3]]&&node.cases[+m[3]].body;
+  }
+  function nodeByKey(key){ const i=key.lastIndexOf('/'); const L=listByKey(key.slice(0,i)); return L?L[+key.slice(i+1)]:null; }
+  function parentOf(key){ const i=key.lastIndexOf('/'); return {list:listByKey(key.slice(0,i)),lk:key.slice(0,i),idx:+key.slice(i+1)}; }
+
+  /* ---------- Neue Blöcke ---------- */
+  function make(t){
+    switch(t){
+      case 'stmt': return {t,text:'Anweisung'};
+      case 'call': return {t,text:'unterprogramm()'};
+      case 'if': return {t,cond:'Bedingung?',yes:[],no:[]};
+      case 'switch': return {t,expr:'Variable',cases:[{label:'1',body:[]},{label:'2',body:[]},{label:'sonst',body:[]}]};
+      case 'while': return {t,cond:'solange Bedingung',body:[]};
+      case 'do': return {t,cond:'bis/solange Bedingung',body:[]};
+      case 'forever': return {t,text:'',body:[]};
+    }
+  }
+  function insert(t){
+    snap(); const n=make(t);
+    let L,idx,lk;
+    if(sel&&sel.kind==='slot'){ lk=sel.key; L=listByKey(lk); idx=0; }
+    else if(sel&&sel.kind==='node'){ const p=parentOf(sel.key); L=p.list; lk=p.lk; idx=p.idx+1; }
+    else { lk='r'; L=doc().body; idx=L.length; }
+    if(!L){ lk='r'; L=doc().body; idx=L.length; }
+    L.splice(idx,0,n); sel={kind:'node',key:lk+'/'+idx}; commit(true);
+  }
+
+  /* ---------- Bearbeiten-Leiste ---------- */
+  const NAMES={stmt:'Anweisung',call:'Unterprogramm-Aufruf',if:'Verzweigung (wenn – dann – sonst)',switch:'Fallauswahl',while:'Kopfgesteuerte Schleife',do:'Fußgesteuerte Schleife',forever:'Endlosschleife (loop)'};
+  function field(label,val,on,ph){ return {label,val,on,ph}; }
+  function renderEdit(){
+    const box=$('#sgEdit');
+    if(!sel){ box.innerHTML='<span class="none">Kein Block markiert – neue Blöcke kommen ans Ende.</span>'; return; }
+    if(sel.kind==='slot'){ box.innerHTML='<span class="none">Leeres Feld markiert – wähle oben, was hier hinein soll.</span>'; return; }
+    const n=nodeByKey(sel.key); if(!n){ sel=null; return renderEdit(); }
+    let F=[];
+    if(n.t==='stmt'||n.t==='call') F.push(field('Text',n.text,v=>n.text=v));
+    if(n.t==='if'||n.t==='while'||n.t==='do') F.push(field(n.t==='if'?'Bedingung':'Schleifenbedingung',n.cond,v=>n.cond=v,n.t==='while'?'z. B. i < 10   oder   for (int i=0; i<10; i++)':''));
+    if(n.t==='forever') F.push(field('Beschriftung',n.text,v=>n.text=v,'wiederhole endlos (loop)'));
+    if(n.t==='switch'){ F.push(field('Ausdruck',n.expr,v=>n.expr=v)); F.push(field('Fälle (mit Komma getrennt, „sonst“ = default)',n.cases.map(c=>c.label).join(', '),v=>{
+      const labels=v.split(',').map(s=>s.trim()).filter(Boolean); if(!labels.length) return;
+      n.cases=labels.map((l,i)=>({label:l,body:(n.cases[i]&&n.cases[i].body)||[]}));
+    })); }
+    box.innerHTML=`<div style="width:100%;font-size:12px;color:var(--teal)">${NAMES[n.t]}</div>`+
+      F.map((f,i)=>`<label>${esc(f.label)}<input data-f="${i}" value="${esc(f.val||'')}" placeholder="${esc(f.ph||'')}" autocapitalize="off" autocomplete="off" spellcheck="false"></label>`).join('')+
+      `<div class="acts"><button class="btn mini" data-a="up">↑</button><button class="btn mini" data-a="down">↓</button><button class="btn mini" data-a="dup">⧉ Kopie</button><button class="btn mini" data-a="del">✕ Entfernen</button></div>`;
+    box.querySelectorAll('input[data-f]').forEach(inp=>{
+      let snapped=false;
+      inp.oninput=()=>{ if(!snapped){ snap(); snapped=true; } F[+inp.dataset.f].on(inp.value); save(); draw(); };
+      inp.onchange=()=>{ renderEdit(); };
+    });
+    box.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>act(b.dataset.a));
+  }
+  function act(a){
+    if(!sel||sel.kind!=='node') return;
+    const p=parentOf(sel.key); if(!p.list) return; snap();
+    if(a==='del'){ p.list.splice(p.idx,1); sel=p.list.length?{kind:'node',key:p.lk+'/'+Math.min(p.idx,p.list.length-1)}:{kind:'slot',key:p.lk}; }
+    if(a==='dup'){ p.list.splice(p.idx+1,0,JSON.parse(JSON.stringify(p.list[p.idx]))); sel={kind:'node',key:p.lk+'/'+(p.idx+1)}; }
+    if(a==='up'&&p.idx>0){ const t=p.list[p.idx]; p.list[p.idx]=p.list[p.idx-1]; p.list[p.idx-1]=t; sel={kind:'node',key:p.lk+'/'+(p.idx-1)}; }
+    if(a==='down'&&p.idx<p.list.length-1){ const t=p.list[p.idx]; p.list[p.idx]=p.list[p.idx+1]; p.list[p.idx+1]=t; sel={kind:'node',key:p.lk+'/'+(p.idx+1)}; }
+    commit(true);
+  }
+
+  /* ---------- Code-Gerüst ---------- */
+  function codeOf(list,ind){
+    const I='  '.repeat(ind); let s='';
+    list.forEach(n=>{
+      if(n.t==='stmt'){ const t=(n.text||'').trim(); s+= /;\s*$/.test(t)||/^[{}]/.test(t) ? I+t+'\n' : I+'// '+t+'\n'; }
+      else if(n.t==='call'){ let t=(n.text||'').trim().replace(/;$/,''); if(!/\)$/.test(t)) t+='()'; s+=I+t+';\n'; }
+      else if(n.t==='if'){ s+=I+'if ('+n.cond.replace(/\?$/,'').trim()+') {\n'+codeOf(n.yes,ind+1)+(n.no.length?I+'} else {\n'+codeOf(n.no,ind+1):'')+I+'}\n'; }
+      else if(n.t==='while'){ const c=n.cond.trim(); s+= /^for\s*\(/.test(c) ? I+c+' {\n' : I+'while ('+c+') {\n'; s+=codeOf(n.body,ind+1)+I+'}\n'; }
+      else if(n.t==='do'){ s+=I+'do {\n'+codeOf(n.body,ind+1)+I+'} while ('+n.cond.trim()+');\n'; }
+      else if(n.t==='switch'){ s+=I+'switch ('+n.expr.trim()+') {\n'; n.cases.forEach(c=>{ const d=/^(sonst|default)$/i.test(c.label); s+=I+'  '+(d?'default:':'case '+c.label+':')+'\n'+codeOf(c.body,ind+2)+I+'    break;\n'; }); s+=I+'}\n'; }
+      else if(n.t==='forever'){ s+=I+'while (true) {\n'+codeOf(n.body,ind+1)+I+'}\n'; }
+    });
+    return s;
+  }
+  function arduinoCode(){
+    const body=doc().body, fi=body.findIndex(n=>n.t==='forever');
+    const setupPart=fi<0?body:body.slice(0,fi), loopPart=fi<0?[]:body[fi].body, after=fi<0?[]:body.slice(fi+1);
+    let s='// '+(doc().title||'Struktogramm')+'\n// Code-Gerüst aus dem Struktogramm – Variablen und Pins noch selbst deklarieren.\n\n';
+    s+='void setup() {\n'+codeOf(setupPart,1)+'}\n\nvoid loop() {\n'+codeOf(loopPart,1)+'}\n';
+    if(after.length) s+='\n// Hinweis: Blöcke nach der Endlosschleife werden nie erreicht.\n';
+    return s;
+  }
+
+  /* ---------- Oberfläche ---------- */
+  function draw(){
+    const c=$('#sgCanvas'); c.innerHTML=svgFor(false);
+    c.querySelectorAll('g[data-k]').forEach(g=>g.addEventListener('click',e=>{
+      e.stopPropagation(); const k=g.dataset.k, kind=g.dataset.kind;
+      sel=(sel&&sel.key===k)?null:{kind,key:k}; draw(); renderEdit();
+    }));
+  }
+  function renderPick(){
+    $('#sgPick').innerHTML=S.items.map(i=>`<option value="${i.id}"${i.id===S.cur?' selected':''}>${esc(i.title||'Ohne Titel')}</option>`).join('');
+    $('#sgTitle').value=doc().title||'';
+  }
+  function commit(redrawEdit){ save(); draw(); if(redrawEdit) renderEdit(); }
+  function showOut(html){ const o=$('#sgOut'); o.innerHTML=html; o.hidden=false; o.scrollIntoView({behavior:'smooth',block:'nearest'}); }
+
+  $('#sgCanvas').addEventListener('click',()=>{ if(sel){ sel=null; draw(); renderEdit(); } });
+  document.querySelectorAll('[data-ins]').forEach(b=>b.onclick=()=>insert(b.dataset.ins));
+  $('#sgTitle').oninput=e=>{ doc().title=e.target.value; save(); draw(); const o=$('#sgPick').selectedOptions[0]; if(o) o.textContent=e.target.value||'Ohne Titel'; };
+  $('#sgPick').onchange=e=>{ S.cur=e.target.value; sel=null; hist=[]; save(); renderPick(); draw(); renderEdit(); $('#sgOut').hidden=true; };
+  $('#sgNew').onclick=()=>{ const d={id:uid(),title:'Neues Struktogramm',body:[]}; S.items.push(d); S.cur=d.id; sel={kind:'slot',key:'r'}; hist=[]; save(); renderPick(); draw(); renderEdit(); $('#sgTitle').focus(); };
+  $('#sgDel').onclick=()=>{
+    if(!confirm('Struktogramm „'+(doc().title||'Ohne Titel')+'“ wirklich löschen?')) return;
+    S.items=S.items.filter(i=>i.id!==S.cur); if(!S.items.length){ const d={id:uid(),title:'Neues Struktogramm',body:[]}; S.items.push(d); }
+    S.cur=S.items[0].id; sel=null; hist=[]; save(); renderPick(); draw(); renderEdit();
+  };
+  $('#sgExample').onclick=()=>{ const d=EXAMPLE(); S.items.push(d); S.cur=d.id; sel=null; hist=[]; save(); renderPick(); draw(); renderEdit(); };
+  $('#sgUndo').onclick=()=>{ if(!hist.length) return; doc().body=JSON.parse(hist.pop()); sel=null; commit(true); };
+  $('#sgCode').onclick=()=>{
+    const code=arduinoCode();
+    showOut('<pre>'+esc(code)+'</pre><button class="btn mini" id="sgCopy">📋 Kopieren</button>');
+    $('#sgCopy').onclick=()=>{ (navigator.clipboard?navigator.clipboard.writeText(code):Promise.reject()).then(()=>{ $('#sgCopy').textContent='✓ Kopiert'; }).catch(()=>{ const r=document.createRange(); r.selectNodeContents($('#sgOut pre')); const s=getSelection(); s.removeAllRanges(); s.addRange(r); }); };
+  };
+  $('#sgPng').onclick=()=>{
+    const svg=svgFor(true), img=new Image(), scale=2;
+    img.onload=()=>{
+      const c=document.createElement('canvas'); c.width=img.width*scale; c.height=img.height*scale;
+      const g=c.getContext('2d'); g.scale(scale,scale); g.drawImage(img,0,0);
+      const url=c.toDataURL('image/png');
+      showOut('<p>Bild lange gedrückt halten → „In Fotos sichern“ oder „Teilen“.</p><img alt="Struktogramm" src="'+url+'"><a class="btn mini" download="'+esc((doc().title||'Struktogramm').replace(/[\\/:*?"<>|]/g,''))+'.png" href="'+url+'">⬇ Herunterladen</a>');
+    };
+    img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+  };
+
+  renderPick(); draw(); renderEdit();
+  window.addEventListener('resize',()=>{});
+})();
 </script>
 <!-- ===== App-Update (µC-Trainer als iPad-App) ===== -->
 <style>
@@ -3599,7 +3921,7 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
 </div>
 <script>
 (function(){
-  var APP_VERSION = '1.0.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+  var APP_VERSION = '1.1.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register('sw.js').catch(function(){});
   var box = document.getElementById('upd');
