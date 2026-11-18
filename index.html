@@ -299,7 +299,8 @@ h3{margin:18px 0 8px;font-size:16px}
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="µC-Trainer">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<meta name="theme-color" content="#0d1216">
+<meta name="theme-color" content="#0a0f14">
+<script>try{var _s=JSON.parse(localStorage.getItem("uct-settings"))||{};document.documentElement.dataset.theme=_s.theme||"nacht";document.documentElement.dataset.accent=_s.accent||"tuerkis";document.documentElement.dataset.motion=_s.motion||"on";}catch(e){}</script>
 </head>
 <body>
 <header>
@@ -3656,7 +3657,7 @@ $('#bkLoad').onclick=async()=>{
 /* ---------- nav ---------- */
 function showView(v){
   if(v==='sandbox') v='labor';
-  if(!['aufgaben','labor','quiz','struktogramm','sps','lernen','werkzeuge','referenz'].includes(v)) v='aufgaben';
+  if(!['aufgaben','labor','quiz','struktogramm','sps','lernen','werkzeuge','referenz','einstellungen'].includes(v)) v='aufgaben';
   if(v==='labor') setTimeout(scheduleWires,30);
   document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id==='view-'+v));
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
@@ -4472,7 +4473,7 @@ button.pf-stat{font:inherit;color:inherit;cursor:pointer;text-align:left}
     ]}
   ]});
   const ALL=[]; U.forEach(u=>u.L.forEach(l=>{ l.u=u; ALL.push(l); l.S.forEach((st,i)=>{ st._key=l.id+':'+i; st._u=u; }); }));
-  const XP_STEP=10, XP_LESSON=10, GOAL=50;
+  const XP_STEP=10, XP_LESSON=10; const goal=()=>(window.uctSettings&&+window.uctSettings.goal)||50;
 
   /* ---------- Fortschritt ---------- */
   const KEY='uct-path-v1';
@@ -4500,7 +4501,7 @@ button.pf-stat{font:inherit;color:inherit;cursor:pointer;text-align:left}
     let h=`<div class="pf-head">
       <div class="pf-stat pf-total"><div style="flex:1">Gesamtfortschritt <small>${nd} von ${ALL.length} Lektionen</small><div class="pf-bar" style="margin-top:6px"><i style="width:${(nd/ALL.length*100).toFixed(1)}%"></i></div></div><b style="font-size:20px">${Math.round(nd/ALL.length*100)} %</b></div>
       <div class="pf-stat"><span class="ic">🔥</span><div>${streakNow()} ${streakNow()===1?'Tag':'Tage'}<small>Serie</small></div></div>
-      <div class="pf-stat">${ring(dayXp()/GOAL)}<div>${dayXp()} / ${GOAL} XP<small>Tagesziel</small></div></div>
+      <div class="pf-stat">${ring(dayXp()/goal())}<div>${dayXp()} / ${goal()} XP<small>Tagesziel</small></div></div>
       <div class="pf-stat"><span class="ic">⭐</span><div>${P.xp} XP<small>gesamt</small></div></div>
       ${wrongList().length?`<button class="pf-stat pf-rev" id="pfRev"><span class="ic">🔁</span><div>Wiederholen<small>${wrongList().length} offene Fehler</small></div></button>`:''}
     </div>`;
@@ -4603,7 +4604,7 @@ button.pf-stat{font:inherit;color:inherit;cursor:pointer;text-align:left}
     const idx=ALL.indexOf(LS.l), nxt=ALL[idx+1];
     $('#plIn').innerHTML=`<div class="pl-done"><div class="big">${acc===100?'🏆':'🎉'}</div><h2>Lektion geschafft!</h2><p>${E(LS.l.h)} · ${E(LS.l.u.h)}</p>
       <div class="row"><div class="pf-stat"><span class="ic">⭐</span>+${gain} XP<small>verdient</small></div><div class="pf-stat"><span class="ic">🎯</span>${acc} %<small>beim ersten Versuch richtig</small></div><div class="pf-stat"><span class="ic">🔥</span>${streakNow()}<small>${streakNow()===1?'Tag':'Tage'} Serie</small></div></div>
-      ${dayXp()>=GOAL&&dayXp()-gain<GOAL?'<p>✅ <b>Tagesziel erreicht!</b></p>':''}${!first?'<p style="color:var(--muted)">Wiederholung – stark, dass du übst!</p>':''}</div>`;
+      ${dayXp()>=goal()&&dayXp()-gain<goal()?'<p>✅ <b>Tagesziel erreicht!</b></p>':''}${!first?'<p style="color:var(--muted)">Wiederholung – stark, dass du übst!</p>':''}</div>`;
     foot('ok',nxt?`Als Nächstes: <b style="display:inline;font-size:15px">${E(nxt.h)}</b>`:'<b>Alle Lektionen abgeschlossen!</b>', 'Fertig',false);
   }
 
@@ -4675,6 +4676,7 @@ button.pf-stat{font:inherit;color:inherit;cursor:pointer;text-align:left}
     eb.onclick=()=>{ tabs.querySelectorAll('[data-lt]').forEach(x=>x.classList.toggle('on',x===eb)); v.querySelectorAll('.ln-pane').forEach(p=>p.classList.toggle('on',p===ep)); renderExamSetup(); };
   }
   renderExamSetup();
+  window.uctRenderPath=renderPath;
   renderPath();
 })();
 </script>
@@ -5331,12 +5333,254 @@ void loop() {
   document.addEventListener('visibilitychange',()=>{ if(document.hidden&&running) run(false); });
 })();
 </script>
+<!-- ===== Design 2.0 + Einstellungen ===== -->
+<style>
+/* ---------- Themes & Akzente ---------- */
+html{--accent:#19b5a5;--accent2:#0f8f83;--ink:#04201d;--glow:rgba(25,181,165,.35)}
+html[data-accent="blau"]{--accent:#4f8cff;--accent2:#2f6be0;--ink:#ffffff;--glow:rgba(79,140,255,.35)}
+html[data-accent="violett"]{--accent:#9b7bff;--accent2:#7652f0;--ink:#ffffff;--glow:rgba(155,123,255,.35)}
+html[data-accent="orange"]{--accent:#ffab2e;--accent2:#e08a00;--ink:#2a1700;--glow:rgba(255,171,46,.35)}
+html[data-accent="gruen"]{--accent:#34d27b;--accent2:#1fae5f;--ink:#03210f;--glow:rgba(52,210,123,.35)}
+html[data-accent="pink"]{--accent:#ff6fae;--accent2:#e5498f;--ink:#2a0414;--glow:rgba(255,111,174,.35)}
+:root,html[data-theme="nacht"]{--bg:#0a0f14;--panel:#111920;--panel2:#17212a;--line:#1f2b35;--line2:#2b3a46;--text:#e9eff4;--muted:#8d9cab}
+html[data-theme="ozean"]{--bg:#071120;--panel:#0d1a2b;--panel2:#132438;--line:#1a2c44;--line2:#25395a;--text:#e8f0fb;--muted:#8ea3bf}
+html[data-theme="oled"]{--bg:#000;--panel:#0b0c0e;--panel2:#141519;--line:#1d1f24;--line2:#2a2d34;--text:#eceff3;--muted:#8b9099}
+html[data-theme="wald"]{--bg:#09110d;--panel:#0f1a14;--panel2:#15241c;--line:#1d3026;--line2:#2a4234;--text:#e7f2ec;--muted:#8aa597}
+html{--teal:var(--accent);--teal2:var(--accent2)}
+html[data-motion="off"] *,html[data-motion="off"] *::before,html[data-motion="off"] *::after{transition:none !important;animation:none !important}
+
+/* ---------- Grundlook ---------- */
+html,body{background:var(--bg)}
+body{background-image:radial-gradient(900px 500px at 85% -10%,var(--glow),transparent 60%),radial-gradient(700px 400px at -10% 30%,rgba(255,255,255,.035),transparent 60%);background-attachment:fixed;background-size:auto;font-size:15px;-webkit-font-smoothing:antialiased}
+::selection{background:var(--glow)}
+.card{border-radius:16px;border-color:var(--line);background:linear-gradient(180deg,rgba(255,255,255,.028),rgba(255,255,255,0) 40%),var(--panel);box-shadow:0 1px 0 rgba(255,255,255,.035) inset,0 10px 30px -12px rgba(0,0,0,.55)}
+.btn{border-radius:11px;border-color:var(--line2);background:var(--panel2);transition:transform .08s,border-color .15s,background .15s;font-weight:600}
+.btn:hover{border-color:var(--accent)}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:linear-gradient(180deg,var(--accent),var(--accent2));border-color:transparent;color:var(--ink);box-shadow:0 6px 18px -8px var(--glow)}
+.btn.primary:hover{filter:brightness(1.08);background:linear-gradient(180deg,var(--accent),var(--accent2))}
+select,input[type=number],input[type=text],input[type=search],input:not([type]){border-radius:10px !important}
+h2{font-size:24px;letter-spacing:-.2px}
+.badge{border-radius:999px}
+.ln-tabs button,.plc-seg,.sg-ins .btn{border-radius:999px}
+.ln-tabs{gap:8px;padding:4px;background:var(--panel);border:1px solid var(--line);border-radius:999px;display:inline-flex;max-width:100%;overflow-x:auto;scrollbar-width:none}
+.ln-tabs::-webkit-scrollbar{display:none}
+.ln-tabs button{border:0;background:transparent;white-space:nowrap;padding:8px 14px}
+.ln-tabs button.on{background:linear-gradient(180deg,var(--accent),var(--accent2));color:var(--ink)}
+.pf-dot{box-shadow:0 5px 0 rgba(0,0,0,.45)}
+.pf-unit{border-radius:18px}
+.foot{opacity:.7}
+
+/* ---------- Kopfzeile ---------- */
+header{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--bg) 78%,transparent);-webkit-backdrop-filter:saturate(1.4) blur(14px);backdrop-filter:saturate(1.4) blur(14px);border-bottom:1px solid var(--line)}
+header .hwrap{max-width:none;padding:10px 20px;gap:14px;flex-wrap:nowrap;padding-top:calc(10px + env(safe-area-inset-top))}
+header .logo{font-size:17px}
+header .chip{border-color:var(--accent);color:var(--accent);border-radius:8px;width:32px;height:32px;box-shadow:0 0 18px -4px var(--glow)}
+header .chip:before,header .chip:after{background:repeating-linear-gradient(90deg,var(--accent) 0 3px,transparent 3px 6px)}
+.progress-pill{border-color:var(--accent2);color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent);margin-left:auto}
+#bkBtn,#bkPanel{display:none !important}
+#pageHead{display:flex;align-items:center;gap:14px;margin:4px 0 18px}
+#pageHead .ic{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(135deg,var(--accent),var(--accent2));color:var(--ink);box-shadow:0 8px 22px -10px var(--glow);flex:none}
+#pageHead .ic svg{width:24px;height:24px}
+#pageHead h1{margin:0;font-size:26px;letter-spacing:-.4px;line-height:1.15}
+#pageHead p{margin:2px 0 0;color:var(--muted);font-size:14px}
+.hset{background:none;border:1px solid var(--line2);color:var(--muted);width:40px;height:40px;border-radius:12px;display:grid;place-items:center;cursor:pointer;flex:none}
+.hset:hover{color:var(--text);border-color:var(--accent)}
+.hset svg{width:20px;height:20px}
+
+/* ---------- Navigation ---------- */
+#appNav{position:fixed;z-index:60;background:color-mix(in srgb,var(--panel) 88%,transparent);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+#appNav nav{display:flex;margin:0;overflow:visible}
+#appNav nav button{display:flex;align-items:center;gap:12px;border:0;border-radius:12px;color:var(--muted);background:none;font-weight:600;cursor:pointer;position:relative;white-space:nowrap}
+#appNav nav button svg{width:21px;height:21px;flex:none}
+#appNav nav button:hover{color:var(--text);background:var(--panel2)}
+#appNav nav button.on{color:var(--accent);background:color-mix(in srgb,var(--accent) 13%,transparent)}
+#appNav nav button.navmore{display:none}
+@media (min-width:1000px){
+  #appNav{top:61px;left:0;bottom:0;width:236px;border-right:1px solid var(--line);padding:16px 12px;overflow:auto}
+  #appNav nav{flex-direction:column;gap:3px}
+  #appNav nav button{padding:11px 14px;font-size:15px;width:100%}
+  #appNav nav button.on::before{content:"";position:absolute;left:-12px;top:10px;bottom:10px;width:4px;border-radius:0 4px 4px 0;background:var(--accent)}
+  #appNav .navsep{height:1px;background:var(--line);margin:8px 6px}
+  main{margin-left:236px !important;max-width:none !important;padding:24px 28px 40px !important}
+  main>*{max-width:1240px}
+}
+@media (max-width:999px){
+  #appNav{left:0;right:0;bottom:0;border-top:1px solid var(--line);padding:6px 6px calc(6px + env(safe-area-inset-bottom))}
+  #appNav nav{justify-content:space-around;gap:2px}
+  #appNav nav button{flex-direction:column;gap:3px;padding:7px 4px;font-size:10.5px;flex:1;max-width:96px}
+  #appNav nav button:not(.prim){display:none}
+  #appNav nav button.navmore{display:flex}
+  #appNav .navsep{display:none}
+  main{padding:16px 16px calc(96px + env(safe-area-inset-bottom)) !important}
+  #upd{bottom:calc(84px + env(safe-area-inset-bottom)) !important}
+  .toast{bottom:calc(90px + env(safe-area-inset-bottom)) !important}
+  header .logo small{display:none}
+}
+#moreSheet{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center}
+#moreSheet.on{display:flex}
+#moreSheet .sh{background:var(--panel);border:1px solid var(--line2);border-radius:22px 22px 0 0;width:100%;max-width:640px;padding:10px 14px calc(20px + env(safe-area-inset-bottom));animation:shUp .22s ease}
+#moreSheet .grab{width:42px;height:5px;border-radius:3px;background:var(--line2);margin:4px auto 12px}
+#moreSheet .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+#moreSheet button{display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px 8px;border-radius:16px;border:1px solid var(--line2);background:var(--panel2);color:var(--text);font-weight:600;font-size:13.5px;cursor:pointer}
+#moreSheet button svg{width:26px;height:26px;color:var(--accent)}
+#moreSheet button.on{border-color:var(--accent)}
+@keyframes shUp{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+
+/* ---------- Einstellungen ---------- */
+.st-wrap{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px;align-items:start}
+@media (max-width:600px){.st-wrap{grid-template-columns:1fr}}
+.st-card h3{margin:0 0 12px;font-size:16px;display:flex;align-items:center;gap:8px}
+.st-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.st-row:first-of-type{border-top:0}
+.st-row .t b{display:block;font-size:14.5px}
+.st-row .t small{color:var(--muted);font-size:12.5px}
+.st-opts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.st-opt{border:1px solid var(--line2);background:var(--panel2);color:var(--text);border-radius:999px;padding:7px 12px;font-weight:600;font-size:13px;cursor:pointer}
+.st-opt.on{background:linear-gradient(180deg,var(--accent),var(--accent2));color:var(--ink);border-color:transparent}
+.st-sw{width:30px;height:30px;border-radius:50%;border:3px solid transparent;cursor:pointer;box-shadow:0 0 0 1px var(--line2)}
+.st-sw.on{border-color:var(--text)}
+.st-theme{width:58px;height:40px;border-radius:10px;border:2px solid var(--line2);cursor:pointer;position:relative;overflow:hidden}
+.st-theme.on{border-color:var(--accent)}
+.st-theme i{position:absolute;left:8px;right:8px;bottom:8px;height:8px;border-radius:4px}
+.tog{width:52px;height:30px;border-radius:15px;background:var(--line2);border:0;position:relative;cursor:pointer;flex:none;transition:background .2s}
+.tog::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:left .2s}
+.tog.on{background:var(--accent)}
+.tog.on::after{left:25px}
+.st-danger{border-color:#5a2420 !important;color:#ff8f86 !important}
+.st-info{font-family:var(--mono);font-size:12.5px;color:var(--muted);line-height:1.8}
+</style>
+<script>
+(function(){
+  const $=s=>document.querySelector(s);
+  const E=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const KEY='uct-settings';
+  const DEF={theme:'nacht',accent:'tuerkis',font:'normal',motion:'on',goal:50,start:'lernen'};
+  let ST; try{ ST=Object.assign({},DEF,JSON.parse(localStorage.getItem(KEY))||{}); }catch(e){ ST=Object.assign({},DEF); }
+  const saveST=()=>{ try{ localStorage.setItem(KEY,JSON.stringify(ST)); }catch(e){} };
+  const ZOOM={klein:.92,normal:1,gross:1.08,riesig:1.16};
+  function apply(){
+    const h=document.documentElement; h.dataset.theme=ST.theme; h.dataset.accent=ST.accent; h.dataset.motion=ST.motion;
+    document.body.style.zoom=ZOOM[ST.font]||1;
+    const m=document.querySelector('meta[name=theme-color]'); if(m) m.content=getComputedStyle(h).getPropertyValue('--bg').trim()||'#0a0f14';
+  }
+  window.uctSettings=ST;
+
+  /* ---------- Icons ---------- */
+  const I=p=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+  const IC={
+    lernen:I('<path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c0 1.5 3 3 6 3s6-1.5 6-3v-5"/><path d="M22 9v6"/>'),
+    aufgaben:I('<rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8l1.5 1.5L12 7M8 14l1.5 1.5L12 13M14.5 8.5H17M14.5 14.5H17"/>'),
+    labor:I('<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/><circle cx="12" cy="12" r="2"/>'),
+    sps:I('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M3 9h4M3 14h4"/><path d="M11 9h2l1 2 1-4 1 2h2"/><circle cx="12" cy="16" r="1"/><circle cx="16" cy="16" r="1"/>'),
+    struktogramm:I('<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 8h16M4 8l8 5 8-5M12 13v8M4 13h16"/>'),
+    quiz:I('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7v.5"/><path d="M12 17h.01"/>'),
+    werkzeuge:I('<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>'),
+    referenz:I('<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/>'),
+    einstellungen:I('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'),
+    mehr:I('<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>')
+  };
+  const META={
+    lernen:['Lernen','Lernpfad, Prüfung, Karteikarten, Glossar & Guideline'],
+    aufgaben:['Aufgaben','Programmieraufgaben mit automatischer Prüfung'],
+    labor:['Labor','Schaltung aufbauen, Sketch schreiben, live simulieren'],
+    sps:['SPS','Kontaktplan & Funktionsplan programmieren und testen'],
+    struktogramm:['Struktogramm','Abläufe nach Nassi-Shneiderman entwerfen'],
+    quiz:['Quiz','Schnelle Wissensfragen'],
+    werkzeuge:['Werkzeuge','Elektro-Rechner und Projekt-Ideen'],
+    referenz:['Referenz','Befehle und Bauteile zum Nachschlagen'],
+    einstellungen:['Einstellungen','Design, Lernziele, Daten und App']
+  };
+  const ORDER=['lernen','aufgaben','labor','sps','struktogramm','quiz','werkzeuge','referenz','einstellungen'];
+  const PRIM=['lernen','aufgaben','labor','sps'];
+
+  /* ---------- Navigation umbauen ---------- */
+  const nav=$('#nav'), aside=document.createElement('aside'); aside.id='appNav'; document.body.appendChild(aside); aside.appendChild(nav);
+  let setBtn=nav.querySelector('[data-v="einstellungen"]');
+  if(!setBtn){ setBtn=document.createElement('button'); setBtn.dataset.v='einstellungen'; nav.appendChild(setBtn); }
+  const btns={}; nav.querySelectorAll('button[data-v]').forEach(b=>btns[b.dataset.v]=b);
+  ORDER.forEach((k,i)=>{ const b=btns[k]; if(!b) return; b.innerHTML=IC[k]+'<span>'+META[k][0]+'</span>'; if(PRIM.includes(k)) b.classList.add('prim'); nav.appendChild(b); if(k==='sps'||k==='referenz'){ const sp=document.createElement('div'); sp.className='navsep'; nav.appendChild(sp); } });
+  const go=v=>{ try{ history.replaceState(null,'','#'+v); }catch(e){} showView(v); };
+  setBtn.onclick=()=>go('einstellungen');
+  const more=document.createElement('button'); more.className='navmore'; more.innerHTML=IC.mehr+'<span>Mehr</span>'; nav.appendChild(more);
+  const sheet=document.createElement('div'); sheet.id='moreSheet'; sheet.innerHTML='<div class="sh"><div class="grab"></div><div class="grid">'+ORDER.filter(k=>!PRIM.includes(k)).map(k=>`<button data-go="${k}">${IC[k]}<span>${META[k][0]}</span></button>`).join('')+'</div></div>';
+  document.body.appendChild(sheet);
+  more.onclick=()=>sheet.classList.add('on');
+  sheet.onclick=e=>{ const b=e.target.closest('[data-go]'); if(b){ go(b.dataset.go); } if(b||e.target===sheet) sheet.classList.remove('on'); };
+  // Einstellungs-Knopf im Kopf
+  const hb=document.createElement('button'); hb.className='hset'; hb.title='Einstellungen'; hb.innerHTML=IC.einstellungen; hb.onclick=()=>go('einstellungen');
+  $('header .hwrap').appendChild(hb);
+  // Seitenkopf
+  const ph=document.createElement('div'); ph.id='pageHead'; $('main').insertBefore(ph,$('main').firstChild);
+  const orig=showView;
+  showView=function(v){
+    orig(v);
+    const cur=(document.querySelector('.view.on')||{}).id||''; const k=cur.replace('view-','');
+    if(META[k]) ph.innerHTML=`<div class="ic">${IC[k]}</div><div><h1>${META[k][0]}</h1><p>${META[k][1]}</p></div>`;
+    more.classList.toggle('on',!PRIM.includes(k));
+    sheet.querySelectorAll('[data-go]').forEach(b=>b.classList.toggle('on',b.dataset.go===k));
+    window.scrollTo(0,0);
+  };
+
+  /* ---------- Einstellungen-Seite ---------- */
+  const THEMES=[['nacht','Nacht','#111920','#0a0f14'],['ozean','Ozean','#0d1a2b','#071120'],['wald','Wald','#0f1a14','#09110d'],['oled','Schwarz','#0b0c0e','#000']];
+  const ACC=[['tuerkis','#19b5a5'],['blau','#4f8cff'],['violett','#9b7bff'],['pink','#ff6fae'],['orange','#ffab2e'],['gruen','#34d27b']];
+  const KEYS={lernpfad:['uct-path-v1'],karten:['uct-learn-v1'],sg:['uct-sg-v1'],sps:['uct-plc-v1']};
+  function used(){ let n=0; try{ for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); n+=(k.length+(localStorage.getItem(k)||'').length)*2; } }catch(e){} return n; }
+  function render(){
+    const v=$('#view-einstellungen'); if(!v) return;
+    const opt=(key,val,label)=>`<button class="st-opt${ST[key]==val?' on':''}" data-k="${key}" data-v="${val}">${label}</button>`;
+    v.innerHTML=`<div class="st-wrap">
+      <div class="card st-card"><h3>🎨 Darstellung</h3>
+        <div class="st-row"><div class="t"><b>Farbschema</b><small>Hintergrund der App</small></div><div class="st-opts">${THEMES.map(t=>`<button class="st-theme${ST.theme===t[0]?' on':''}" data-k="theme" data-v="${t[0]}" title="${t[1]}" style="background:${t[3]}"><i style="background:${t[2]};box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)"></i></button>`).join('')}</div></div>
+        <div class="st-row"><div class="t"><b>Akzentfarbe</b><small>Knöpfe, Fortschritt, Markierungen</small></div><div class="st-opts">${ACC.map(a=>`<button class="st-sw${ST.accent===a[0]?' on':''}" data-k="accent" data-v="${a[0]}" style="background:${a[1]}" aria-label="${a[0]}"></button>`).join('')}</div></div>
+        <div class="st-row"><div class="t"><b>Textgröße</b><small>Skaliert die ganze App</small></div><div class="st-opts">${opt('font','klein','A−')}${opt('font','normal','A')}${opt('font','gross','A+')}${opt('font','riesig','A++')}</div></div>
+        <div class="st-row"><div class="t"><b>Animationen</b><small>Übergänge und Pulsieren</small></div><button class="tog${ST.motion==='on'?' on':''}" data-tog="motion" aria-label="Animationen"></button></div>
+      </div>
+      <div class="card st-card"><h3>🎯 Lernen</h3>
+        <div class="st-row"><div class="t"><b>Tagesziel</b><small>XP pro Tag im Lernpfad</small></div><div class="st-opts">${opt('goal',20,'20')}${opt('goal',50,'50')}${opt('goal',100,'100')}${opt('goal',150,'150')}</div></div>
+        <div class="st-row"><div class="t"><b>Startseite</b><small>Was beim Öffnen der App erscheint</small></div><div class="st-opts">${opt('start','lernen','Lernen')}${opt('start','aufgaben','Aufgaben')}${opt('start','labor','Labor')}${opt('start','sps','SPS')}</div></div>
+      </div>
+      <div class="card st-card"><h3>💾 Daten</h3>
+        <div class="st-row"><div class="t"><b>Sicherung</b><small>Alles in eine Datei – z. B. in iCloud Drive</small></div><div class="st-opts"><button class="btn primary" id="stSave">⬇ Speichern</button><button class="btn" id="stLoad">⬆ Laden</button></div></div>
+        <div class="st-row"><div class="t"><b>Zurücksetzen</b><small>Löscht nur den gewählten Bereich auf diesem Gerät</small></div><div class="st-opts"><button class="btn st-danger" data-reset="lernpfad">Lernpfad</button><button class="btn st-danger" data-reset="karten">Karteikarten</button><button class="btn st-danger" data-reset="sg">Struktogramme</button><button class="btn st-danger" data-reset="sps">SPS</button></div></div>
+        <div class="st-row"><div class="t"><b>Speicher</b><small>Auf diesem iPad belegt</small></div><span class="st-info">${(used()/1024).toFixed(0)} KB</span></div>
+      </div>
+      <div class="card st-card"><h3>📲 App</h3>
+        <div class="st-row"><div class="t"><b>Version</b><small>µC-Trainer</small></div><span class="st-info">${E(window.UCT_VERSION||'?')}</span></div>
+        <div class="st-row"><div class="t"><b>Updates</b><small id="stUpdMsg">Prüft, ob eine neue Version da ist</small></div><button class="btn" id="stUpd">Nach Updates suchen</button></div>
+        <div class="st-row"><div class="t"><b>Verbindung</b><small>Ohne Internet läuft die App aus dem Speicher</small></div><span class="st-info">${navigator.onLine?'🟢 online':'⚪ offline'}</span></div>
+        <div class="st-row"><div class="t"><b>Einstellungen</b><small>Design & Lernziele auf Standard</small></div><button class="btn st-danger" id="stDef">Zurücksetzen</button></div>
+      </div></div>`;
+    v.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{ const k=b.dataset.k; let val=b.dataset.v; if(k==='goal') val=+val; ST[k]=val; saveST(); apply(); render(); if(k==='goal'&&window.uctRenderPath) window.uctRenderPath(); });
+    v.querySelectorAll('[data-tog]').forEach(b=>b.onclick=()=>{ const k=b.dataset.tog; ST[k]=ST[k]==='on'?'off':'on'; saveST(); apply(); render(); });
+    $('#stSave').onclick=()=>$('#bkSave').click();
+    $('#stLoad').onclick=()=>$('#bkLoad').click();
+    v.querySelectorAll('[data-reset]').forEach(b=>b.onclick=()=>{ const k=b.dataset.reset; if(!confirm(b.textContent+' wirklich zurücksetzen? Das kann nicht rückgängig gemacht werden (außer mit einer Sicherung).')) return; KEYS[k].forEach(x=>{ try{ localStorage.removeItem(x); }catch(e){} }); toast(b.textContent+' zurückgesetzt – App startet neu …'); setTimeout(()=>location.reload(),900); });
+    $('#stDef').onclick=()=>{ ST=Object.assign({},DEF); window.uctSettings=ST; saveST(); apply(); render(); };
+    $('#stUpd').onclick=()=>{
+      const m=$('#stUpdMsg'); m.textContent='Suche …';
+      fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{
+        if(j.version&&j.version!==window.UCT_VERSION){ m.textContent='Version '+j.version+' ist verfügbar!'; if(window.uctCheckUpdate) window.uctCheckUpdate(true); }
+        else m.textContent='Du hast die neueste Version.';
+      }).catch(()=>{ m.textContent='Keine Verbindung – später nochmal versuchen.'; });
+    };
+  }
+  const sec=document.createElement('section'); sec.className='view'; sec.id='view-einstellungen';
+  $('main').insertBefore(sec,$('#view-referenz').nextSibling);
+  const so=showView; showView=function(v){ so(v); if(v==='einstellungen') render(); };
+
+  apply();
+  if(!location.hash) { showView(ST.start); } else showView(location.hash.slice(1));
+})();
+</script>
 <!-- ===== App-Update (µC-Trainer als iPad-App) ===== -->
 <style>
 #upd{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translate(-50%,150%);z-index:9999;
   width:min(520px,calc(100% - 24px));background:#141b21;border:1px solid #19b5a5;border-radius:12px;padding:14px 16px;
   box-shadow:0 10px 30px rgba(0,0,0,.5);transition:transform .35s ease;font-family:'IBM Plex Sans',system-ui,sans-serif;color:#e4ebf0}
-#upd.on{transform:translate(-50%,0)}
+#upd:not(.on){visibility:hidden;pointer-events:none;transform:translate(-50%,calc(100% + 240px)) !important}
+#upd.on{transform:translate(-50%,0);visibility:visible}
 #upd b{color:#19b5a5}
 #upd p{margin:4px 0 10px;font-size:14px;color:#8a9aa7}
 #upd .r{display:flex;gap:8px;justify-content:flex-end}
@@ -5351,7 +5595,8 @@ void loop() {
 </div>
 <script>
 (function(){
-  var APP_VERSION = '1.5.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+  var APP_VERSION = '1.6.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+  window.UCT_VERSION = APP_VERSION;
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register('sw.js').catch(function(){});
   var box = document.getElementById('upd');
@@ -5381,6 +5626,7 @@ void loop() {
       reg.active.postMessage('update', [ch.port2]);
     }).catch(function(){ location.reload(); });
   };
+  window.uctCheckUpdate = function(){ try{ sessionStorage.removeItem('upd-later'); }catch(e){} check(); };
   window.addEventListener('load', check);
   document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'visible') check(); });
 })();
