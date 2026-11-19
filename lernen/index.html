@@ -283,7 +283,12 @@ const TOOL_EXAM = {name:'probearbeit_speichern', description:'Speichert eine Pro
     punkte:{type:'number'}, optionen:{type:'array', items:{type:'string'}, description:'Nur für Ankreuzaufgaben'},
     antwortzeilen:{type:'integer', description:'Anzahl Schreiblinien 0-16'}, loesung:{type:'string', description:'Musterlösung mit Rechenweg und Punkteverteilung, Markdown'}},
     required:['titel','aufgabentext','punkte','loesung']}}}, required:['titel','aufgaben']}};
-const TOOL_SUM = {name:'zusammenfassung_speichern', description:'Speichert die überarbeitete Zusammenfassung.', input_schema:{type:'object', properties:{zusammenfassung:{type:'string', description:'Markdown'}}, required:['zusammenfassung']}};
+const SYNC_PROPS = {
+  fragen_geaendert:{type:'array', description:'Nur Fragen, deren Inhalt an die neue Zusammenfassung angepasst werden muss', items:{type:'object', properties:Object.assign({nr:{type:'integer', description:'Nummer der bisherigen Frage'}}, Q_SCHEMA.items.properties), required:['nr','typ','frage','erklaerung']}},
+  fragen_geloescht:{type:'array', items:{type:'integer'}, description:'Nummern der Fragen, deren Inhalt nicht mehr in der Zusammenfassung vorkommt'},
+  fragen_neu:Q_SCHEMA};
+const TOOL_SUM = {name:'zusammenfassung_speichern', description:'Speichert die überarbeitete Zusammenfassung und die angepassten Lernfragen.', input_schema:{type:'object', properties:Object.assign({zusammenfassung:{type:'string', description:'Markdown'}}, SYNC_PROPS), required:['zusammenfassung']}};
+const TOOL_SYNC = {name:'fragen_anpassen', description:'Speichert die Anpassungen der Lernfragen.', input_schema:{type:'object', properties:SYNC_PROPS}};
 const TOOL_GRADE = {name:'bewertung', description:'Bewertet eine Antwort.', input_schema:{type:'object', properties:{richtig:{type:'boolean'}, feedback:{type:'string'}}, required:['richtig','feedback']}};
 
 let ABORT = null;
@@ -613,17 +618,63 @@ function viewTopic(t){
 function tabSum(t){
   if (V.editSum) return `<div class="card"><h3>Zusammenfassung bearbeiten</h3>
     <p class="muted small" style="margin-top:0">Formatierung: <code>## Überschrift</code> · <code>- Stichpunkt</code> · <code>**fett**</code> · Tabellen mit <code>| a | b |</code></p>
+    <p class="muted small">Nach dem Speichern werden die Lernfragen automatisch an deine Änderungen angepasst${S.settings.apiKey ? '' : ' (nur mit API-Schlüssel)'}. Fragen, die weiter passen, behalten ihren Fortschritt.</p>
     <textarea id="sum-edit" style="min-height:60vh;font-family:var(--mono);font-size:14px">${esc(t.summary)}</textarea>
     <div class="row" style="margin-top:12px"><button class="btn pri" data-act="sumsave">Speichern</button><button class="btn" data-act="sumcancel">Abbrechen</button></div></div>`;
   return `<div class="card md">${t.summary ? md(t.summary) : '<p class="muted">Keine Zusammenfassung vorhanden.</p>'}</div>
     <div class="row" style="margin-bottom:14px"><button class="btn" data-act="sumedit">✏️ Selbst bearbeiten</button><button class="btn" data-act="sumpdf">📄 Als PDF</button>
-    ${t.summaryPrev ? '<button class="btn ghost" data-act="sumundo">↶ Letzte Änderung rückgängig</button>' : ''}<button class="btn pri" data-act="tab" data-v="learn">Jetzt lernen ›</button></div>
-    <div class="card"><h3>✨ Von der KI ändern lassen</h3><p class="muted small" style="margin-top:0">Beschreibe, was anders sein soll – z. B. „Abschnitt zum Schlupf ausführlicher“, „Tabelle mit allen Formeln am Ende“, „kürzer, nur Stichpunkte“.</p>
+    ${t.prev ? '<button class="btn ghost" data-act="sumundo">↶ Letzte Änderung rückgängig</button>' : ''}<button class="btn pri" data-act="tab" data-v="learn">Jetzt lernen ›</button></div>
+    <div class="card"><h3>✨ Von der KI ändern lassen</h3><p class="muted small" style="margin-top:0">Die Lernfragen werden gleich mit angepasst. Beschreibe, was anders sein soll – z. B. „Abschnitt zum Schlupf ausführlicher“, „Tabelle mit allen Formeln am Ende“, „kürzer, nur Stichpunkte“.</p>
       <textarea id="sum-wish" style="min-height:70px" placeholder="Was soll geändert werden?"></textarea>
       <div class="row" style="margin-top:10px"><button class="btn" data-act="sumai" ${S.settings.apiKey?'':'disabled'}>Änderung ausführen</button></div>
       ${S.settings.apiKey ? '' : '<div class="hint">Benötigt einen API-Schlüssel (⚙︎ Einstellungen).</div>'}</div>`;
 }
-function setSummary(t, text){ t.summaryPrev = t.summary; t.summary = text; save(); }
+function setSummary(t, text){
+  t.prev = {summary:t.summary, questions:JSON.parse(JSON.stringify(t.questions)), rev:t.rev||0};
+  t.summary = text; t.rev = (t.rev||0) + 1; save();
+}
+function qList(t){
+  return t.questions.map((q,i) => `${i+1}. [${q.type==='mc'?'mc':'offen'}] ${q.q}` + (q.type==='mc' ? ` | Optionen: ${q.options.join(' / ')} | richtig: ${q.options[q.correct]}` : ` | Lösung: ${q.answer}`)).join('\n');
+}
+const SYNC_RULES = `Passe danach die Lernfragen an die neue Zusammenfassung an:
+- "fragen_geaendert": nur Fragen, deren Inhalt nicht mehr zur neuen Zusammenfassung passt – mit ihrer bisherigen Nummer "nr" und vollständig neuem Inhalt (gleiches Format wie neue Fragen).
+- "fragen_geloescht": Nummern der Fragen, deren Thema in der neuen Zusammenfassung nicht mehr vorkommt.
+- "fragen_neu": neue Fragen für neu hinzugekommene Inhalte (ca. 1–2 pro neuem Abschnitt bzw. wichtigem Punkt).
+Fragen, die weiterhin passen, NICHT auflisten. Wenn nichts zu tun ist, leere Listen.
+Fragenformat: ca. 70 % Multiple-Choice (typ "mc", genau 4 Optionen, Index der richtigen in "richtig"), sonst typ "offen" mit Musterlösung in "antwort"; jeweils kurze "erklaerung".`;
+function lineDiff(a, b){
+  const A = a.split('\n').map(x => x.trim()).filter(Boolean), B = b.split('\n').map(x => x.trim()).filter(Boolean);
+  const sa = new Set(A), sb = new Set(B);
+  return {removed: A.filter(x => !sb.has(x)), added: B.filter(x => !sa.has(x))};
+}
+function applySync(t, r){
+  const res = {chg:0, del:0, add:0};
+  if (!r) return res;
+  const old = t.questions.slice();
+  (r.fragen_geaendert||[]).forEach(g => {
+    const q = old[(parseInt(g.nr,10)||0) - 1]; const n = normQ(g);
+    if (!q || !n) return;
+    Object.assign(q, {type:n.type, q:n.q, options:n.options, correct:n.correct, answer:n.answer, explain:n.explain, streak:0, seen:0, right:0, wrong:0, last:0});
+    res.chg++;
+  });
+  const del = new Set((r.fragen_geloescht||[]).map(n => old[(parseInt(n,10)||0) - 1]).filter(Boolean));
+  res.del = del.size;
+  t.questions = old.filter(q => !del.has(q));
+  const neu = (r.fragen_neu||[]).map(normQ).filter(Boolean);
+  t.questions.push(...neu); res.add = neu.length;
+  save();
+  return res;
+}
+const syncText = r => (r.chg||r.del||r.add) ? `Fragen: ${r.chg} angepasst, ${r.del} entfernt, ${r.add} neu` : 'Fragen passen weiterhin';
+async function syncAfterManual(t, oldSum){
+  if (!S.settings.apiKey || !t.questions.length) { toast('Gespeichert ✓ – Fragen wurden nicht angepasst (kein API-Schlüssel).'); return; }
+  const d = lineDiff(oldSum, t.summary);
+  if (!d.removed.length && !d.added.length) { toast('Gespeichert ✓'); return; }
+  try {
+    const r = await withBusy('Fragen werden angepasst …', prog => claude([{type:'text', text:`Ein Schüler hat seine Lernzusammenfassung zum Thema „${t.title}“ selbst geändert.\n\nEntfernte Zeilen:\n${d.removed.map(x=>'- '+x).join('\n') || '(keine)'}\n\nNeue bzw. geänderte Zeilen:\n${d.added.map(x=>'+ '+x).join('\n') || '(keine)'}\n\nBisherige Lernfragen:\n${qList(t)}\n\n${SYNC_RULES}`}], TOOL_SYNC, 16000, prog));
+    const res = applySync(t, r); chargeTopic(t); render(); usageToast(syncText(res));
+  } catch(e){ toast('Zusammenfassung gespeichert, aber Fragen nicht angepasst: ' + errMsg(e)); }
+}
 function tabLearn(t, s){
   const fehler = t.questions.filter(q => q.wrong && level(q) !== 'gut').length;
   const hasKey = !!S.settings.apiKey;
@@ -674,7 +725,7 @@ function tabExam(t){
   if (!t.exams || !t.exams.length) h += `<p class="muted small" style="margin:0">Noch keine erstellt.</p>`;
   (t.exams||[]).slice().reverse().forEach(ex => {
     const pts = ex.aufgaben.reduce((s,a) => s + (Number(a.punkte)||0), 0);
-    h += `<div class="exam"><div><b>${esc(ex.titel)}</b><div class="muted small">${dateDe(ex.created)} · ${ex.aufgaben.length} Aufgaben · ${pts} Punkte · ${ex.dauer} min</div></div>
+    h += `<div class="exam"><div><b>${esc(ex.titel)}</b><div class="muted small">${dateDe(ex.created)} · ${ex.aufgaben.length} Aufgaben · ${pts} Punkte · ${ex.dauer} min${(ex.rev||0) !== (t.rev||0) ? ' · <span style="color:var(--amber)">vor der letzten Änderung erstellt – ggf. neu erstellen</span>' : ''}</div></div>
       <div class="row"><button class="btn sm pri" data-act="exampdf" data-e="${ex.id}">📄 PDF</button><button class="btn sm" data-act="exampdf" data-e="${ex.id}" data-sol="1">PDF + Lösung</button><button class="btn sm red" data-act="delexam" data-e="${ex.id}">×</button></div></div>`;
   });
   return h + '</div>';
@@ -682,7 +733,7 @@ function tabExam(t){
 function examOpts(){ return {dauer:+$('e-dauer').value, anzahl:+$('e-anz').value, schwer:$('e-schwer').value, weak:$('e-weak').checked}; }
 function addExam(t, p, o){
   if (!p || !Array.isArray(p.aufgaben) || !p.aufgaben.length) throw new Error('Keine Aufgaben im Ergebnis.');
-  const ex = {id:uid(), created:Date.now(), dauer:o.dauer, titel:String(p.titel||'Probe-Klassenarbeit'), hinweise:String(p.hinweise||''),
+  const ex = {id:uid(), created:Date.now(), rev:t.rev||0, dauer:o.dauer, titel:String(p.titel||'Probe-Klassenarbeit'), hinweise:String(p.hinweise||''),
     aufgaben:p.aufgaben.map(a => ({titel:String(a.titel||'Aufgabe'), aufgabentext:String(a.aufgabentext||''), punkte:Number(a.punkte)||0,
       optionen:Array.isArray(a.optionen)?a.optionen.map(String):[], antwortzeilen:a.antwortzeilen, loesung:String(a.loesung||'')}))};
   t.exams = t.exams || []; t.exams.push(ex); save(); render();
@@ -895,15 +946,25 @@ const ACT = {
   },
   sumedit: () => { V.editSum = true; render(); },
   sumcancel: () => { V.editSum = false; render(); },
-  sumsave: () => { const t = topicById(V.id); const v = $('sum-edit').value; if (v !== t.summary) setSummary(t, v); V.editSum = false; render(); toast('Zusammenfassung gespeichert ✓'); },
-  sumundo: () => { const t = topicById(V.id); if (!t.summaryPrev) return; const cur = t.summary; t.summary = t.summaryPrev; t.summaryPrev = cur; save(); render(); toast('Rückgängig gemacht'); },
+  sumsave: async () => {
+    const t = topicById(V.id); const v = $('sum-edit').value; V.editSum = false;
+    if (v === t.summary) { render(); return; }
+    const old = t.summary; setSummary(t, v); render();
+    await syncAfterManual(t, old);
+  },
+  sumundo: () => {
+    const t = topicById(V.id); if (!t.prev) return;
+    const cur = {summary:t.summary, questions:t.questions, rev:t.rev||0};
+    t.summary = t.prev.summary; t.questions = t.prev.questions; t.rev = t.prev.rev; t.prev = cur;
+    save(); render(); toast('Rückgängig gemacht – Zusammenfassung und Fragen');
+  },
   sumai: async () => {
     const t = topicById(V.id); const wish = $('sum-wish').value.trim();
     if (!wish) return toast('Beschreib zuerst, was geändert werden soll.');
     try {
-      const p = await withBusy('Zusammenfassung wird geändert …', prog => claude([{type:'text', text:`Hier ist eine Lernzusammenfassung (Markdown) zum Thema „${t.title}“:\n\n${t.summary}\n\nÄnderungswunsch des Schülers: ${wish}\n\nSetze genau diesen Wunsch um und lass alles andere möglichst unverändert. Gib die vollständige neue Zusammenfassung zurück (gleiche Formatierung: ## Überschriften, Stichpunkte, **fett**, Tabellen).`}], TOOL_SUM, 24000, prog));
+      const p = await withBusy('Zusammenfassung und Fragen werden angepasst …', prog => claude([{type:'text', text:`Hier ist eine Lernzusammenfassung (Markdown) zum Thema „${t.title}“:\n\n${t.summary}\n\nÄnderungswunsch des Schülers: ${wish}\n\nSetze genau diesen Wunsch um und lass alles andere möglichst unverändert. Gib in "zusammenfassung" die vollständige neue Zusammenfassung zurück (gleiche Formatierung: ## Überschriften, Stichpunkte, **fett**, Tabellen).\n\nBisherige Lernfragen:\n${qList(t)}\n\n${SYNC_RULES}`}], TOOL_SUM, 32000, prog));
       if (!p || !String(p.zusammenfassung||'').trim()) throw new Error('Keine Zusammenfassung erhalten.');
-      setSummary(t, String(p.zusammenfassung)); chargeTopic(t); render(); usageToast('Geändert ✓');
+      setSummary(t, String(p.zusammenfassung)); const res = applySync(t, p); chargeTopic(t); render(); usageToast('Geändert ✓ · ' + syncText(res));
     } catch(e){ toast(errMsg(e)); }
   },
   resetusage: () => { S.usage = null; save(); render(); },
@@ -923,7 +984,7 @@ document.addEventListener('click', e => {
 });
 $('modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
 
-const APP_VERSION = '1.1.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+const APP_VERSION = '1.2.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
 render();
 </script>
 

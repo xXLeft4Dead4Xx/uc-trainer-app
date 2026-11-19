@@ -1,4 +1,4 @@
 {
-  "version": "1.1.0",
-  "notes": "Neu: Token-Verbrauch und Kosten werden angezeigt. Zusammenfassungen lassen sich selbst bearbeiten oder per KI ändern (mit Rückgängig)."
+  "version": "1.2.0",
+  "notes": "Änderst du die Zusammenfassung (selbst oder per KI), werden die Lernfragen automatisch angepasst. Rückgängig stellt beides wieder her."
 }
