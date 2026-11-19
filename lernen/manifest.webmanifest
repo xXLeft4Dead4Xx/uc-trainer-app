@@ -2,7 +2,7 @@
   "name": "Lern-Trainer – Unterlagen lernen",
   "short_name": "Lern-Trainer",
   "lang": "de",
-  "start_url": "./",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#0d1216",
