@@ -1,4 +1,4 @@
 {
-  "version": "1.0.1",
-  "notes": "Fehler behoben: Verbindung zu den neuen Claude-Modellen (Fehler 400 bei „Verbindung testen“)."
+  "version": "1.1.0",
+  "notes": "Neu: Token-Verbrauch und Kosten werden angezeigt. Zusammenfassungen lassen sich selbst bearbeiten oder per KI ändern (mit Rückgängig)."
 }

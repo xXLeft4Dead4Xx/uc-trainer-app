@@ -38,7 +38,7 @@ nav button.on{color:var(--text);background:var(--panel2);border-color:var(--line
 @media (max-width:560px){.logo small{display:none}nav button{padding:6px 8px}}
 main{max-width:1000px;margin:0 auto;padding:16px}
 h1{font-size:24px;margin:4px 0 4px}h2{font-size:19px;margin:0 0 8px}h3{font-size:16px;margin:0 0 6px}
-.muted{color:var(--muted)}.small{font-size:13px}
+.muted{color:var(--muted)}.mono{font-family:var(--mono)}.small{font-size:13px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:14px}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .row-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:18px 0 10px;flex-wrap:wrap}
@@ -283,6 +283,7 @@ const TOOL_EXAM = {name:'probearbeit_speichern', description:'Speichert eine Pro
     punkte:{type:'number'}, optionen:{type:'array', items:{type:'string'}, description:'Nur für Ankreuzaufgaben'},
     antwortzeilen:{type:'integer', description:'Anzahl Schreiblinien 0-16'}, loesung:{type:'string', description:'Musterlösung mit Rechenweg und Punkteverteilung, Markdown'}},
     required:['titel','aufgabentext','punkte','loesung']}}}, required:['titel','aufgaben']}};
+const TOOL_SUM = {name:'zusammenfassung_speichern', description:'Speichert die überarbeitete Zusammenfassung.', input_schema:{type:'object', properties:{zusammenfassung:{type:'string', description:'Markdown'}}, required:['zusammenfassung']}};
 const TOOL_GRADE = {name:'bewertung', description:'Bewertet eine Antwort.', input_schema:{type:'object', properties:{richtig:{type:'boolean'}, feedback:{type:'string'}}, required:['richtig','feedback']}};
 
 let ABORT = null;
@@ -303,7 +304,7 @@ async function claude(content, tool, maxTokens, onProgress){
     throw new Error(msg);
   }
   const rd = r.body.getReader(), dec = new TextDecoder();
-  let buf='', json='', txt='', stop=null;
+  let buf='', json='', txt='', stop=null, uIn=0, uOut=0;
   for(;;){
     const {value, done} = await rd.read(); if (done) break;
     buf += dec.decode(value, {stream:true});
@@ -315,17 +316,42 @@ async function claude(content, tool, maxTokens, onProgress){
         let ev; try{ ev = JSON.parse(line.slice(5)); }catch(e){ continue; }
         if (ev.type === 'content_block_delta' && ev.delta && ev.delta.type === 'input_json_delta'){ json += ev.delta.partial_json; onProgress && onProgress(json.length); }
         else if (ev.type === 'content_block_delta' && ev.delta && ev.delta.type === 'text_delta'){ txt += ev.delta.text; onProgress && onProgress(txt.length); }
-        else if (ev.type === 'message_delta' && ev.delta && ev.delta.stop_reason) stop = ev.delta.stop_reason;
+        else if (ev.type === 'message_start' && ev.message && ev.message.usage){ const u = ev.message.usage; uIn = (u.input_tokens||0) + (u.cache_creation_input_tokens||0) + (u.cache_read_input_tokens||0); uOut = u.output_tokens||0; }
+        else if (ev.type === 'message_delta'){ if (ev.delta && ev.delta.stop_reason) stop = ev.delta.stop_reason; if (ev.usage && ev.usage.output_tokens != null) uOut = ev.usage.output_tokens; }
         else if (ev.type === 'error') throw new Error((ev.error && ev.error.message) || 'Fehler vom Server');
       }
     }
   }
+  recordUsage(body.model, uIn, uOut);
   if (stop === 'max_tokens') throw new Error('Die Antwort war zu lang und wurde abgeschnitten – bitte weniger Fragen bzw. Aufgaben wählen.');
   try{ return JSON.parse(json); }catch(e){}
   try{ return parsePasted(txt); }catch(e){}
   throw new Error('Die Antwort der KI konnte nicht gelesen werden. Bitte nochmal versuchen.');
 }
+/* ---------- Token-Verbrauch ---------- */
+// Listenpreise in USD pro 1 Mio. Tokens (Eingabe / Ausgabe), Stand Nov. 2026
+const PRICES = {'claude-sonnet-5-5':[2,10], 'claude-opus-5-5':[4,20]};
+let LAST = null;
+function priceOf(model, i, o){ const p = PRICES[model]; return p ? (i * p[0] + o * p[1]) / 1e6 : null; }
+function recordUsage(model, i, o){
+  if (!i && !o) return;
+  const usd = priceOf(model, i, o);
+  LAST = {in:i, out:o, usd};
+  const u = S.usage = S.usage || {in:0, out:0, usd:0, calls:0, unpriced:0};
+  u.in += i; u.out += o; u.calls++; if (usd == null) u.unpriced++; else u.usd += usd;
+  save();
+}
+const fmtTok = n => n >= 1e6 ? (n/1e6).toFixed(2).replace('.',',') + ' Mio.' : n >= 1e4 ? Math.round(n/1e3) + ' Tsd.' : (n||0).toLocaleString('de-DE');
+const fmtUsd = v => v == null ? '' : ' ≈ ' + (v < 0.01 ? '< 0,01' : v.toFixed(2).replace('.',',')) + ' $';
+function chargeTopic(t){
+  if (!LAST || !t) return;
+  const u = t.usage = t.usage || {in:0, out:0, usd:0};
+  u.in += LAST.in; u.out += LAST.out; if (LAST.usd != null) u.usd += LAST.usd;
+  save();
+}
+function usageToast(prefix){ if (LAST) toast(`${prefix ? prefix + ' · ' : ''}${fmtTok(LAST.in)} Eingabe + ${fmtTok(LAST.out)} Ausgabe Tokens${fmtUsd(LAST.usd)}`); }
 async function withBusy(title, fn){
+  LAST = null;
   const t0 = Date.now(); let chars = 0;
   $('busy-t').textContent = title; $('busy').classList.add('on');
   const tick = () => { $('busy-s').textContent = `${Math.round((Date.now()-t0)/1000)} s` + (chars ? ` · ${(chars/1000).toFixed(1)} k Zeichen empfangen` : ' · Unterlagen werden gelesen …'); };
@@ -564,10 +590,10 @@ function addTopicFromPkg(p, title, fach, files){
   if (!qs.length) throw new Error('Keine gültigen Fragen gefunden.');
   const t = {id:uid(), title:(title || p.titel || 'Neues Thema').trim(), fach:(fach || p.fach || '').trim(), created:Date.now(), lastUsed:Date.now(),
              summary:String(p.zusammenfassung||''), questions:qs, exams:[], files:files||[]};
-  S.topics.push(t); save();
+  S.topics.push(t); chargeTopic(t); save();
   NEWF.files = [];
   go({name:'topic', id:t.id, tab:'sum'});
-  toast(`„${t.title}“ angelegt – ${qs.length} Fragen ✓`);
+  usageToast(`„${t.title}“ angelegt – ${qs.length} Fragen ✓`);
 }
 
 /* ---------- Thema ---------- */
@@ -576,15 +602,28 @@ function viewTopic(t){
   const s = stats(t.questions);
   let h = `<div class="row" style="justify-content:space-between"><button class="btn ghost sm" data-act="go" data-v="home">‹ Themen</button>
     <div class="row"><button class="btn ghost sm" data-act="rename">Umbenennen</button><button class="btn red sm" data-act="deltopic">Löschen</button></div></div>
-    <h1>${esc(t.title)}</h1><div class="muted small">${esc(t.fach||'')}${t.fach?' · ':''}angelegt am ${dateDe(t.created)}${t.files&&t.files.length?' · aus '+t.files.length+' Datei(en)':''}</div>
+    <h1>${esc(t.title)}</h1><div class="muted small">${esc(t.fach||'')}${t.fach?' · ':''}angelegt am ${dateDe(t.created)}${t.files&&t.files.length?' · aus '+t.files.length+' Datei(en)':''}${t.usage ? ' · ' + fmtTok(t.usage.in + t.usage.out) + ' Tokens' + fmtUsd(t.usage.usd || null) : ''}</div>
     <div class="tabs">${[['learn','Lernen'],['sum','Zusammenfassung'],['qs','Fragen ('+s.n+')'],['exam','Probearbeit']].map(([k,l]) => `<button class="${tab===k?'on':''}" data-act="tab" data-v="${k}">${l}</button>`).join('')}</div>`;
   if (tab === 'learn') h += tabLearn(t, s);
-  if (tab === 'sum') h += `<div class="card md">${t.summary ? md(t.summary) : '<p class="muted">Keine Zusammenfassung vorhanden.</p>'}</div>
-     <div class="row"><button class="btn" data-act="sumpdf">📄 Zusammenfassung als PDF</button><button class="btn pri" data-act="tab" data-v="learn">Jetzt lernen ›</button></div>`;
+  if (tab === 'sum') h += tabSum(t);
   if (tab === 'qs') h += tabQs(t);
   if (tab === 'exam') h += tabExam(t);
   return h;
 }
+function tabSum(t){
+  if (V.editSum) return `<div class="card"><h3>Zusammenfassung bearbeiten</h3>
+    <p class="muted small" style="margin-top:0">Formatierung: <code>## Überschrift</code> · <code>- Stichpunkt</code> · <code>**fett**</code> · Tabellen mit <code>| a | b |</code></p>
+    <textarea id="sum-edit" style="min-height:60vh;font-family:var(--mono);font-size:14px">${esc(t.summary)}</textarea>
+    <div class="row" style="margin-top:12px"><button class="btn pri" data-act="sumsave">Speichern</button><button class="btn" data-act="sumcancel">Abbrechen</button></div></div>`;
+  return `<div class="card md">${t.summary ? md(t.summary) : '<p class="muted">Keine Zusammenfassung vorhanden.</p>'}</div>
+    <div class="row" style="margin-bottom:14px"><button class="btn" data-act="sumedit">✏️ Selbst bearbeiten</button><button class="btn" data-act="sumpdf">📄 Als PDF</button>
+    ${t.summaryPrev ? '<button class="btn ghost" data-act="sumundo">↶ Letzte Änderung rückgängig</button>' : ''}<button class="btn pri" data-act="tab" data-v="learn">Jetzt lernen ›</button></div>
+    <div class="card"><h3>✨ Von der KI ändern lassen</h3><p class="muted small" style="margin-top:0">Beschreibe, was anders sein soll – z. B. „Abschnitt zum Schlupf ausführlicher“, „Tabelle mit allen Formeln am Ende“, „kürzer, nur Stichpunkte“.</p>
+      <textarea id="sum-wish" style="min-height:70px" placeholder="Was soll geändert werden?"></textarea>
+      <div class="row" style="margin-top:10px"><button class="btn" data-act="sumai" ${S.settings.apiKey?'':'disabled'}>Änderung ausführen</button></div>
+      ${S.settings.apiKey ? '' : '<div class="hint">Benötigt einen API-Schlüssel (⚙︎ Einstellungen).</div>'}</div>`;
+}
+function setSummary(t, text){ t.summaryPrev = t.summary; t.summary = text; save(); }
 function tabLearn(t, s){
   const fehler = t.questions.filter(q => q.wrong && level(q) !== 'gut').length;
   const hasKey = !!S.settings.apiKey;
@@ -740,6 +779,10 @@ function viewSettings(){
     <div><label class="f">Richtig in Folge bis „Gut“</label><select id="s-goal">${[2,3,4,5].map(n=>`<option ${n==s.goal?'selected':''}>${n}</option>`).join('')}</select></div>
     <div><label class="f">Fragen pro Lernrunde</label><select id="s-size">${[5,10,15,20,30].map(n=>`<option ${n==s.sessionSize?'selected':''}>${n}</option>`).join('')}</select></div></div>
     <div class="row" style="margin-top:12px"><button class="btn pri" data-act="savelearn">Speichern</button></div></div>
+  <div class="card"><h3>Verbrauch</h3>${(() => { const u = S.usage; if (!u || !u.calls) return '<p class="muted small" style="margin:0">Noch keine Anfragen.</p>';
+    return `<div style="display:grid;grid-template-columns:auto 1fr;gap:6px 18px;font-size:14px"><div>Anfragen</div><div class="mono">${u.calls}</div><div>Eingabe-Tokens</div><div class="mono">${fmtTok(u.in)}</div><div>Ausgabe-Tokens</div><div class="mono">${fmtTok(u.out)}</div><div>Kosten (ca.)</div><div class="mono">${fmtUsd(u.usd).replace(' ≈ ','') || '–'}${u.unpriced ? ' (+ ' + u.unpriced + ' ohne Preis)' : ''}</div></div>
+    <p class="muted small" style="margin:10px 0 0">Schätzung nach Listenpreis (Sonnet 5.5: 2 $ / 10 $ pro 1 Mio. Eingabe-/Ausgabe-Tokens). Den genauen Stand siehst du auf console.anthropic.com.</p>
+    <button class="btn sm" style="margin-top:10px" data-act="resetusage">Zähler zurücksetzen</button>`; })()}</div>
   <div class="card"><h3>Daten sichern</h3><p class="muted small" style="margin-top:0">Alles wird lokal auf dem iPad gespeichert. Mach ab und zu ein Backup (z. B. in „Dateien“ / iCloud), damit nichts verloren geht.</p>
     <div class="row"><button class="btn" data-act="backup">⬇︎ Backup exportieren</button><button class="btn" data-act="restore">⬆︎ Backup importieren</button><button class="btn red" data-act="wipe">Alle Daten löschen</button></div></div>
   <div class="card"><h3>App</h3><p class="muted small" style="margin:0 0 10px">Version <span class="mono">${APP_VERSION}</span> · <a href="../">Zum µC-Trainer</a></p>
@@ -762,7 +805,7 @@ $('bpick').addEventListener('change', async e => {
 const ACT = {
   go: d => go(d.v),
   open: d => go({name:'topic', id:d.id, tab:'learn'}),
-  tab: d => { V.tab = d.v; render(); },
+  tab: d => { V.tab = d.v; V.editSum = false; render(); },
   sub: d => { V.sub = d.v; render(); },
   closemodal: closeModal,
   pick: d => {
@@ -803,7 +846,7 @@ const ACT = {
     if (!SS.draft.trim()) return toast('Schreib zuerst eine Antwort.');
     try {
       const r = await withBusy('Antwort wird geprüft …', prog => claude([{type:'text', text:`Frage: ${c.q.q}\n\nMusterlösung: ${c.q.answer}\n\nAntwort des Schülers: ${SS.draft}\n\nBewerte, ob die Antwort fachlich richtig und im Wesentlichen vollständig ist. Bei Formulierungen großzügig, fachlich genau (Werte, Einheiten, Fachbegriffe). Gib ein kurzes, hilfreiches Feedback (max. 3 Sätze) – was fehlt oder falsch ist.`}], TOOL_GRADE, 4000, prog));
-      SS.ai = r; SS.reveal = true; SS.picked = null; grade(!!r.richtig);
+      chargeTopic(c.t); SS.ai = r; SS.reveal = true; SS.picked = null; grade(!!r.richtig); usageToast('Geprüft');
     } catch(e){ toast(errMsg(e)); }
   },
   more: async () => {
@@ -811,7 +854,7 @@ const ACT = {
     try {
       const p = await withBusy(`${n} neue Fragen werden erstellt …`, prog => claude([{type:'text', text: morePrompt(t, n)}], TOOL_MORE, 16000, prog));
       const qs = (p.fragen||[]).map(normQ).filter(Boolean);
-      t.questions.push(...qs); save(); render(); toast(`${qs.length} neue Fragen hinzugefügt ✓`);
+      t.questions.push(...qs); chargeTopic(t); save(); render(); usageToast(`${qs.length} neue Fragen ✓`);
     } catch(e){ toast(errMsg(e)); }
   },
   resetq: d => { const t = topicById(V.id); const q = t.questions.find(x => x.id === d.q); Object.assign(q, {streak:0, right:0, wrong:0, seen:0, last:0}); save(); render(); },
@@ -828,7 +871,7 @@ const ACT = {
     const t = topicById(V.id); const o = examOpts();
     try {
       const p = await withBusy('Probearbeit wird erstellt …', prog => claude([{type:'text', text: examPrompt(t, o, false)}], TOOL_EXAM, 24000, prog));
-      const ex = addExam(t, p, o);
+      const ex = addExam(t, p, o); chargeTopic(t); usageToast('Probearbeit erstellt');
       modal(`<div style="font-size:34px">📝</div><h2>Probearbeit fertig</h2><p class="muted small">${esc(ex.titel)} · ${ex.aufgaben.length} Aufgaben</p>
         <div class="row" style="justify-content:center"><button class="btn pri" data-act="exampdf" data-e="${ex.id}">📄 PDF</button><button class="btn" data-act="exampdf" data-e="${ex.id}" data-sol="1">PDF + Lösung</button></div>
         <button class="btn ghost sm" style="margin-top:12px" data-act="closemodal">Schließen</button>`);
@@ -850,6 +893,20 @@ const ACT = {
     try { await withBusy('Verbindung wird getestet …', prog => claude([{type:'text', text:'Test: Antworte mit richtig=true und feedback="ok".'}], TOOL_GRADE, 4000, prog)); toast('Verbindung klappt ✓'); }
     catch(e){ modal(`<h2>Test fehlgeschlagen</h2><p class="muted">${esc(errMsg(e))}</p><button class="btn" data-act="closemodal">OK</button>`); }
   },
+  sumedit: () => { V.editSum = true; render(); },
+  sumcancel: () => { V.editSum = false; render(); },
+  sumsave: () => { const t = topicById(V.id); const v = $('sum-edit').value; if (v !== t.summary) setSummary(t, v); V.editSum = false; render(); toast('Zusammenfassung gespeichert ✓'); },
+  sumundo: () => { const t = topicById(V.id); if (!t.summaryPrev) return; const cur = t.summary; t.summary = t.summaryPrev; t.summaryPrev = cur; save(); render(); toast('Rückgängig gemacht'); },
+  sumai: async () => {
+    const t = topicById(V.id); const wish = $('sum-wish').value.trim();
+    if (!wish) return toast('Beschreib zuerst, was geändert werden soll.');
+    try {
+      const p = await withBusy('Zusammenfassung wird geändert …', prog => claude([{type:'text', text:`Hier ist eine Lernzusammenfassung (Markdown) zum Thema „${t.title}“:\n\n${t.summary}\n\nÄnderungswunsch des Schülers: ${wish}\n\nSetze genau diesen Wunsch um und lass alles andere möglichst unverändert. Gib die vollständige neue Zusammenfassung zurück (gleiche Formatierung: ## Überschriften, Stichpunkte, **fett**, Tabellen).`}], TOOL_SUM, 24000, prog));
+      if (!p || !String(p.zusammenfassung||'').trim()) throw new Error('Keine Zusammenfassung erhalten.');
+      setSummary(t, String(p.zusammenfassung)); chargeTopic(t); render(); usageToast('Geändert ✓');
+    } catch(e){ toast(errMsg(e)); }
+  },
+  resetusage: () => { S.usage = null; save(); render(); },
   savelearn: () => { S.settings.goal = +$('s-goal').value; S.settings.sessionSize = +$('s-size').value; save(); toast('Gespeichert ✓'); render(); },
   backup: () => {
     const data = JSON.parse(JSON.stringify(S)); data.settings.apiKey = '';
@@ -866,7 +923,7 @@ document.addEventListener('click', e => {
 });
 $('modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
 
-const APP_VERSION = '1.0.1';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+const APP_VERSION = '1.1.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
 render();
 </script>
 
