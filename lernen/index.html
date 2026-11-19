@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lern-Trainer – Unterlagen lernen</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Lern-Trainer">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0d1216">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0d1216; --panel:#141b21; --panel2:#1a232b; --line:#26323c; --line2:#33424f;
+  --text:#e4ebf0; --muted:#8a9aa7; --teal:#19b5a5; --teal2:#0f8f83; --amber:#ffb020;
+  --red:#ff5a4e; --green:#35d07f; --gray:#4a5864;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+  --sans:'IBM Plex Sans',system-ui,sans-serif; --r:12px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.5}
+body{background-image:radial-gradient(circle at 1px 1px,#1b252d 1px,transparent 0);background-size:22px 22px;padding-bottom:env(safe-area-inset-bottom)}
+a{color:var(--teal)}
+button,select,input,textarea{font-family:inherit;font-size:15px;color:inherit}
+header{position:sticky;top:0;z-index:10;background:rgba(13,18,22,.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding-top:env(safe-area-inset-top)}
+.hwrap{max-width:1000px;margin:0 auto;display:flex;align-items:center;gap:12px;padding:10px 16px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px;cursor:pointer}
+.chip{width:30px;height:30px;border-radius:7px;border:1.5px solid var(--teal);display:grid;place-items:center;font-family:var(--mono);font-size:13px;color:var(--teal)}
+.logo small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+nav{display:flex;gap:4px;margin-left:auto}
+nav button{background:none;border:1px solid transparent;color:var(--muted);padding:7px 12px;border-radius:8px;cursor:pointer;white-space:nowrap}
+nav button.on{color:var(--text);background:var(--panel2);border-color:var(--line2)}
+.pill{font-family:var(--mono);font-size:12px;color:var(--teal);border:1px solid var(--teal2);padding:3px 8px;border-radius:20px;white-space:nowrap}
+@media (max-width:560px){.logo small{display:none}nav button{padding:6px 8px}}
+main{max-width:1000px;margin:0 auto;padding:16px}
+h1{font-size:24px;margin:4px 0 4px}h2{font-size:19px;margin:0 0 8px}h3{font-size:16px;margin:0 0 6px}
+.muted{color:var(--muted)}.small{font-size:13px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:14px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.row-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:18px 0 10px;flex-wrap:wrap}
+.btn{background:var(--panel2);border:1px solid var(--line2);color:var(--text);padding:10px 16px;border-radius:10px;cursor:pointer;font-weight:600}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.pri{background:var(--teal);border-color:var(--teal);color:#06201d}
+.btn.red{background:none;border-color:#5a2a27;color:var(--red)}
+.btn.ghost{background:none}
+.btn.sm{padding:6px 11px;font-size:13px;border-radius:8px}
+.btn.big{padding:14px 20px;font-size:16px}
+label.f{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
+input[type=text],input[type=password],input[type=number],select,textarea{width:100%;background:#0b1014;border:1px solid var(--line2);border-radius:9px;padding:10px 12px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--teal)}
+textarea{min-height:90px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+@media (max-width:560px){.grid2{grid-template-columns:1fr}}
+/* Fortschritt */
+.bar{display:flex;height:12px;border-radius:7px;overflow:hidden;background:#0b1014;border:1px solid var(--line)}
+.bar i{display:block;height:100%}
+.bar .g{background:var(--green)}.bar .m{background:var(--amber)}.bar .s{background:var(--red)}.bar .n{background:var(--gray)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-top:8px}
+.legend span:before{content:"";display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:0}
+.legend .g:before{background:var(--green)}.legend .m:before{background:var(--amber)}.legend .s:before{background:var(--red)}.legend .n:before{background:var(--gray)}
+.pct{font-family:var(--mono);font-size:44px;font-weight:600;line-height:1;color:var(--teal)}
+.pct small{font-size:18px;color:var(--muted)}
+.topic{cursor:pointer;transition:border-color .15s}
+.topic:hover{border-color:var(--line2)}
+.topic .tt{display:flex;justify-content:space-between;gap:10px;align-items:baseline;margin-bottom:8px}
+.topic .tp{font-family:var(--mono);color:var(--teal);font-weight:600}
+.done100{color:var(--green)!important}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:10px 0 14px;overflow-x:auto}
+.tabs button{background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);padding:10px 12px;cursor:pointer;white-space:nowrap;font-weight:600}
+.tabs button.on{color:var(--text);border-bottom-color:var(--teal)}
+.subtabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.subtabs button{border:1px solid var(--line2);background:none;border-radius:20px;padding:6px 12px;cursor:pointer;color:var(--muted)}
+.subtabs button.on{color:var(--text);background:var(--panel2)}
+.subtabs .cs.on{border-color:var(--red)}.subtabs .cm.on{border-color:var(--amber)}.subtabs .cg.on{border-color:var(--green)}
+.lvl{font-size:12px;font-weight:600;padding:2px 8px;border-radius:20px;border:1px solid}
+.lvl.schlecht{color:var(--red);border-color:#6b2b27}.lvl.mittel{color:var(--amber);border-color:#6b5120}.lvl.gut{color:var(--green);border-color:#1f5e3c}.lvl.neu{color:var(--muted);border-color:var(--line2)}
+.dots{display:inline-flex;gap:3px;vertical-align:middle}
+.dots i{width:9px;height:9px;border-radius:50%;background:#26323c}
+.dots i.on{background:var(--green)}
+details.qi{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin-bottom:8px}
+details.qi summary{padding:11px 14px;cursor:pointer;list-style:none;display:flex;gap:10px;align-items:flex-start}
+details.qi summary::-webkit-details-marker{display:none}
+details.qi .qb{padding:0 14px 12px;font-size:14px}
+.qi .qt{flex:1}
+.ok{color:var(--green)}.bad{color:var(--red)}
+/* Zusammenfassung */
+.md h2{font-size:19px;margin:20px 0 8px;color:var(--teal)}.md h3{font-size:16px;margin:16px 0 6px}.md h4{font-size:15px;margin:12px 0 4px}
+.md p{margin:6px 0}.md ul,.md ol{margin:6px 0;padding-left:22px}.md li{margin:3px 0}
+.md code{font-family:var(--mono);background:#0b1014;border:1px solid var(--line);padding:1px 5px;border-radius:5px;font-size:.92em}
+.md pre{font-family:var(--mono);background:#0b1014;border:1px solid var(--line);padding:10px;border-radius:8px;overflow:auto;font-size:13px}
+.md table{border-collapse:collapse;margin:10px 0;font-size:14px;display:block;overflow-x:auto}
+.md th,.md td{border:1px solid var(--line2);padding:6px 9px;text-align:left}
+.md th{background:var(--panel2)}
+.md > h2:first-child{margin-top:0}
+/* Lernrunde */
+.sess-top{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.sess-top .bar{flex:1;height:8px}
+.qcard h2{font-size:20px;line-height:1.4;margin:8px 0 16px;font-weight:600}
+.qmeta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.opt{display:block;width:100%;text-align:left;background:#0b1014;border:1.5px solid var(--line2);border-radius:10px;padding:13px 14px;margin-bottom:9px;cursor:pointer;font-size:16px;line-height:1.4}
+.opt:hover:not(:disabled){border-color:var(--teal)}
+.opt:disabled{cursor:default}
+.opt.right{border-color:var(--green);background:#0e2a1d}
+.opt.wrong{border-color:var(--red);background:#2e1412}
+.opt b{font-family:var(--mono);color:var(--muted);margin-right:8px}
+.fb{border-radius:10px;padding:12px 14px;margin-top:12px;border:1px solid var(--line2);background:var(--panel2)}
+.fb.fok{border-color:#1f5e3c}.fb.fbad{border-color:#6b2b27}.fb.fok .t{color:var(--green)}.fb.fbad .t{color:var(--red)}
+.fb .t{font-weight:700;margin-bottom:4px}
+.answerbox{background:#0b1014;border:1px dashed var(--line2);border-radius:10px;padding:12px 14px;margin-top:12px}
+.drop{border:2px dashed var(--line2);border-radius:12px;padding:22px;text-align:center;cursor:pointer;background:#0b1014}
+.drop:hover{border-color:var(--teal)}
+.files{list-style:none;padding:0;margin:10px 0 0}
+.files li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;font-size:14px}
+.files li span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.xbtn{background:none;border:0;color:var(--muted);font-size:18px;cursor:pointer;padding:0 4px}
+.or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px;margin:22px 0 12px}
+.or:before,.or:after{content:"";flex:1;height:1px;background:var(--line)}
+ol.steps{padding-left:20px;margin:6px 0 10px}ol.steps li{margin:4px 0}
+.empty{text-align:center;padding:30px 16px}
+.empty .emo{font-size:42px}
+.exam{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 0;border-top:1px solid var(--line)}
+.exam:first-child{border-top:0}
+.hint{font-size:13px;color:var(--muted);background:#0b1014;border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-top:10px}
+.warn{border-color:#6b5120;color:#e8c77a}
+/* Overlay / Toast */
+#busy,#modal{position:fixed;inset:0;background:rgba(5,8,10,.78);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
+#busy.on,#modal.on{display:flex}
+.ov{background:var(--panel);border:1px solid var(--line2);border-radius:14px;padding:22px;max-width:420px;width:100%;text-align:center}
+.spin{width:38px;height:38px;border:4px solid var(--line2);border-top-color:var(--teal);border-radius:50%;margin:0 auto 14px;animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+#toast{position:fixed;left:50%;top:calc(70px + env(safe-area-inset-top));transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line2);padding:10px 16px;border-radius:10px;z-index:60;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw;font-size:14px}
+#toast.on{opacity:1}
+.celebrate{border-color:#1f5e3c;background:linear-gradient(135deg,#0f2a1e,#141b21)}
+/* PDF-Layout (wird nur für den Export gerendert) */
+#pdfhost{position:fixed;left:-10000px;top:0}
+.pdfdoc{width:703px;background:#fff;color:#111;font-family:Helvetica,Arial,sans-serif;font-size:13px;line-height:1.45}
+.pdfdoc h1{font-size:21px;margin:0 0 2px;color:#111}
+.pdfdoc h2{font-size:16px;margin:16px 0 6px;color:#0f6f66}
+.pdfdoc h3{font-size:14px;margin:12px 0 4px}
+.pdfdoc h4{font-size:13px;margin:10px 0 4px}
+.pdfdoc p{margin:4px 0}.pdfdoc ul,.pdfdoc ol{margin:4px 0;padding-left:20px}
+.pdfdoc table{border-collapse:collapse;margin:6px 0}
+.pdfdoc th,.pdfdoc td{border:1px solid #999;padding:4px 7px;text-align:left;font-size:12px}
+.pdfdoc th{background:#eef3f3}
+.pdfdoc code,.pdfdoc pre{font-family:Menlo,Consolas,monospace;font-size:11.5px;background:#f3f5f6}
+.pdfdoc pre{padding:6px;border:1px solid #ccc;white-space:pre-wrap}
+.pdfdoc .ph{display:flex;justify-content:space-between;gap:16px;border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:10px}
+.pdfdoc .kopf td{border:1px solid #444;padding:5px 8px;font-size:12px;min-width:120px;height:26px;vertical-align:top}
+.pdfdoc .info{background:#f2f5f6;border:1px solid #ccc;padding:7px 10px;margin-bottom:10px;font-size:12px}
+.pdfdoc .ah{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid #999;margin:16px 0 6px;padding-bottom:3px}
+.pdfdoc .ah span{font-size:12px;white-space:nowrap}
+.pdfdoc .ln{height:28px;border-bottom:1px solid #bbb}
+.pdfdoc .opt2{margin:4px 0 4px 6px}
+.pdfdoc .pb{page-break-before:always;break-before:page}
+.pdfdoc .sol{background:#f6faf9;border-left:3px solid #0f6f66;padding:6px 10px;margin:4px 0 10px}
+.pdfdoc .foot{margin-top:18px;font-size:11px;color:#666}
+</style>
+</head>
+<body>
+<header>
+  <div class="hwrap">
+    <div class="logo" data-act="go" data-v="home"><div class="chip">✓</div><div>Lern-Trainer<small>Unterlagen → Zusammenfassung → Lernen</small></div></div>
+    <span class="pill" id="gpill">0 %</span>
+    <nav>
+      <button data-act="go" data-v="home" id="n-home">Themen</button>
+      <button data-act="go" data-v="new" id="n-new">+ Neu</button>
+      <button data-act="go" data-v="settings" id="n-settings">⚙︎</button>
+    </nav>
+  </div>
+</header>
+<main id="app"></main>
+
+<div id="busy"><div class="ov"><div class="spin"></div><div id="busy-t" style="font-weight:700">Bitte warten …</div><div id="busy-s" class="muted small" style="margin:6px 0 14px"></div><button class="btn sm" id="busy-x">Abbrechen</button></div></div>
+<div id="modal"><div class="ov" id="modal-c"></div></div>
+<div id="toast"></div>
+<div id="pdfhost"></div>
+<input type="file" id="fpick" multiple accept="application/pdf,image/*" style="display:none">
+<input type="file" id="bpick" accept="application/json,.json" style="display:none">
+
+<script>
+'use strict';
+/* ================= Daten ================= */
+const LS = 'lerntrainer-v1';
+const MODELS = ['claude-sonnet-5-5','claude-opus-5-5','claude-haiku-5-5'];
+function defaults(){ return {settings:{apiKey:'',model:'claude-sonnet-5-5',goal:3,sessionSize:10,nQuestions:20}, topics:[]}; }
+function load(){
+  try{
+    const s = JSON.parse(localStorage.getItem(LS));
+    if (s && Array.isArray(s.topics)) { const d = defaults(); s.settings = Object.assign(d.settings, s.settings||{}); return s; }
+  }catch(e){}
+  return defaults();
+}
+let S = load();
+function save(){ try{ localStorage.setItem(LS, JSON.stringify(S)); }catch(e){ toast('Speichern fehlgeschlagen – Speicher voll? Bitte Backup exportieren.'); } }
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $ = id => document.getElementById(id);
+const topicById = id => S.topics.find(t => t.id === id);
+
+/* ================= Lernstand ================= */
+const LV = {schlecht:'Schlecht', mittel:'Mittelmäßig', gut:'Gut', neu:'Neu'};
+function level(q){
+  if (!q.seen) return 'neu';
+  if (q.streak >= S.settings.goal) return 'gut';
+  if (q.streak === 0) return 'schlecht';
+  return 'mittel';
+}
+function stats(qs){
+  const c = {neu:0,schlecht:0,mittel:0,gut:0};
+  qs.forEach(q => c[level(q)]++);
+  const n = qs.length;
+  return Object.assign(c, {n, pct: n ? Math.floor(c.gut / n * 100) : 0});
+}
+const allQs = () => S.topics.flatMap(t => t.questions);
+function barHtml(st, cls=''){
+  if (!st.n) return `<div class="bar ${cls}"></div>`;
+  const w = k => (st[k] / st.n * 100).toFixed(2) + '%';
+  return `<div class="bar ${cls}"><i class="g" style="width:${w('gut')}"></i><i class="m" style="width:${w('mittel')}"></i><i class="s" style="width:${w('schlecht')}"></i><i class="n" style="width:${w('neu')}"></i></div>`;
+}
+const legendHtml = st => `<div class="legend"><span class="g">Gut ${st.gut}</span><span class="m">Mittelmäßig ${st.mittel}</span><span class="s">Schlecht ${st.schlecht}</span><span class="n">Neu ${st.neu}</span></div>`;
+function dots(q){ let h=''; for (let i=0;i<S.settings.goal;i++) h += `<i class="${i < Math.min(q.streak,S.settings.goal) ? 'on':''}"></i>`; return `<span class="dots" title="${q.streak}× in Folge richtig">${h}</span>`; }
+const lvlBadge = q => { const l = level(q); return `<span class="lvl ${l}">${LV[l]}</span>`; };
+
+function normQ(r){
+  if (!r || !String(r.frage||'').trim()) return null;
+  const opts = Array.isArray(r.optionen) ? r.optionen.map(String).filter(s => s.trim()) : [];
+  const isMc = (r.typ === 'mc' || (!r.typ && opts.length)) && opts.length >= 2;
+  let correct = parseInt(r.richtig, 10); if (!(correct >= 0 && correct < opts.length)) correct = 0;
+  return {id:uid(), type: isMc ? 'mc' : 'open', q:String(r.frage).trim(), options: isMc ? opts : [], correct: isMc ? correct : null,
+          answer: String(r.antwort || (isMc ? opts[correct] : '') || ''), explain: String(r.erklaerung || ''),
+          streak:0, right:0, wrong:0, seen:0, last:0};
+}
+
+/* ================= Mini-Markdown ================= */
+function inline(s){
+  return esc(s).replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>').replace(/(^|[^*\w])\*([^*\s][^*]*?)\*(?!\w)/g,'$1<i>$2</i>');
+}
+function md(src){
+  const lines = String(src||'').replace(/\r/g,'').split('\n');
+  let out='', list=null, inCode=false, code='', tbl=[];
+  const closeList = () => { if (list){ out += `</${list}>`; list = null; } };
+  const flushTbl = () => {
+    if (!tbl.length) return;
+    const rows = tbl.filter(r => !/^\s*\|?\s*:?-{2,}/.test(r));
+    out += '<table>' + rows.map((r,i) => '<tr>' + r.trim().replace(/^\||\|$/g,'').split('|').map(c => i ? `<td>${inline(c.trim())}</td>` : `<th>${inline(c.trim())}</th>`).join('') + '</tr>').join('') + '</table>';
+    tbl = [];
+  };
+  for (const l of lines){
+    if (/^\s*```/.test(l)){ if (inCode){ out += `<pre>${esc(code)}</pre>`; code=''; inCode=false; } else { closeList(); flushTbl(); inCode=true; } continue; }
+    if (inCode){ code += l + '\n'; continue; }
+    if (/^\s*\|.*\|\s*$/.test(l)){ closeList(); tbl.push(l); continue; } else flushTbl();
+    let m;
+    if ((m = l.match(/^(#{1,4})\s+(.*)/))){ closeList(); const h = Math.min(4, Math.max(2, m[1].length)); out += `<h${h}>${inline(m[2])}</h${h}>`; continue; }
+    if ((m = l.match(/^\s*[-*•]\s+(.*)/))){ if (list !== 'ul'){ closeList(); out += '<ul>'; list='ul'; } out += `<li>${inline(m[1])}</li>`; continue; }
+    if ((m = l.match(/^\s*\d+[.)]\s+(.*)/))){ if (list !== 'ol'){ closeList(); out += '<ol>'; list='ol'; } out += `<li>${inline(m[1])}</li>`; continue; }
+    if (!l.trim()){ closeList(); continue; }
+    closeList(); out += `<p>${inline(l)}</p>`;
+  }
+  if (inCode) out += `<pre>${esc(code)}</pre>`;
+  closeList(); flushTbl();
+  return out;
+}
+
+/* ================= KI (Claude API) ================= */
+const SYSTEM = 'Du bist eine erfahrene Lehrkraft an einer Fachschule für Technik (Techniker Elektrotechnik / Automatisierungstechnik) und bereitest Lernstoff prüfungsnah auf. Schreibe auf Deutsch. Formeln immer als Klartext mit Unicode-Zeichen (z. B. U = R · I, P = √3 · U · I · cos φ, X_L = 2π · f · L), niemals LaTeX. Halte dich an den Inhalt der Unterlagen, ergänze nur, wo es dem Verständnis dient, und erfinde keine Messwerte.';
+const Q_SCHEMA = {type:'array', items:{type:'object', properties:{
+  typ:{type:'string', enum:['mc','offen']}, frage:{type:'string'},
+  optionen:{type:'array', items:{type:'string'}, description:'Nur bei mc: genau 4 Optionen'},
+  richtig:{type:'integer', description:'Nur bei mc: Index (0-3) der richtigen Option'},
+  antwort:{type:'string', description:'Musterlösung (bei offen Pflicht)'},
+  erklaerung:{type:'string'}}, required:['typ','frage','erklaerung']}};
+const TOOL_PKG = {name:'lernpaket_speichern', description:'Speichert Zusammenfassung und Lernfragen.', input_schema:{type:'object', properties:{
+  titel:{type:'string'}, fach:{type:'string'}, zusammenfassung:{type:'string', description:'Markdown'}, fragen:Q_SCHEMA}, required:['titel','zusammenfassung','fragen']}};
+const TOOL_MORE = {name:'fragen_speichern', description:'Speichert weitere Lernfragen.', input_schema:{type:'object', properties:{fragen:Q_SCHEMA}, required:['fragen']}};
+const TOOL_EXAM = {name:'probearbeit_speichern', description:'Speichert eine Probe-Klassenarbeit.', input_schema:{type:'object', properties:{
+  titel:{type:'string'}, hinweise:{type:'string', description:'Hinweise/Hilfsmittel für den Kopf der Arbeit'},
+  aufgaben:{type:'array', items:{type:'object', properties:{
+    titel:{type:'string'}, aufgabentext:{type:'string', description:'Markdown, Teilaufgaben a), b), c) als eigene Zeilen'},
+    punkte:{type:'number'}, optionen:{type:'array', items:{type:'string'}, description:'Nur für Ankreuzaufgaben'},
+    antwortzeilen:{type:'integer', description:'Anzahl Schreiblinien 0-16'}, loesung:{type:'string', description:'Musterlösung mit Rechenweg und Punkteverteilung, Markdown'}},
+    required:['titel','aufgabentext','punkte','loesung']}}}, required:['titel','aufgaben']}};
+const TOOL_GRADE = {name:'bewertung', description:'Bewertet eine Antwort.', input_schema:{type:'object', properties:{richtig:{type:'boolean'}, feedback:{type:'string'}}, required:['richtig','feedback']}};
+
+let ABORT = null;
+async function claude(content, tool, maxTokens, onProgress){
+  const key = (S.settings.apiKey||'').trim();
+  if (!key) throw new Error('Kein API-Schlüssel hinterlegt. Trage ihn unter ⚙︎ Einstellungen ein – oder nutze den Weg über die Claude-App.');
+  ABORT = new AbortController();
+  const body = {model:S.settings.model || MODELS[0], max_tokens:maxTokens, stream:true, system:SYSTEM,
+    messages:[{role:'user', content}], tools:[tool], tool_choice:{type:'tool', name:tool.name}};
+  const r = await fetch('https://api.anthropic.com/v1/messages', {method:'POST', signal:ABORT.signal,
+    headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify(body)});
+  if (!r.ok){
+    let msg = 'Fehler ' + r.status;
+    try{ const j = await r.json(); if (j.error && j.error.message) msg += ': ' + j.error.message; }catch(e){}
+    if (r.status === 401) msg = 'API-Schlüssel ungültig (401). Bitte in den Einstellungen prüfen.';
+    if (r.status === 429) msg = 'Zu viele Anfragen oder Limit erreicht (429). Kurz warten und erneut versuchen.';
+    throw new Error(msg);
+  }
+  const rd = r.body.getReader(), dec = new TextDecoder();
+  let buf='', json='', stop=null;
+  for(;;){
+    const {value, done} = await rd.read(); if (done) break;
+    buf += dec.decode(value, {stream:true});
+    let i;
+    while ((i = buf.indexOf('\n\n')) >= 0){
+      const chunk = buf.slice(0,i); buf = buf.slice(i+2);
+      for (const line of chunk.split('\n')){
+        if (!line.startsWith('data:')) continue;
+        let ev; try{ ev = JSON.parse(line.slice(5)); }catch(e){ continue; }
+        if (ev.type === 'content_block_delta' && ev.delta && ev.delta.type === 'input_json_delta'){ json += ev.delta.partial_json; onProgress && onProgress(json.length); }
+        else if (ev.type === 'message_delta' && ev.delta && ev.delta.stop_reason) stop = ev.delta.stop_reason;
+        else if (ev.type === 'error') throw new Error((ev.error && ev.error.message) || 'Fehler vom Server');
+      }
+    }
+  }
+  if (stop === 'max_tokens') throw new Error('Die Antwort war zu lang und wurde abgeschnitten – bitte weniger Fragen bzw. Aufgaben wählen.');
+  try{ return JSON.parse(json); }catch(e){ throw new Error('Die Antwort der KI konnte nicht gelesen werden. Bitte nochmal versuchen.'); }
+}
+async function withBusy(title, fn){
+  const t0 = Date.now(); let chars = 0;
+  $('busy-t').textContent = title; $('busy').classList.add('on');
+  const tick = () => { $('busy-s').textContent = `${Math.round((Date.now()-t0)/1000)} s` + (chars ? ` · ${(chars/1000).toFixed(1)} k Zeichen empfangen` : ' · Unterlagen werden gelesen …'); };
+  tick(); const iv = setInterval(tick, 500);
+  try { return await fn(n => { chars = n; }); }
+  finally { clearInterval(iv); $('busy').classList.remove('on'); ABORT = null; }
+}
+$('busy-x').onclick = () => { if (ABORT) ABORT.abort(); };
+const errMsg = e => e && e.name === 'AbortError' ? 'Abgebrochen.' : (e && e.message) || String(e);
+
+/* ---------- Prompts ---------- */
+function pkgPrompt(n, hint, manual){
+  let p = `Werte die angehängten Unterlagen (PDFs und/oder Fotos) aus und erstelle daraus ein Lernpaket.
+
+1. titel: kurzer, treffender Thementitel. fach: Fach bzw. Lernfeld, falls erkennbar.
+2. zusammenfassung: gut gegliederte Lernzusammenfassung in Markdown (## Überschriften, Stichpunkte, **Fachbegriffe fett**, Tabellen wo sinnvoll, alle wichtigen Formeln mit Formelzeichen und Einheiten, Merksätze und typische Fehler). So vollständig, dass man damit für die Klassenarbeit lernen kann.
+3. fragen: genau ${n} Lernfragen, die den gesamten Stoff abdecken – von Grundlagen bis prüfungsnah.
+   - ca. 70 % Multiple-Choice: typ "mc", genau 4 Optionen in "optionen", genau eine richtig, deren Index (0–3) in "richtig". Falsche Optionen plausibel (typische Denkfehler). Position der richtigen Antwort variieren.
+   - ca. 30 % offene Fragen oder kleine Rechenaufgaben: typ "offen", knappe Musterlösung in "antwort" (bei Rechnungen mit Formel, Rechenweg und Einheit).
+   - Jede Frage mit kurzer "erklaerung", warum die Lösung stimmt.`;
+  if (hint) p += `\n\nZusätzlicher Wunsch: ${hint}`;
+  if (manual) p += `\n\nAntworte AUSSCHLIESSLICH mit einem einzigen JSON-Objekt in einem \`\`\`json-Codeblock (kein Artefakt, kein weiterer Text) in genau diesem Format:
+{"titel":"…","fach":"…","zusammenfassung":"Markdown …","fragen":[{"typ":"mc","frage":"…","optionen":["…","…","…","…"],"richtig":2,"erklaerung":"…"},{"typ":"offen","frage":"…","antwort":"…","erklaerung":"…"}]}`;
+  return p;
+}
+function morePrompt(t, n){
+  return `Hier ist die Lernzusammenfassung zum Thema „${t.title}“:\n\n${t.summary}\n\nBereits vorhandene Fragen (NICHT wiederholen, auch nicht umformuliert):\n${t.questions.map(q=>'- '+q.q).join('\n')}\n\nErstelle genau ${n} NEUE Lernfragen zu diesem Stoff, möglichst zu Aspekten, die bisher wenig abgefragt wurden: ca. 70 % Multiple-Choice (typ "mc", 4 Optionen, Index der richtigen in "richtig"), ca. 30 % offene Fragen/Rechenaufgaben (typ "offen" mit Musterlösung in "antwort"). Jede mit kurzer "erklaerung".`;
+}
+function examPrompt(t, o, manual){
+  const weak = t.questions.filter(q => ['schlecht','mittel'].includes(level(q)) || (q.wrong && level(q) !== 'gut'));
+  let p = `Erstelle eine Probe-Klassenarbeit, wie sie an einer Fachschule für Technik (Elektro-/Automatisierungstechnik) geschrieben wird.
+
+Thema: ${t.title}${t.fach ? ' (' + t.fach + ')' : ''}
+Bearbeitungszeit: ${o.dauer} Minuten, ${o.anzahl} Aufgaben, insgesamt ca. ${o.dauer} Punkte.
+Schwierigkeit: ${o.schwer}.
+Mische Wissensfragen, Erklären/Begründen, Rechenaufgaben mit konkreten Werten (mit Einheiten) und höchstens eine Ankreuzaufgabe (dann "optionen" angeben). Größere Aufgaben in Teilaufgaben a), b), c) gliedern, jeweils mit Punkten in Klammern. "antwortzeilen" passend zum Platzbedarf wählen. "loesung": vollständige Musterlösung mit Rechenweg, Ergebnis mit Einheit und Punkteverteilung. "hinweise": erlaubte Hilfsmittel (z. B. Taschenrechner, Tabellenbuch) und kurze Hinweise.
+
+Lernstoff:
+${t.summary}`;
+  if (o.weak && weak.length) p += `\n\nLege einen Schwerpunkt auf diese Inhalte, die noch nicht sicher sitzen:\n${weak.slice(0,25).map(q=>'- '+q.q).join('\n')}`;
+  if (manual) p += `\n\nAntworte AUSSCHLIESSLICH mit einem einzigen JSON-Objekt in einem \`\`\`json-Codeblock (kein Artefakt, kein weiterer Text) in diesem Format:
+{"titel":"…","hinweise":"…","aufgaben":[{"titel":"…","aufgabentext":"Markdown …","punkte":10,"optionen":[],"antwortzeilen":8,"loesung":"Markdown …"}]}`;
+  return p;
+}
+function parsePasted(txt){
+  const s = String(txt||''); const a = s.indexOf('{'), b = s.lastIndexOf('}');
+  if (a < 0 || b <= a) throw new Error('Kein JSON gefunden. Bitte die komplette Antwort aus der Claude-App einfügen.');
+  try { return JSON.parse(s.slice(a, b+1)); } catch(e){ throw new Error('JSON fehlerhaft – evtl. unvollständig kopiert. Tipp: in der Claude-App auf „Kopieren“ beim Codeblock tippen.'); }
+}
+
+/* ================= Dateien ================= */
+const NEWF = {files:[]};
+function readB64(f){ return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = () => rej(new Error(f.name + ': konnte nicht gelesen werden')); r.readAsDataURL(f); }); }
+function imgToJpeg(f, max){
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(f); const im = new Image();
+    im.onload = () => {
+      let w = im.naturalWidth, h = im.naturalHeight; const s = Math.min(1, max / Math.max(w, h)); w = Math.round(w*s); h = Math.round(h*s);
+      const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d');
+      x.fillStyle = '#fff'; x.fillRect(0,0,w,h); x.drawImage(im,0,0,w,h); URL.revokeObjectURL(url);
+      res(c.toDataURL('image/jpeg', 0.85).split(',')[1]);
+    };
+    im.onerror = () => { URL.revokeObjectURL(url); rej(new Error(f.name + ': Bild konnte nicht geöffnet werden (Format?)')); };
+    im.src = url;
+  });
+}
+const isPdf = f => f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
+const isImg = f => (f.type||'').startsWith('image/') || /\.(jpe?g|png|heic|heif|webp|gif)$/i.test(f.name);
+async function filesToContent(files){
+  const content = []; let total = 0;
+  for (const f of files){
+    content.push({type:'text', text:'Datei: ' + f.name});
+    if (isPdf(f)){ const d = await readB64(f); total += d.length; content.push({type:'document', source:{type:'base64', media_type:'application/pdf', data:d}}); }
+    else if (isImg(f)){ const d = await imgToJpeg(f, 1600); total += d.length; content.push({type:'image', source:{type:'base64', media_type:'image/jpeg', data:d}}); }
+    else throw new Error(f.name + ': Dateityp wird nicht unterstützt (nur PDF und Bilder).');
+  }
+  if (total > 30e6) throw new Error('Die Dateien sind zusammen zu groß (max. ca. 22 MB). Bitte auf mehrere Themen aufteilen.');
+  return content;
+}
+const fmtSize = b => b > 1e6 ? (b/1e6).toFixed(1) + ' MB' : Math.max(1, Math.round(b/1e3)) + ' KB';
+
+/* ================= PDF ================= */
+let pdfLib = null;
+function loadPdfLib(){
+  if (window.html2pdf) return Promise.resolve();
+  if (!pdfLib) pdfLib = new Promise((res, rej) => {
+    const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    s.onload = res; s.onerror = () => { pdfLib = null; rej(new Error('PDF-Modul konnte nicht geladen werden (Internet?).')); };
+    document.head.appendChild(s);
+  });
+  return pdfLib;
+}
+async function makePdf(html, filename){
+  await loadPdfLib();
+  const host = $('pdfhost'); host.innerHTML = `<div class="pdfdoc">${html}</div>`;
+  try {
+    const blob = await html2pdf().set({margin:[12,12,14,12], filename, image:{type:'jpeg', quality:0.95},
+      html2canvas:{scale:2, backgroundColor:'#ffffff', useCORS:true}, jsPDF:{unit:'mm', format:'a4', orientation:'portrait'},
+      pagebreak:{mode:['css','legacy','avoid-all']}}).from(host.firstChild).toPdf().get('pdf').then(pdf => {
+        const n = pdf.internal.getNumberOfPages();
+        for (let i = 1; i <= n; i++){ pdf.setPage(i); pdf.setFontSize(8); pdf.setTextColor(130); pdf.text(`Seite ${i} von ${n}`, 105, 290, {align:'center'}); }
+        return pdf.output('blob');
+      });
+    return blob;
+  } finally { host.innerHTML = ''; }
+}
+function offerFile(blob, name, label){
+  const url = URL.createObjectURL(blob);
+  modal(`<div style="font-size:34px">📄</div><h2>${esc(label || 'Datei fertig')}</h2><p class="muted small">${esc(name)} · ${fmtSize(blob.size)}</p>
+    <div class="row" style="justify-content:center;margin-top:12px">
+      <button class="btn pri" id="m-share">Teilen / In Dateien sichern</button>
+      <a class="btn" href="${url}" download="${esc(name)}" target="_blank" rel="noopener" style="text-decoration:none">Öffnen</a>
+    </div><button class="btn ghost sm" style="margin-top:12px" data-act="closemodal">Schließen</button>`);
+  $('m-share').onclick = async () => {
+    const file = new File([blob], name, {type: blob.type});
+    if (navigator.canShare && navigator.canShare({files:[file]})){
+      try { await navigator.share({files:[file], title:name}); } catch(e){ if (e.name !== 'AbortError') toast('Teilen nicht möglich – nutze „Öffnen“.'); }
+    } else { const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
+  };
+}
+const fileSafe = s => String(s||'Lernen').replace(/[^\wäöüÄÖÜß\- ]+/g,'').trim().replace(/\s+/g,'_').slice(0,50) || 'Lernen';
+const dateDe = ts => new Date(ts).toLocaleDateString('de-DE');
+
+function examHtml(t, ex, withSol){
+  const total = ex.aufgaben.reduce((s,a) => s + (Number(a.punkte)||0), 0);
+  const nk = [[92,'1 (sehr gut)'],[81,'2 (gut)'],[67,'3 (befriedigend)'],[50,'4 (ausreichend)'],[30,'5 (mangelhaft)'],[0,'6 (ungenügend)']];
+  let h = `<div class="ph"><div><h1>${esc(ex.titel)}</h1><div>${esc(t.fach || 'Probe-Klassenarbeit')} · ${esc(t.title)}</div><div style="font-size:12px;color:#555">Probearbeit vom ${dateDe(ex.created)} · Bearbeitungszeit ${ex.dauer} min</div></div>
+    <table class="kopf"><tr><td>Name:</td></tr><tr><td>Datum:</td></tr><tr><td>Punkte: &nbsp;&nbsp;&nbsp;&nbsp; / ${total}</td></tr><tr><td>Note:</td></tr></table></div>`;
+  h += `<div class="info"><b>Hinweise:</b> ${inline(ex.hinweise || 'Rechenwege vollständig angeben, Ergebnisse mit Einheit.')}</div>`;
+  ex.aufgaben.forEach((a, i) => {
+    h += `<div class="ah"><b>Aufgabe ${i+1}: ${esc(a.titel)}</b><span>_____ / ${Number(a.punkte)||0} P.</span></div><div>${md(a.aufgabentext)}</div>`;
+    (a.optionen||[]).filter(Boolean).forEach(o => { h += `<div class="opt2">☐ &nbsp;${inline(o)}</div>`; });
+    const n = Math.max(0, Math.min(18, parseInt(a.antwortzeilen,10) || ((a.optionen||[]).length ? 0 : 6)));
+    for (let k = 0; k < n; k++) h += '<div class="ln"></div>';
+  });
+  h += `<h3 style="margin-top:22px">Notenschlüssel</h3><table><tr><th>Note</th>${nk.map(x=>`<th>${x[1]}</th>`).join('')}</tr><tr><td>ab Punkte</td>${nk.map(x=>`<td>${Math.ceil(total*x[0]/100)}</td>`).join('')}</tr></table>`;
+  if (withSol){
+    h += `<div class="pb"></div><h1>Musterlösung</h1><div style="font-size:12px;color:#555;margin-bottom:6px">${esc(ex.titel)}</div>`;
+    ex.aufgaben.forEach((a, i) => { h += `<h3>Aufgabe ${i+1}: ${esc(a.titel)} (${Number(a.punkte)||0} P.)</h3><div class="sol">${md(a.loesung)}</div>`; });
+  }
+  h += `<div class="foot">Erstellt mit dem Lern-Trainer.</div>`;
+  return h;
+}
+
+/* ================= UI-Helfer ================= */
+let toastT;
+function toast(m){ const t = $('toast'); t.textContent = m; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 3200); }
+function modal(html){ $('modal-c').innerHTML = html; $('modal').classList.add('on'); }
+function closeModal(){ $('modal').classList.remove('on'); $('modal-c').innerHTML = ''; }
+async function copyText(txt){
+  try { await navigator.clipboard.writeText(txt); toast('Prompt kopiert ✓'); }
+  catch(e){ const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); toast('Prompt kopiert ✓'); }catch(_){ toast('Kopieren nicht möglich'); } ta.remove(); }
+}
+
+/* ================= Navigation ================= */
+let V = {name:'home'};
+function go(v){ V = typeof v === 'string' ? {name:v} : v; render(); window.scrollTo(0,0); }
+function render(){
+  const st = stats(allQs());
+  $('gpill').textContent = st.n ? st.pct + ' %' : '–';
+  $('gpill').classList.toggle('done100', st.n > 0 && st.pct === 100);
+  ['home','new','settings'].forEach(k => $('n-'+k).classList.toggle('on', V.name === k));
+  const app = $('app');
+  if (V.name === 'home') app.innerHTML = viewHome();
+  else if (V.name === 'new') { app.innerHTML = viewNew(); renderFiles(); }
+  else if (V.name === 'settings') app.innerHTML = viewSettings();
+  else if (V.name === 'topic') { const t = topicById(V.id); if (!t) return go('home'); app.innerHTML = viewTopic(t); }
+  else if (V.name === 'session') app.innerHTML = viewSession();
+}
+
+/* ---------- Startseite ---------- */
+function viewHome(){
+  const st = stats(allQs());
+  const fehler = allQs().filter(q => q.wrong && level(q) !== 'gut').length;
+  let h = '';
+  if (S.topics.length){
+    h += `<div class="card ${st.pct===100?'celebrate':''}"><div class="row" style="justify-content:space-between;align-items:flex-end">
+      <div><div class="muted small">Gesamtfortschritt · Ziel 100 %</div><div class="pct">${st.pct}<small> %</small></div></div>
+      <div class="muted small" style="text-align:right">${st.gut} von ${st.n} Fragen sicher<br>${S.topics.length} Thema${S.topics.length===1?'':'en'}</div></div>
+      <div style="margin-top:12px">${barHtml(st)}</div>${legendHtml(st)}
+      <div class="row" style="margin-top:14px"><button class="btn pri" data-act="start" data-scope="all">▶ Gemischte Lernrunde</button>
+      <button class="btn" data-act="start" data-scope="all" data-mode="fehler" ${fehler?'':'disabled'}>↻ Fehler wiederholen (${fehler})</button></div></div>`;
+  }
+  h += `<div class="row-h"><h2 style="margin:0">Meine Themen</h2><button class="btn pri sm" data-act="go" data-v="new">+ Neues Thema</button></div>`;
+  if (!S.topics.length){
+    h += `<div class="card empty"><div class="emo">📚</div><h2>Noch keine Themen</h2>
+      <p class="muted">Lade deine Unterlagen hoch (PDFs oder Fotos vom Hefter). Die App erstellt daraus eine Zusammenfassung und Lernfragen.<br>
+      Jede Frage musst du <b>${S.settings.goal}× hintereinander richtig</b> beantworten, bis sie im Reiter „Gut“ landet. Falsche Antworten werden gemerkt und immer wieder gefragt – bis du bei <b>100 %</b> bist.</p>
+      <button class="btn pri big" data-act="go" data-v="new">Erstes Thema anlegen</button></div>`;
+  }
+  [...S.topics].sort((a,b) => (b.lastUsed||b.created) - (a.lastUsed||a.created)).forEach(t => {
+    const s = stats(t.questions);
+    h += `<div class="card topic" data-act="open" data-id="${t.id}"><div class="tt"><div><h3 style="margin:0">${esc(t.title)}</h3>
+      <div class="muted small">${esc(t.fach||'')}${t.fach?' · ':''}${s.n} Fragen${s.schlecht?` · <span class="bad">${s.schlecht} schlecht</span>`:''}</div></div>
+      <div class="tp ${s.pct===100?'done100':''}">${s.pct===100?'✓ ':''}${s.pct} %</div></div>${barHtml(s)}</div>`;
+  });
+  return h;
+}
+
+/* ---------- Neues Thema ---------- */
+function viewNew(){
+  const hasKey = !!S.settings.apiKey;
+  return `<h1>Neues Thema</h1><p class="muted" style="margin-top:0">Unterlagen hochladen → Zusammenfassung + Lernfragen werden erstellt.</p>
+  <div class="card">
+    <div class="drop" data-act="pick"><div style="font-size:30px">⬆︎</div><b>PDFs oder Bilder auswählen</b><div class="muted small">Arbeitsblätter, Skripte, Fotos vom Hefter oder der Tafel – mehrere Dateien möglich</div></div>
+    <ul class="files" id="flist"></ul>
+    <div class="grid2">
+      <div><label class="f">Titel (optional – sonst schlägt die KI einen vor)</label><input type="text" id="n-title" placeholder="z. B. Drehstrom-Asynchronmotor"></div>
+      <div><label class="f">Fach / Lernfeld (optional)</label><input type="text" id="n-fach" placeholder="z. B. Elektrische Maschinen"></div>
+    </div>
+    <div class="grid2">
+      <div><label class="f">Anzahl Lernfragen</label><select id="n-n">${[10,15,20,30,40].map(n=>`<option ${n==S.settings.nQuestions?'selected':''}>${n}</option>`).join('')}</select></div>
+      <div><label class="f">Wunsch an die KI (optional)</label><input type="text" id="n-hint" placeholder="z. B. mehr Rechenaufgaben"></div>
+    </div>
+    <div class="row" style="margin-top:16px"><button class="btn pri big" data-act="generate">✨ Zusammenfassung & Fragen erstellen</button></div>
+    ${hasKey ? '' : `<div class="hint warn">Für die automatische Erstellung brauchst du einen Claude-API-Schlüssel (⚙︎ Einstellungen). Ohne Schlüssel geht es kostenlos über die Claude-App – siehe unten.</div>`}
+  </div>
+  <div class="or">oder ohne API-Schlüssel über die Claude-App</div>
+  <div class="card">
+    <ol class="steps"><li>Tippe auf <b>Prompt kopieren</b>.</li><li>Öffne die Claude-App, starte einen neuen Chat, hänge deine PDFs/Fotos an und füge den Prompt ein.</li>
+    <li>Kopiere Claudes Antwort (den JSON-Codeblock) und füge sie hier ein.</li></ol>
+    <button class="btn" data-act="copyprompt">📋 Prompt kopieren</button>
+    <label class="f">Antwort von Claude einfügen</label><textarea id="n-paste" placeholder='{"titel": "…", "zusammenfassung": "…", "fragen": [ … ] }'></textarea>
+    <div class="row" style="margin-top:10px"><button class="btn pri" data-act="importpkg">Importieren</button></div>
+  </div>`;
+}
+function renderFiles(){
+  const ul = $('flist'); if (!ul) return;
+  ul.innerHTML = NEWF.files.map((f,i) => `<li><span>${isPdf(f)?'📄':'🖼️'} ${esc(f.name)}</span><span class="muted small" style="flex:none">${fmtSize(f.size)} <button class="xbtn" data-act="rmfile" data-i="${i}">×</button></span></li>`).join('');
+}
+$('fpick').addEventListener('change', e => { NEWF.files.push(...e.target.files); e.target.value = ''; renderFiles(); });
+
+function addTopicFromPkg(p, title, fach, files){
+  if (!p || !Array.isArray(p.fragen)) throw new Error('Das Ergebnis enthält keine Fragen.');
+  const qs = p.fragen.map(normQ).filter(Boolean);
+  if (!qs.length) throw new Error('Keine gültigen Fragen gefunden.');
+  const t = {id:uid(), title:(title || p.titel || 'Neues Thema').trim(), fach:(fach || p.fach || '').trim(), created:Date.now(), lastUsed:Date.now(),
+             summary:String(p.zusammenfassung||''), questions:qs, exams:[], files:files||[]};
+  S.topics.push(t); save();
+  NEWF.files = [];
+  go({name:'topic', id:t.id, tab:'sum'});
+  toast(`„${t.title}“ angelegt – ${qs.length} Fragen ✓`);
+}
+
+/* ---------- Thema ---------- */
+function viewTopic(t){
+  const tab = V.tab || 'learn';
+  const s = stats(t.questions);
+  let h = `<div class="row" style="justify-content:space-between"><button class="btn ghost sm" data-act="go" data-v="home">‹ Themen</button>
+    <div class="row"><button class="btn ghost sm" data-act="rename">Umbenennen</button><button class="btn red sm" data-act="deltopic">Löschen</button></div></div>
+    <h1>${esc(t.title)}</h1><div class="muted small">${esc(t.fach||'')}${t.fach?' · ':''}angelegt am ${dateDe(t.created)}${t.files&&t.files.length?' · aus '+t.files.length+' Datei(en)':''}</div>
+    <div class="tabs">${[['learn','Lernen'],['sum','Zusammenfassung'],['qs','Fragen ('+s.n+')'],['exam','Probearbeit']].map(([k,l]) => `<button class="${tab===k?'on':''}" data-act="tab" data-v="${k}">${l}</button>`).join('')}</div>`;
+  if (tab === 'learn') h += tabLearn(t, s);
+  if (tab === 'sum') h += `<div class="card md">${t.summary ? md(t.summary) : '<p class="muted">Keine Zusammenfassung vorhanden.</p>'}</div>
+     <div class="row"><button class="btn" data-act="sumpdf">📄 Zusammenfassung als PDF</button><button class="btn pri" data-act="tab" data-v="learn">Jetzt lernen ›</button></div>`;
+  if (tab === 'qs') h += tabQs(t);
+  if (tab === 'exam') h += tabExam(t);
+  return h;
+}
+function tabLearn(t, s){
+  const fehler = t.questions.filter(q => q.wrong && level(q) !== 'gut').length;
+  const hasKey = !!S.settings.apiKey;
+  return `<div class="card ${s.pct===100?'celebrate':''}">
+    <div class="row" style="justify-content:space-between;align-items:flex-end"><div><div class="muted small">Fortschritt · Ziel 100 %</div><div class="pct">${s.pct}<small> %</small></div></div>
+    <div class="muted small" style="text-align:right">${s.gut} / ${s.n} Fragen im Reiter „Gut“</div></div>
+    <div style="margin-top:12px">${barHtml(s)}</div>${legendHtml(s)}
+    ${s.pct===100 ? `<p class="ok" style="margin:12px 0 0"><b>🎉 Geschafft! Alle Fragen sitzen.</b> Teste dich jetzt mit einer Probearbeit oder erzeuge weitere Fragen.</p>` : ''}
+    <div class="row" style="margin-top:16px"><button class="btn pri big" data-act="start" data-scope="${t.id}">▶ Lernrunde starten</button>
+    <button class="btn big" data-act="start" data-scope="${t.id}" data-mode="fehler" ${fehler?'':'disabled'}>↻ Fehler wiederholen (${fehler})</button></div></div>
+  <div class="card"><h3>So funktioniert’s</h3><p class="muted small" style="margin:0">Eine Lernrunde hat bis zu ${S.settings.sessionSize} Fragen. Zuerst kommen die schlechten, dann mittelmäßige und neue. Falsch beantwortete Fragen kommen in derselben Runde nochmal und landen im Reiter <span class="bad">Schlecht</span>. Erst nach <b>${S.settings.goal}× richtig in Folge</b> wandert eine Frage nach <span class="ok">Gut</span>. Eine falsche Antwort setzt die Serie zurück.</p></div>
+  <div class="card"><h3>Weitere Fragen erzeugen</h3><p class="muted small" style="margin-top:0">Neue Fragen zum selben Stoff – praktisch, wenn du die vorhandenen schon auswendig kennst.</p>
+    <div class="row"><select id="more-n" style="width:auto">${[5,10,15,20].map(n=>`<option ${n===10?'selected':''}>${n}</option>`).join('')}</select>
+    <button class="btn" data-act="more" ${hasKey?'':'disabled'}>✨ Fragen erzeugen</button></div>
+    ${hasKey?'':'<div class="hint">Benötigt einen API-Schlüssel (⚙︎ Einstellungen).</div>'}</div>`;
+}
+function tabQs(t){
+  const sub = V.sub || 'schlecht';
+  const groups = {schlecht:[], mittel:[], gut:[], neu:[]};
+  t.questions.forEach(q => groups[level(q)].push(q));
+  let h = `<div class="subtabs">${['schlecht','mittel','gut','neu'].map(k => `<button class="c${k[0]} ${sub===k?'on':''}" data-act="sub" data-v="${k}">${LV[k]} (${groups[k].length})</button>`).join('')}</div>`;
+  const list = groups[sub].sort((a,b) => b.wrong - a.wrong);
+  if (!list.length) h += `<div class="card empty muted">${sub==='gut' ? 'Noch keine Frage im Reiter „Gut“. Beantworte Fragen '+S.settings.goal+'× hintereinander richtig.' : sub==='schlecht' ? 'Keine schlechten Fragen 👍' : 'Hier ist gerade nichts.'}</div>`;
+  list.forEach(q => {
+    h += `<details class="qi"><summary><span class="qt">${esc(q.q)}</span>${dots(q)}</summary><div class="qb">
+      ${q.type==='mc' ? '<ul style="margin:0 0 6px;padding-left:18px">' + q.options.map((o,i) => `<li class="${i===q.correct?'ok':''}">${esc(o)}${i===q.correct?' ✓':''}</li>`).join('') + '</ul>' : `<div class="md"><b>Lösung:</b> ${md(q.answer)}</div>`}
+      ${q.explain ? `<div class="muted">${inline(q.explain)}</div>` : ''}
+      <div class="row muted small" style="margin-top:8px;justify-content:space-between"><span>✓ ${q.right} · ✗ ${q.wrong} · Serie ${q.streak}</span>
+      <span><button class="btn ghost sm" data-act="resetq" data-q="${q.id}">Zurücksetzen</button> <button class="btn red sm" data-act="delq" data-q="${q.id}">Löschen</button></span></div></div></details>`;
+  });
+  h += `<div class="row" style="margin-top:14px"><button class="btn red sm" data-act="resettopic">Fortschritt des Themas zurücksetzen</button></div>`;
+  return h;
+}
+function tabExam(t){
+  const hasKey = !!S.settings.apiKey;
+  let h = `<div class="card"><h3>Probe-Klassenarbeit erstellen</h3><p class="muted small" style="margin-top:0">Eine Arbeit mit Kopf (Name, Punkte, Note), Aufgaben mit Schreiblinien, Notenschlüssel und auf Wunsch einer Musterlösung als PDF.</p>
+    <div class="grid2"><div><label class="f">Bearbeitungszeit</label><select id="e-dauer">${[45,60,90,120].map(n=>`<option value="${n}" ${n===90?'selected':''}>${n} Minuten</option>`).join('')}</select></div>
+    <div><label class="f">Anzahl Aufgaben</label><select id="e-anz">${[4,5,6,7,8,10].map(n=>`<option ${n===6?'selected':''}>${n}</option>`).join('')}</select></div></div>
+    <div class="grid2"><div><label class="f">Schwierigkeit</label><select id="e-schwer"><option>wie eine normale Klassenarbeit</option><option>eher leicht (Grundlagen)</option><option>anspruchsvoll (Prüfungsniveau)</option></select></div>
+    <div><label class="f">&nbsp;</label><label style="display:flex;gap:8px;align-items:center;padding:10px 0"><input type="checkbox" id="e-weak" checked> Schwerpunkt auf meine Schwachstellen</label></div></div>
+    <div class="row" style="margin-top:12px"><button class="btn pri" data-act="exam" ${hasKey?'':'disabled'}>✨ Probearbeit erstellen</button></div>
+    ${hasKey?'':'<div class="hint">Ohne API-Schlüssel: Prompt kopieren und Antwort unten einfügen.</div>'}
+    <details style="margin-top:12px"><summary class="muted small" style="cursor:pointer">Über die Claude-App erstellen (ohne API-Schlüssel)</summary>
+      <div style="margin-top:10px"><button class="btn sm" data-act="copyexam">📋 Prompt kopieren</button>
+      <label class="f">Antwort von Claude einfügen</label><textarea id="e-paste"></textarea>
+      <div class="row" style="margin-top:8px"><button class="btn sm pri" data-act="importexam">Importieren</button></div></div></details></div>`;
+  h += `<div class="card"><h3>Meine Probearbeiten</h3>`;
+  if (!t.exams || !t.exams.length) h += `<p class="muted small" style="margin:0">Noch keine erstellt.</p>`;
+  (t.exams||[]).slice().reverse().forEach(ex => {
+    const pts = ex.aufgaben.reduce((s,a) => s + (Number(a.punkte)||0), 0);
+    h += `<div class="exam"><div><b>${esc(ex.titel)}</b><div class="muted small">${dateDe(ex.created)} · ${ex.aufgaben.length} Aufgaben · ${pts} Punkte · ${ex.dauer} min</div></div>
+      <div class="row"><button class="btn sm pri" data-act="exampdf" data-e="${ex.id}">📄 PDF</button><button class="btn sm" data-act="exampdf" data-e="${ex.id}" data-sol="1">PDF + Lösung</button><button class="btn sm red" data-act="delexam" data-e="${ex.id}">×</button></div></div>`;
+  });
+  return h + '</div>';
+}
+function examOpts(){ return {dauer:+$('e-dauer').value, anzahl:+$('e-anz').value, schwer:$('e-schwer').value, weak:$('e-weak').checked}; }
+function addExam(t, p, o){
+  if (!p || !Array.isArray(p.aufgaben) || !p.aufgaben.length) throw new Error('Keine Aufgaben im Ergebnis.');
+  const ex = {id:uid(), created:Date.now(), dauer:o.dauer, titel:String(p.titel||'Probe-Klassenarbeit'), hinweise:String(p.hinweise||''),
+    aufgaben:p.aufgaben.map(a => ({titel:String(a.titel||'Aufgabe'), aufgabentext:String(a.aufgabentext||''), punkte:Number(a.punkte)||0,
+      optionen:Array.isArray(a.optionen)?a.optionen.map(String):[], antwortzeilen:a.antwortzeilen, loesung:String(a.loesung||'')}))};
+  t.exams = t.exams || []; t.exams.push(ex); save(); render();
+  return ex;
+}
+
+/* ---------- Lernrunde ---------- */
+let SS = null;
+function buildSession(scope, mode){
+  const topics = scope === 'all' ? S.topics : [topicById(scope)].filter(Boolean);
+  let refs = [];
+  topics.forEach(t => t.questions.forEach(q => refs.push({t, q})));
+  if (mode === 'fehler') refs = refs.filter(r => r.q.wrong && level(r.q) !== 'gut');
+  if (!refs.length) { toast('Keine passenden Fragen.'); return; }
+  const W = {schlecht:0, mittel:1, neu:1.6};
+  refs.forEach(r => { const l = level(r.q); r.p = (l === 'gut' ? (r.q.wrong ? 3 : 4) : W[l]) + Math.random()*0.9; });
+  refs.sort((a,b) => a.p - b.p);
+  const queue = refs.slice(0, S.settings.sessionSize).map(r => ({tid:r.t.id, qid:r.q.id}));
+  topics.forEach(t => t.lastUsed = Date.now()); save();
+  SS = {scope, mode, queue, pos:0, ok:0, fail:0, state:'ask', order:null, picked:null, before:null, back: scope==='all' ? {name:'home'} : {name:'topic', id:scope, tab:'learn'}};
+  newOrder(); go('session');
+}
+function curRef(){ const r = SS.queue[SS.pos]; if (!r) return null; const t = topicById(r.tid); const q = t && t.questions.find(x => x.id === r.qid); return q ? {t, q} : null; }
+function newOrder(){ const c = curRef(); SS.order = c && c.q.type === 'mc' ? shuffle(c.q.options.map((_,i)=>i)) : null; SS.picked = null; SS.state = 'ask'; SS.ai = null; }
+function shuffle(a){ for (let i = a.length-1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); [a[i],a[j]] = [a[j],a[i]]; } return a; }
+function grade(ok){
+  const c = curRef(); if (!c || SS.state === 'shown') return;
+  const q = c.q; SS.before = level(q);
+  q.seen++; q.last = Date.now();
+  if (ok){ q.right++; q.streak++; SS.ok++; }
+  else {
+    q.wrong++; q.streak = 0; SS.fail++;
+    const ref = SS.queue[SS.pos];
+    if (!SS.queue.slice(SS.pos+1).some(r => r.qid === ref.qid)) SS.queue.splice(Math.min(SS.queue.length, SS.pos + 4), 0, {tid:ref.tid, qid:ref.qid});
+  }
+  SS.lastOk = ok; SS.state = 'shown'; save(); render();
+}
+function viewSession(){
+  if (!SS) return viewHome();
+  const c = curRef();
+  if (!c){
+    const topics = SS.scope === 'all' ? S.topics : [topicById(SS.scope)].filter(Boolean);
+    const st = stats(topics.flatMap(t => t.questions));
+    const total = SS.ok + SS.fail;
+    return `<div class="card empty ${st.pct===100?'celebrate':''}"><div class="emo">${SS.fail===0?'🏆':'💪'}</div><h2>Runde geschafft!</h2>
+      <p>${SS.ok} von ${total} Antworten richtig${SS.fail?` · ${SS.fail}× falsch – diese Fragen kommen wieder`:''}</p>
+      <div style="max-width:420px;margin:16px auto 6px"><div class="pct" style="font-size:36px">${st.pct}<small> %</small></div><div style="margin-top:8px">${barHtml(st)}</div>${legendHtml(st)}</div>
+      <div class="row" style="justify-content:center;margin-top:18px"><button class="btn pri big" data-act="again">▶ Nächste Runde</button><button class="btn big" data-act="endsess">Fertig</button></div></div>`;
+  }
+  const {t, q} = c;
+  const remaining = SS.queue.length - SS.pos;
+  const doneFrac = SS.pos / SS.queue.length * 100;
+  let h = `<div class="sess-top"><button class="btn ghost sm" data-act="endsess">✕</button><div class="bar"><i class="g" style="width:${doneFrac}%"></i></div><span class="muted small" style="white-space:nowrap">noch ${remaining} · ✓ ${SS.ok} ✗ ${SS.fail}</span></div>
+    <div class="card qcard"><div class="qmeta">${SS.state==='shown' ? `<span class="lvl ${SS.before}">${LV[SS.before]}</span> → ${lvlBadge(q)}` : lvlBadge(q)} ${dots(q)} ${SS.scope==='all' ? '<span>· '+esc(t.title)+'</span>' : ''}</div>
+    <h2>${inline(q.q)}</h2>`;
+  if (q.type === 'mc'){
+    SS.order.forEach((oi, k) => {
+      let cls = '';
+      if (SS.state === 'shown'){ if (oi === q.correct) cls = 'right'; else if (oi === SS.picked) cls = 'wrong'; }
+      h += `<button class="opt ${cls}" data-act="pick" data-o="${oi}" ${SS.state==='shown'?'disabled':''}><b>${'ABCD'[k]||k+1}</b>${inline(q.options[oi])}</button>`;
+    });
+  } else {
+    if (SS.state === 'ask' && !SS.reveal){
+      h += `<textarea id="s-ans" placeholder="Deine Antwort (optional – du kannst sie auch im Kopf oder auf Papier lösen)">${esc(SS.draft||'')}</textarea>
+        <div class="row" style="margin-top:12px"><button class="btn pri" data-act="reveal">Lösung zeigen</button>${S.settings.apiKey ? '<button class="btn" data-act="aigrade">✨ Von KI prüfen lassen</button>' : ''}</div>`;
+    } else {
+      if (SS.draft) h += `<div class="answerbox"><div class="muted small">Deine Antwort</div>${esc(SS.draft)}</div>`;
+      h += `<div class="answerbox" style="border-style:solid"><div class="muted small">Musterlösung</div><div class="md">${md(q.answer)}</div></div>`;
+      if (SS.ai) h += `<div class="fb ${SS.ai.richtig?'fok':'fbad'}"><div class="t">KI-Bewertung: ${SS.ai.richtig?'richtig ✓':'noch nicht richtig ✗'}</div>${inline(SS.ai.feedback)}</div>`;
+      if (SS.state === 'ask') h += `<p class="muted small" style="margin:14px 0 8px">Ehrlich sein – wusstest du es?</p><div class="row"><button class="btn pri" data-act="self" data-v="1">✓ Gewusst</button><button class="btn red" data-act="self" data-v="0">✗ Nicht gewusst</button></div>`;
+    }
+  }
+  if (SS.state === 'shown'){
+    const lv = level(q);
+    const msg = SS.lastOk ? (lv === 'gut' ? (SS.before !== 'gut' ? `Richtig! 🎉 Die Frage ist jetzt im Reiter „Gut“.` : 'Richtig! Sitzt weiterhin.') : `Richtig! Noch ${S.settings.goal - q.streak}× richtig in Folge bis „Gut“.`)
+                          : 'Leider falsch. Die Frage kommt in dieser Runde nochmal und wird gemerkt.';
+    h += `<div class="fb ${SS.lastOk?'fok':'fbad'}"><div class="t">${msg}</div>${q.explain ? inline(q.explain) : ''}</div>
+      <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="btn pri big" data-act="next">Weiter ›</button></div>`;
+  }
+  return h + '</div>';
+}
+
+/* ---------- Einstellungen ---------- */
+function viewSettings(){
+  const s = S.settings;
+  return `<h1>Einstellungen</h1>
+  <div class="card"><h3>KI (Claude-API)</h3>
+    <p class="muted small" style="margin-top:0">Für die automatische Erstellung von Zusammenfassungen, Fragen und Probearbeiten. Den Schlüssel bekommst du unter <b>console.anthropic.com</b> → API Keys. Die API wird nach Verbrauch abgerechnet, getrennt vom Claude-Abo. Der Schlüssel bleibt nur auf diesem Gerät gespeichert.</p>
+    <label class="f">API-Schlüssel</label><input type="password" id="s-key" value="${esc(s.apiKey)}" placeholder="sk-ant-…" autocomplete="off">
+    <label class="f">Modell</label><input type="text" id="s-model" list="models" value="${esc(s.model)}">
+    <datalist id="models"><option value="claude-sonnet-5-5">Empfohlen</option><option value="claude-opus-5-5">Beste Qualität, teurer</option><option value="claude-haiku-5-5">Schnell & günstig</option></datalist>
+    <div class="row" style="margin-top:12px"><button class="btn pri" data-act="savekey">Speichern</button><button class="btn" data-act="testkey">Verbindung testen</button></div></div>
+  <div class="card"><h3>Lernen</h3><div class="grid2">
+    <div><label class="f">Richtig in Folge bis „Gut“</label><select id="s-goal">${[2,3,4,5].map(n=>`<option ${n==s.goal?'selected':''}>${n}</option>`).join('')}</select></div>
+    <div><label class="f">Fragen pro Lernrunde</label><select id="s-size">${[5,10,15,20,30].map(n=>`<option ${n==s.sessionSize?'selected':''}>${n}</option>`).join('')}</select></div></div>
+    <div class="row" style="margin-top:12px"><button class="btn pri" data-act="savelearn">Speichern</button></div></div>
+  <div class="card"><h3>Daten sichern</h3><p class="muted small" style="margin-top:0">Alles wird lokal auf dem iPad gespeichert. Mach ab und zu ein Backup (z. B. in „Dateien“ / iCloud), damit nichts verloren geht.</p>
+    <div class="row"><button class="btn" data-act="backup">⬇︎ Backup exportieren</button><button class="btn" data-act="restore">⬆︎ Backup importieren</button><button class="btn red" data-act="wipe">Alle Daten löschen</button></div></div>
+  <div class="card"><h3>App</h3><p class="muted small" style="margin:0 0 10px">Version <span class="mono">${APP_VERSION}</span> · <a href="../">Zum µC-Trainer</a></p>
+    <button class="btn sm" data-act="checkupd">Nach Updates suchen</button></div>`;
+}
+$('bpick').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const d = JSON.parse(await f.text());
+    if (!d || !Array.isArray(d.topics)) throw new Error();
+    const mode = confirm(`Backup mit ${d.topics.length} Thema/Themen gefunden.\n\nOK = zu vorhandenen Themen hinzufügen\nAbbrechen = nichts tun`);
+    if (!mode) return;
+    const ids = new Set(S.topics.map(t => t.id));
+    d.topics.forEach(t => { if (ids.has(t.id)) t.id = uid(); S.topics.push(t); });
+    save(); toast('Backup importiert ✓'); go('home');
+  } catch(err){ toast('Datei ist kein gültiges Backup.'); }
+});
+
+/* ================= Aktionen ================= */
+const ACT = {
+  go: d => go(d.v),
+  open: d => go({name:'topic', id:d.id, tab:'learn'}),
+  tab: d => { V.tab = d.v; render(); },
+  sub: d => { V.sub = d.v; render(); },
+  closemodal: closeModal,
+  pick: d => {
+    if (V.name === 'session'){ if (SS.state !== 'ask') return; const c = curRef(); SS.picked = +d.o; grade(+d.o === c.q.correct); return; }
+    $('fpick').click();
+  },
+  rmfile: d => { NEWF.files.splice(+d.i, 1); renderFiles(); },
+  generate: async () => {
+    if (!NEWF.files.length) return toast('Bitte zuerst Dateien auswählen.');
+    if (!S.settings.apiKey) return toast('Kein API-Schlüssel – siehe ⚙︎ Einstellungen oder den Weg über die Claude-App.');
+    const title = $('n-title').value, fach = $('n-fach').value, n = +$('n-n').value, hint = $('n-hint').value.trim();
+    S.settings.nQuestions = n; save();
+    try {
+      const names = NEWF.files.map(f => f.name);
+      const p = await withBusy('Unterlagen werden ausgewertet …', async prog => {
+        const content = await filesToContent(NEWF.files);
+        content.push({type:'text', text: pkgPrompt(n, hint, false)});
+        return claude(content, TOOL_PKG, 32000, prog);
+      });
+      addTopicFromPkg(p, title, fach, names);
+    } catch(e){ modal(`<h2>Das hat nicht geklappt</h2><p class="muted">${esc(errMsg(e))}</p><button class="btn" data-act="closemodal">OK</button>`); }
+  },
+  copyprompt: () => copyText(pkgPrompt(+$('n-n').value, $('n-hint').value.trim(), true)),
+  importpkg: () => {
+    try { addTopicFromPkg(parsePasted($('n-paste').value), $('n-title').value, $('n-fach').value, NEWF.files.map(f=>f.name)); }
+    catch(e){ toast(errMsg(e)); }
+  },
+  rename: () => { const t = topicById(V.id); const n = prompt('Neuer Titel:', t.title); if (n && n.trim()){ t.title = n.trim(); const f = prompt('Fach / Lernfeld:', t.fach||''); if (f !== null) t.fach = f.trim(); save(); render(); } },
+  deltopic: () => { const t = topicById(V.id); if (confirm(`„${t.title}“ mit allen Fragen und Fortschritt löschen?`)){ S.topics = S.topics.filter(x => x !== t); save(); go('home'); } },
+  start: d => buildSession(d.scope, d.mode),
+  again: () => buildSession(SS.scope, SS.mode),
+  endsess: () => { const b = SS ? SS.back : {name:'home'}; SS = null; go(b); },
+  next: () => { SS.pos++; SS.draft = ''; SS.reveal = false; newOrder(); render(); window.scrollTo(0,0); },
+  reveal: () => { SS.draft = ($('s-ans')||{}).value || ''; SS.reveal = true; render(); },
+  self: d => grade(d.v === '1'),
+  aigrade: async () => {
+    const c = curRef(); SS.draft = ($('s-ans')||{}).value || '';
+    if (!SS.draft.trim()) return toast('Schreib zuerst eine Antwort.');
+    try {
+      const r = await withBusy('Antwort wird geprüft …', prog => claude([{type:'text', text:`Frage: ${c.q.q}\n\nMusterlösung: ${c.q.answer}\n\nAntwort des Schülers: ${SS.draft}\n\nBewerte, ob die Antwort fachlich richtig und im Wesentlichen vollständig ist. Bei Formulierungen großzügig, fachlich genau (Werte, Einheiten, Fachbegriffe). Gib ein kurzes, hilfreiches Feedback (max. 3 Sätze) – was fehlt oder falsch ist.`}], TOOL_GRADE, 1000, prog));
+      SS.ai = r; SS.reveal = true; SS.picked = null; grade(!!r.richtig);
+    } catch(e){ toast(errMsg(e)); }
+  },
+  more: async () => {
+    const t = topicById(V.id); const n = +$('more-n').value;
+    try {
+      const p = await withBusy(`${n} neue Fragen werden erstellt …`, prog => claude([{type:'text', text: morePrompt(t, n)}], TOOL_MORE, 16000, prog));
+      const qs = (p.fragen||[]).map(normQ).filter(Boolean);
+      t.questions.push(...qs); save(); render(); toast(`${qs.length} neue Fragen hinzugefügt ✓`);
+    } catch(e){ toast(errMsg(e)); }
+  },
+  resetq: d => { const t = topicById(V.id); const q = t.questions.find(x => x.id === d.q); Object.assign(q, {streak:0, right:0, wrong:0, seen:0, last:0}); save(); render(); },
+  delq: d => { if (!confirm('Frage löschen?')) return; const t = topicById(V.id); t.questions = t.questions.filter(x => x.id !== d.q); save(); render(); },
+  resettopic: () => { const t = topicById(V.id); if (confirm('Fortschritt aller Fragen dieses Themas zurücksetzen?')){ t.questions.forEach(q => Object.assign(q, {streak:0, right:0, wrong:0, seen:0, last:0})); save(); render(); } },
+  sumpdf: async () => {
+    const t = topicById(V.id);
+    try {
+      const blob = await withBusy('PDF wird erstellt …', () => makePdf(`<h1>${esc(t.title)}</h1><div style="color:#555;margin-bottom:8px">${esc(t.fach||'Zusammenfassung')} · Stand ${dateDe(Date.now())}</div>${md(t.summary)}`, `Zusammenfassung_${fileSafe(t.title)}.pdf`));
+      offerFile(blob, `Zusammenfassung_${fileSafe(t.title)}.pdf`, 'Zusammenfassung fertig');
+    } catch(e){ toast(errMsg(e)); }
+  },
+  exam: async () => {
+    const t = topicById(V.id); const o = examOpts();
+    try {
+      const p = await withBusy('Probearbeit wird erstellt …', prog => claude([{type:'text', text: examPrompt(t, o, false)}], TOOL_EXAM, 24000, prog));
+      const ex = addExam(t, p, o);
+      modal(`<div style="font-size:34px">📝</div><h2>Probearbeit fertig</h2><p class="muted small">${esc(ex.titel)} · ${ex.aufgaben.length} Aufgaben</p>
+        <div class="row" style="justify-content:center"><button class="btn pri" data-act="exampdf" data-e="${ex.id}">📄 PDF</button><button class="btn" data-act="exampdf" data-e="${ex.id}" data-sol="1">PDF + Lösung</button></div>
+        <button class="btn ghost sm" style="margin-top:12px" data-act="closemodal">Schließen</button>`);
+    } catch(e){ modal(`<h2>Das hat nicht geklappt</h2><p class="muted">${esc(errMsg(e))}</p><button class="btn" data-act="closemodal">OK</button>`); }
+  },
+  copyexam: () => copyText(examPrompt(topicById(V.id), examOpts(), true)),
+  importexam: () => { try { addExam(topicById(V.id), parsePasted($('e-paste').value), examOpts()); toast('Probearbeit importiert ✓'); } catch(e){ toast(errMsg(e)); } },
+  exampdf: async d => {
+    closeModal();
+    const t = topicById(V.id); const ex = t.exams.find(x => x.id === d.e); const sol = d.sol === '1';
+    const name = `Probearbeit_${fileSafe(t.title)}${sol ? '_mit_Loesung' : ''}.pdf`;
+    try { const blob = await withBusy('PDF wird erstellt …', () => makePdf(examHtml(t, ex, sol), name)); offerFile(blob, name, 'Probearbeit als PDF'); }
+    catch(e){ toast(errMsg(e)); }
+  },
+  delexam: d => { if (!confirm('Probearbeit löschen?')) return; const t = topicById(V.id); t.exams = t.exams.filter(x => x.id !== d.e); save(); render(); },
+  savekey: () => { S.settings.apiKey = $('s-key').value.trim(); S.settings.model = $('s-model').value.trim() || MODELS[0]; save(); toast('Gespeichert ✓'); },
+  testkey: async () => {
+    ACT.savekey();
+    try { await withBusy('Verbindung wird getestet …', prog => claude([{type:'text', text:'Test: Antworte mit richtig=true und feedback="ok".'}], TOOL_GRADE, 200, prog)); toast('Verbindung klappt ✓'); }
+    catch(e){ modal(`<h2>Test fehlgeschlagen</h2><p class="muted">${esc(errMsg(e))}</p><button class="btn" data-act="closemodal">OK</button>`); }
+  },
+  savelearn: () => { S.settings.goal = +$('s-goal').value; S.settings.sessionSize = +$('s-size').value; save(); toast('Gespeichert ✓'); render(); },
+  backup: () => {
+    const data = JSON.parse(JSON.stringify(S)); data.settings.apiKey = '';
+    offerFile(new Blob([JSON.stringify(data)], {type:'application/json'}), `Lern-Trainer_Backup_${new Date().toISOString().slice(0,10)}.json`, 'Backup fertig');
+  },
+  restore: () => $('bpick').click(),
+  wipe: () => { if (confirm('Wirklich ALLE Themen, Fragen und Fortschritte löschen?') && confirm('Sicher? Das kann nicht rückgängig gemacht werden.')){ const k = S.settings; S = defaults(); S.settings = k; save(); go('home'); } },
+  checkupd: () => { if (window.lernCheckUpdate) window.lernCheckUpdate(true); }
+};
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  if (b.tagName === 'A') return;
+  const f = ACT[b.dataset.act]; if (f){ e.preventDefault(); f(b.dataset, b); }
+});
+$('modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+
+const APP_VERSION = '1.0.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+render();
+</script>
+
+<style>
+#upd{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translate(-50%,150%);z-index:9999;
+  background:#141b21;border:1px solid #19b5a5;border-radius:12px;padding:14px 16px;width:min(420px,calc(100vw - 24px));box-shadow:0 10px 30px rgba(0,0,0,.5);transition:transform .3s}
+#upd:not(.on){visibility:hidden;pointer-events:none}
+#upd.on{transform:translate(-50%,0);visibility:visible}
+#upd b{color:#19b5a5}
+#upd p{margin:4px 0 10px;font-size:14px;color:#8a9aa7}
+#upd .r{display:flex;gap:8px;justify-content:flex-end}
+#upd button{border-radius:8px;padding:9px 14px;font-weight:600;cursor:pointer;font-size:14px}
+#upd .go{background:#19b5a5;border:0;color:#0d1216}
+#upd .later{background:none;border:1px solid #33424f;color:#e4ebf0}
+</style>
+<div id="upd" role="dialog" aria-live="polite">
+  <div><b>Update verfügbar</b> <span id="upd-v"></span></div>
+  <p id="upd-n"></p>
+  <div class="r"><button class="later" id="upd-later">Später</button><button class="go" id="upd-go">App aktualisieren</button></div>
+</div>
+<script>
+(function(){
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.register('sw.js', {scope:'./'}).catch(function(){});
+  var box = document.getElementById('upd');
+  function check(manual){
+    fetch('version.json?t=' + Date.now(), {cache:'no-store'})
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(v){
+        if (!v || !v.version || v.version === APP_VERSION){ if (manual) toast('Du hast die neueste Version ✓'); return; }
+        if (!manual && sessionStorage.getItem('upd-later') === v.version) return;
+        document.getElementById('upd-v').textContent = 'Version ' + v.version;
+        document.getElementById('upd-n').textContent = v.notes || 'Neue Funktionen und Verbesserungen.';
+        box.classList.add('on');
+      }).catch(function(){ if (manual) toast('Keine Verbindung.'); });
+  }
+  document.getElementById('upd-later').onclick = function(){
+    box.classList.remove('on');
+    try { sessionStorage.setItem('upd-later', (document.getElementById('upd-v').textContent||'').replace('Version ','')); } catch(e){}
+  };
+  document.getElementById('upd-go').onclick = function(){
+    var btn = this; btn.disabled = true; btn.textContent = 'Wird aktualisiert …';
+    navigator.serviceWorker.ready.then(function(reg){
+      var ch = new MessageChannel();
+      ch.port1.onmessage = function(e){
+        if (e.data === 'ok') { location.reload(); }
+        else { btn.disabled = false; btn.textContent = 'Nochmal versuchen'; }
+      };
+      reg.active.postMessage('update', [ch.port2]);
+    }).catch(function(){ location.reload(); });
+  };
+  window.lernCheckUpdate = check;
+  window.addEventListener('load', function(){ check(false); });
+  document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'visible') check(false); });
+})();
+</script>
+</body>
+</html>

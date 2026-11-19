@@ -33,6 +33,7 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.pathname.endsWith('/version.json')) return;   // Versionscheck immer live
+  if (url.pathname.includes('/lernen/')) return;        // Lern-Trainer hat eigenen Service Worker
   const isFont = /fonts\.(googleapis|gstatic)\.com$/.test(url.hostname);
   if (url.origin !== location.origin && !isFont) return;
 
