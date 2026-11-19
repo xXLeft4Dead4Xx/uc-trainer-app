@@ -291,7 +291,7 @@ async function claude(content, tool, maxTokens, onProgress){
   if (!key) throw new Error('Kein API-Schlüssel hinterlegt. Trage ihn unter ⚙︎ Einstellungen ein – oder nutze den Weg über die Claude-App.');
   ABORT = new AbortController();
   const body = {model:S.settings.model || MODELS[0], max_tokens:maxTokens, stream:true, system:SYSTEM,
-    messages:[{role:'user', content}], tools:[tool], tool_choice:{type:'tool', name:tool.name}};
+    messages:[{role:'user', content: content.concat([{type:'text', text:`Gib das Ergebnis ausschließlich über das Werkzeug „${tool.name}“ zurück.`}])}], tools:[tool], tool_choice:{type:'auto'}};
   const r = await fetch('https://api.anthropic.com/v1/messages', {method:'POST', signal:ABORT.signal,
     headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
     body:JSON.stringify(body)});
@@ -303,7 +303,7 @@ async function claude(content, tool, maxTokens, onProgress){
     throw new Error(msg);
   }
   const rd = r.body.getReader(), dec = new TextDecoder();
-  let buf='', json='', stop=null;
+  let buf='', json='', txt='', stop=null;
   for(;;){
     const {value, done} = await rd.read(); if (done) break;
     buf += dec.decode(value, {stream:true});
@@ -314,13 +314,16 @@ async function claude(content, tool, maxTokens, onProgress){
         if (!line.startsWith('data:')) continue;
         let ev; try{ ev = JSON.parse(line.slice(5)); }catch(e){ continue; }
         if (ev.type === 'content_block_delta' && ev.delta && ev.delta.type === 'input_json_delta'){ json += ev.delta.partial_json; onProgress && onProgress(json.length); }
+        else if (ev.type === 'content_block_delta' && ev.delta && ev.delta.type === 'text_delta'){ txt += ev.delta.text; onProgress && onProgress(txt.length); }
         else if (ev.type === 'message_delta' && ev.delta && ev.delta.stop_reason) stop = ev.delta.stop_reason;
         else if (ev.type === 'error') throw new Error((ev.error && ev.error.message) || 'Fehler vom Server');
       }
     }
   }
   if (stop === 'max_tokens') throw new Error('Die Antwort war zu lang und wurde abgeschnitten – bitte weniger Fragen bzw. Aufgaben wählen.');
-  try{ return JSON.parse(json); }catch(e){ throw new Error('Die Antwort der KI konnte nicht gelesen werden. Bitte nochmal versuchen.'); }
+  try{ return JSON.parse(json); }catch(e){}
+  try{ return parsePasted(txt); }catch(e){}
+  throw new Error('Die Antwort der KI konnte nicht gelesen werden. Bitte nochmal versuchen.');
 }
 async function withBusy(title, fn){
   const t0 = Date.now(); let chars = 0;
@@ -799,7 +802,7 @@ const ACT = {
     const c = curRef(); SS.draft = ($('s-ans')||{}).value || '';
     if (!SS.draft.trim()) return toast('Schreib zuerst eine Antwort.');
     try {
-      const r = await withBusy('Antwort wird geprüft …', prog => claude([{type:'text', text:`Frage: ${c.q.q}\n\nMusterlösung: ${c.q.answer}\n\nAntwort des Schülers: ${SS.draft}\n\nBewerte, ob die Antwort fachlich richtig und im Wesentlichen vollständig ist. Bei Formulierungen großzügig, fachlich genau (Werte, Einheiten, Fachbegriffe). Gib ein kurzes, hilfreiches Feedback (max. 3 Sätze) – was fehlt oder falsch ist.`}], TOOL_GRADE, 1000, prog));
+      const r = await withBusy('Antwort wird geprüft …', prog => claude([{type:'text', text:`Frage: ${c.q.q}\n\nMusterlösung: ${c.q.answer}\n\nAntwort des Schülers: ${SS.draft}\n\nBewerte, ob die Antwort fachlich richtig und im Wesentlichen vollständig ist. Bei Formulierungen großzügig, fachlich genau (Werte, Einheiten, Fachbegriffe). Gib ein kurzes, hilfreiches Feedback (max. 3 Sätze) – was fehlt oder falsch ist.`}], TOOL_GRADE, 4000, prog));
       SS.ai = r; SS.reveal = true; SS.picked = null; grade(!!r.richtig);
     } catch(e){ toast(errMsg(e)); }
   },
@@ -844,7 +847,7 @@ const ACT = {
   savekey: () => { S.settings.apiKey = $('s-key').value.trim(); S.settings.model = $('s-model').value.trim() || MODELS[0]; save(); toast('Gespeichert ✓'); },
   testkey: async () => {
     ACT.savekey();
-    try { await withBusy('Verbindung wird getestet …', prog => claude([{type:'text', text:'Test: Antworte mit richtig=true und feedback="ok".'}], TOOL_GRADE, 200, prog)); toast('Verbindung klappt ✓'); }
+    try { await withBusy('Verbindung wird getestet …', prog => claude([{type:'text', text:'Test: Antworte mit richtig=true und feedback="ok".'}], TOOL_GRADE, 4000, prog)); toast('Verbindung klappt ✓'); }
     catch(e){ modal(`<h2>Test fehlgeschlagen</h2><p class="muted">${esc(errMsg(e))}</p><button class="btn" data-act="closemodal">OK</button>`); }
   },
   savelearn: () => { S.settings.goal = +$('s-goal').value; S.settings.sessionSize = +$('s-size').value; save(); toast('Gespeichert ✓'); render(); },
@@ -863,7 +866,7 @@ document.addEventListener('click', e => {
 });
 $('modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
 
-const APP_VERSION = '1.0.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+const APP_VERSION = '1.0.1';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
 render();
 </script>
 

@@ -1,4 +1,4 @@
 {
-  "version": "1.0.0",
-  "notes": "Erste Version: Unterlagen hochladen, Zusammenfassung, Lernrunden mit Schlecht/Mittelmäßig/Gut, Fortschritt bis 100 %, Probearbeit als PDF."
+  "version": "1.0.1",
+  "notes": "Fehler behoben: Verbindung zu den neuen Claude-Modellen (Fehler 400 bei „Verbindung testen“)."
 }
