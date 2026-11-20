@@ -274,7 +274,15 @@ const Q_SCHEMA = {type:'array', items:{type:'object', properties:{
   antwort:{type:'string', description:'Musterlösung (bei offen Pflicht)'},
   erklaerung:{type:'string'}}, required:['typ','frage','erklaerung']}};
 const TOOL_PKG = {name:'lernpaket_speichern', description:'Speichert Zusammenfassung und Lernfragen.', input_schema:{type:'object', properties:{
-  titel:{type:'string'}, fach:{type:'string'}, zusammenfassung:{type:'string', description:'Markdown'}, fragen:Q_SCHEMA}, required:['titel','zusammenfassung','fragen']}};
+  titel:{type:'string'}, fach:{type:'string'},
+  lernart:{type:'string', enum:['wissen','rechnen','gemischt']}, lernart_grund:{type:'string', description:'1 Satz Begründung'},
+  zusammenfassung:{type:'string', description:'Markdown'}, fragen:Q_SCHEMA}, required:['titel','lernart','zusammenfassung','fragen']}};
+const TOOL_SHEET = {name:'uebungsblatt_speichern', description:'Speichert ein Übungsblatt.', input_schema:{type:'object', properties:{
+  titel:{type:'string'}, aufgaben:{type:'array', items:{type:'object', properties:{
+    titel:{type:'string', description:'kurzer Name, z. B. „Leistung im Drehstromnetz“'}, aufgabentext:{type:'string', description:'Markdown mit allen gegebenen Werten und Einheiten; Teilaufgaben a), b) als eigene Zeilen'},
+    stufe:{type:'string', enum:['leicht','mittel','schwer']}, antwortzeilen:{type:'integer'},
+    loesung:{type:'string', description:'Markdown: gegeben/gesucht, Formel, Einsetzen, Rechenweg, Ergebnis mit Einheit'}, ergebnis:{type:'string', description:'nur das Endergebnis mit Einheit'}},
+    required:['titel','aufgabentext','stufe','loesung','ergebnis']}}}, required:['titel','aufgaben']}};
 const TOOL_MORE = {name:'fragen_speichern', description:'Speichert weitere Lernfragen.', input_schema:{type:'object', properties:{fragen:Q_SCHEMA}, required:['fragen']}};
 const TOOL_EXAM = {name:'probearbeit_speichern', description:'Speichert eine Probe-Klassenarbeit.', input_schema:{type:'object', properties:{
   titel:{type:'string'}, hinweise:{type:'string', description:'Hinweise/Hilfsmittel für den Kopf der Arbeit'},
@@ -373,13 +381,18 @@ function pkgPrompt(n, hint, manual){
 
 1. titel: kurzer, treffender Thementitel. fach: Fach bzw. Lernfeld, falls erkennbar.
 2. zusammenfassung: gut gegliederte Lernzusammenfassung in Markdown (## Überschriften, Stichpunkte, **Fachbegriffe fett**, Tabellen wo sinnvoll, alle wichtigen Formeln mit Formelzeichen und Einheiten, Merksätze und typische Fehler). So vollständig, dass man damit für die Klassenarbeit lernen kann.
-3. fragen: genau ${n} Lernfragen, die den gesamten Stoff abdecken – von Grundlagen bis prüfungsnah.
-   - ca. 70 % Multiple-Choice: typ "mc", genau 4 Optionen in "optionen", genau eine richtig, deren Index (0–3) in "richtig". Falsche Optionen plausibel (typische Denkfehler). Position der richtigen Antwort variieren.
-   - ca. 30 % offene Fragen oder kleine Rechenaufgaben: typ "offen", knappe Musterlösung in "antwort" (bei Rechnungen mit Formel, Rechenweg und Einheit).
+3. lernart: Entscheide, wie man diesen Stoff am besten lernt:
+   - "wissen": vor allem Begriffe, Zusammenhänge, Abläufe, Normen → Quiz und Abfragen.
+   - "rechnen": vor allem Rechnen und Anwenden (Mathe, Berechnungen in der Elektrotechnik usw.) → Übungsaufgaben mit Rechenweg.
+   - "gemischt": beides wichtig.
+   Begründe in "lernart_grund" in einem Satz.
+4. fragen: genau ${n} Lernfragen, die den gesamten Stoff abdecken – von Grundlagen bis prüfungsnah. Mischung je nach Lernart: bei "wissen" ca. 70 % Multiple-Choice, bei "gemischt" ca. 50 %, bei "rechnen" nur ca. 30 % Multiple-Choice (Formeln, Einheiten, Zusammenhänge) und sonst kleine Rechenaufgaben.
+   - Multiple-Choice: typ "mc", genau 4 Optionen in "optionen", genau eine richtig, deren Index (0–3) in "richtig". Falsche Optionen plausibel (typische Denkfehler). Position der richtigen Antwort variieren.
+   - Offene Fragen bzw. Rechenaufgaben: typ "offen", knappe Musterlösung in "antwort" (bei Rechnungen mit Formel, Rechenweg und Einheit).
    - Jede Frage mit kurzer "erklaerung", warum die Lösung stimmt.`;
   if (hint) p += `\n\nZusätzlicher Wunsch: ${hint}`;
   if (manual) p += `\n\nAntworte AUSSCHLIESSLICH mit einem einzigen JSON-Objekt in einem \`\`\`json-Codeblock (kein Artefakt, kein weiterer Text) in genau diesem Format:
-{"titel":"…","fach":"…","zusammenfassung":"Markdown …","fragen":[{"typ":"mc","frage":"…","optionen":["…","…","…","…"],"richtig":2,"erklaerung":"…"},{"typ":"offen","frage":"…","antwort":"…","erklaerung":"…"}]}`;
+{"titel":"…","fach":"…","lernart":"wissen|rechnen|gemischt","lernart_grund":"…","zusammenfassung":"Markdown …","fragen":[{"typ":"mc","frage":"…","optionen":["…","…","…","…"],"richtig":2,"erklaerung":"…"},{"typ":"offen","frage":"…","antwort":"…","erklaerung":"…"}]}`;
   return p;
 }
 function morePrompt(t, n){
@@ -480,6 +493,64 @@ function offerFile(blob, name, label){
 const fileSafe = s => String(s||'Lernen').replace(/[^\wäöüÄÖÜß\- ]+/g,'').trim().replace(/\s+/g,'_').slice(0,50) || 'Lernen';
 const dateDe = ts => new Date(ts).toLocaleDateString('de-DE');
 
+function sheetPrompt(t, o){
+  const weak = [];
+  (t.sheets||[]).forEach(sh => (sh.aufgaben||[]).forEach(a => { if (a.ok === false) weak.push(a.titel); }));
+  t.questions.filter(q => q.type === 'open' && (level(q) === 'schlecht' || (q.wrong && level(q) !== 'gut'))).forEach(q => weak.push(q.q));
+  const done = []; (t.sheets||[]).forEach(sh => (sh.aufgaben||[]).forEach(a => done.push(a.titel)));
+  let p = `Erstelle ein Übungsblatt mit genau ${o.anzahl} Übungsaufgaben zum Thema „${t.title}“${t.fach ? ' (' + t.fach + ')' : ''} für einen Schüler der Fachschule für Technik.
+Schwierigkeit: ${o.stufe === 'gemischt' ? 'aufsteigend von leicht über mittel bis schwer' : o.stufe}.
+- Echte Rechen- und Anwendungsaufgaben mit konkreten, realistischen Zahlenwerten und Einheiten (keine reinen Wissensfragen).
+- Größere Aufgaben in Teilaufgaben a), b), c) gliedern.
+- "loesung": vollständiger Rechenweg (gegeben, gesucht, Formel, Einsetzen mit Einheiten, Ergebnis). "ergebnis": nur das Endergebnis mit Einheit.
+- Rechne jede Lösung sorgfältig nach, bevor du sie einträgst. Sinnvoll runden.
+- "antwortzeilen": Platz zum Rechnen (4–16).
+
+Lernstoff:
+${t.summary}`;
+  if (o.weak && weak.length) p += `\n\nÜbe besonders diese Punkte, die beim Schüler noch nicht sitzen:\n${[...new Set(weak)].slice(0,20).map(x => '- ' + x).join('\n')}`;
+  if (done.length) p += `\n\nDiese Aufgaben gab es schon (andere Werte bzw. andere Aufgabenstellungen wählen):\n${done.slice(-30).map(x => '- ' + x).join('\n')}`;
+  return p;
+}
+function sheetHtml(t, sh, mode){   // mode: 'aufg' | 'beides' | 'loes'
+  let h = `<div class="ph"><div><h1>${esc(sh.titel)}</h1><div>${esc(t.fach || 'Übungsblatt')} · ${esc(t.title)}</div><div style="font-size:12px;color:#555">Übungsblatt vom ${dateDe(sh.created)} · ${sh.aufgaben.length} Aufgaben</div></div>
+    <table class="kopf"><tr><td>Name:</td></tr><tr><td>Datum:</td></tr></table></div>`;
+  if (mode !== 'loes'){
+    sh.aufgaben.forEach((a, i) => {
+      h += `<div class="ah"><b>Aufgabe ${i+1}: ${esc(a.titel)}</b><span>${esc(a.stufe||'')}</span></div><div>${md(a.aufgabentext)}</div>`;
+      const n = Math.max(0, Math.min(18, parseInt(a.antwortzeilen,10) || 8));
+      for (let k = 0; k < n; k++) h += '<div class="ln"></div>';
+    });
+    h += `<h3 style="margin-top:22px">Ergebnisse zum Selbstkontrollieren</h3><table><tr>${sh.aufgaben.map((a,i)=>`<th>${i+1}</th>`).join('')}</tr><tr>${sh.aufgaben.map(()=>'<td>☐ richtig</td>').join('')}</tr></table>`;
+  }
+  if (mode !== 'aufg'){
+    h += `${mode === 'beides' ? '<div class="pb"></div>' : ''}<h1>Lösungen</h1><div style="font-size:12px;color:#555;margin-bottom:6px">${esc(sh.titel)}</div>`;
+    sh.aufgaben.forEach((a, i) => { h += `<h3>Aufgabe ${i+1}: ${esc(a.titel)}</h3><div class="sol">${md(a.loesung)}<p><b>Ergebnis:</b> ${inline(a.ergebnis||'')}</p></div>`; });
+  }
+  return h + `<div class="foot">Erstellt mit dem Lern-Trainer.</div>`;
+}
+function tabSheets(t){
+  const hasKey = !!S.settings.apiKey;
+  const sheets = t.sheets || [];
+  const graded = sheets.flatMap(sh => sh.aufgaben).filter(a => a.ok != null);
+  const okN = graded.filter(a => a.ok).length;
+  let h = (t.mode === 'rechnen' ? modeCard(t) : '') + `<div class="card"><h3>🧮 Übungsblatt erstellen</h3><p class="muted small" style="margin-top:0">Rechen- und Anwendungsaufgaben mit Platz zum Rechnen und vollständigen Lösungswegen – als PDF zum Ausdrucken oder für Goodnotes. Jedes Blatt hat neue Aufgaben.</p>
+    <div class="grid2"><div><label class="f">Anzahl Aufgaben</label><select id="u-anz">${[4,6,8,10,12].map(n=>`<option ${n===6?'selected':''}>${n}</option>`).join('')}</select></div>
+    <div><label class="f">Schwierigkeit</label><select id="u-stufe"><option value="gemischt">aufsteigend (leicht → schwer)</option><option value="leicht">leicht</option><option value="mittel">mittel</option><option value="schwer">schwer (Prüfungsniveau)</option></select></div></div>
+    <label style="display:flex;gap:8px;align-items:center;padding:10px 0 0"><input type="checkbox" id="u-weak" checked> Schwerpunkt auf Aufgaben, die ich falsch hatte</label>
+    <div class="row" style="margin-top:12px"><button class="btn pri" data-act="sheet" ${hasKey?'':'disabled'}>✨ Übungsblatt erstellen</button></div>
+    ${hasKey?'':'<div class="hint">Benötigt einen API-Schlüssel (⚙︎ Einstellungen).</div>'}</div>`;
+  h += `<div class="card"><h3>Meine Übungsblätter</h3>`;
+  if (graded.length) h += `<p class="small" style="margin-top:0">Ausgewertet: <b>${okN} von ${graded.length}</b> Aufgaben richtig (${Math.round(okN/graded.length*100)} %)</p>`;
+  if (!sheets.length) h += `<p class="muted small" style="margin:0">Noch keine erstellt.</p>`;
+  sheets.slice().reverse().forEach(sh => {
+    const g = sh.aufgaben.filter(a => a.ok != null), o = g.filter(a => a.ok).length;
+    h += `<div class="exam"><div><b>${esc(sh.titel)}</b><div class="muted small">${dateDe(sh.created)} · ${sh.aufgaben.length} Aufgaben${g.length ? ` · <span class="${o===g.length?'ok':''}">${o}/${g.length} richtig</span>` : ' · noch nicht ausgewertet'}</div></div>
+      <div class="row"><button class="btn sm pri" data-act="sheetpdf" data-e="${sh.id}" data-m="aufg">📄 Aufgaben</button><button class="btn sm" data-act="sheetpdf" data-e="${sh.id}" data-m="loes">Lösungen</button>
+      <button class="btn sm" data-act="sheetgrade" data-e="${sh.id}">✓ Auswerten</button><button class="btn sm red" data-act="delsheet" data-e="${sh.id}">×</button></div></div>`;
+  });
+  return h + '</div>';
+}
 function examHtml(t, ex, withSol){
   const total = ex.aufgaben.reduce((s,a) => s + (Number(a.punkte)||0), 0);
   const nk = [[92,'1 (sehr gut)'],[81,'2 (gut)'],[67,'3 (befriedigend)'],[50,'4 (ausreichend)'],[30,'5 (mangelhaft)'],[0,'6 (ungenügend)']];
@@ -594,10 +665,12 @@ function addTopicFromPkg(p, title, fach, files){
   const qs = p.fragen.map(normQ).filter(Boolean);
   if (!qs.length) throw new Error('Keine gültigen Fragen gefunden.');
   const t = {id:uid(), title:(title || p.titel || 'Neues Thema').trim(), fach:(fach || p.fach || '').trim(), created:Date.now(), lastUsed:Date.now(),
-             summary:String(p.zusammenfassung||''), questions:qs, exams:[], files:files||[]};
+             summary:String(p.zusammenfassung||''), questions:qs, exams:[], sheets:[], files:files||[],
+             mode:['wissen','rechnen','gemischt'].includes(p.lernart) ? p.lernart : 'gemischt', modeWhy:String(p.lernart_grund||'')};
   S.topics.push(t); chargeTopic(t); save();
   NEWF.files = [];
   go({name:'topic', id:t.id, tab:'sum'});
+  if (t.mode === 'rechnen') setTimeout(() => toast('Rechen-Thema erkannt: Lerne am besten mit Übungsblättern (Reiter „Übungen“).'), 3600);
   usageToast(`„${t.title}“ angelegt – ${qs.length} Fragen ✓`);
 }
 
@@ -608,11 +681,12 @@ function viewTopic(t){
   let h = `<div class="row" style="justify-content:space-between"><button class="btn ghost sm" data-act="go" data-v="home">‹ Themen</button>
     <div class="row"><button class="btn ghost sm" data-act="rename">Umbenennen</button><button class="btn red sm" data-act="deltopic">Löschen</button></div></div>
     <h1>${esc(t.title)}</h1><div class="muted small">${esc(t.fach||'')}${t.fach?' · ':''}angelegt am ${dateDe(t.created)}${t.files&&t.files.length?' · aus '+t.files.length+' Datei(en)':''}${t.usage ? ' · ' + fmtTok(t.usage.in + t.usage.out) + ' Tokens' + fmtUsd(t.usage.usd || null) : ''}</div>
-    <div class="tabs">${[['learn','Lernen'],['sum','Zusammenfassung'],['qs','Fragen ('+s.n+')'],['exam','Probearbeit']].map(([k,l]) => `<button class="${tab===k?'on':''}" data-act="tab" data-v="${k}">${l}</button>`).join('')}</div>`;
+    <div class="tabs">${(t.mode === 'rechnen' ? [['ueb','Übungen'],['learn','Quiz'],['sum','Zusammenfassung'],['qs','Fragen ('+s.n+')'],['exam','Probearbeit']] : [['learn','Lernen'],['sum','Zusammenfassung'],['qs','Fragen ('+s.n+')'],['ueb','Übungen'],['exam','Probearbeit']]).map(([k,l]) => `<button class="${tab===k?'on':''}" data-act="tab" data-v="${k}">${l}</button>`).join('')}</div>`;
   if (tab === 'learn') h += tabLearn(t, s);
   if (tab === 'sum') h += tabSum(t);
   if (tab === 'qs') h += tabQs(t);
   if (tab === 'exam') h += tabExam(t);
+  if (tab === 'ueb') h += tabSheets(t);
   return h;
 }
 function tabSum(t){
@@ -675,10 +749,17 @@ async function syncAfterManual(t, oldSum){
     const res = applySync(t, r); chargeTopic(t); render(); usageToast(syncText(res));
   } catch(e){ toast('Zusammenfassung gespeichert, aber Fragen nicht angepasst: ' + errMsg(e)); }
 }
+const MODE_TXT = {wissen:'📖 Wissen – lernen mit Quiz', rechnen:'🧮 Rechnen – lernen mit Übungsaufgaben', gemischt:'⚖️ Gemischt – Quiz und Übungsaufgaben'};
+function modeCard(t){
+  const m = t.mode || 'gemischt';
+  return `<div class="card"><div class="row" style="justify-content:space-between"><div><div class="muted small">Lernart</div><b>${MODE_TXT[m]}</b>${t.modeWhy ? `<div class="muted small">${esc(t.modeWhy)}</div>` : ''}</div>
+    <select style="width:auto" data-chg="mode">${Object.keys(MODE_TXT).map(k => `<option value="${k}" ${k===m?'selected':''}>${k==='wissen'?'Wissen':k==='rechnen'?'Rechnen':'Gemischt'}</option>`).join('')}</select></div>
+    ${m === 'rechnen' ? '<div class="hint">Bei Rechenthemen bringt das Quiz nur Formeln und Begriffe. Richtig lernst du mit <b>Übungsblättern</b>: ausdrucken oder in Goodnotes lösen, dann mit der Lösung vergleichen.</div>' : ''}</div>`;
+}
 function tabLearn(t, s){
   const fehler = t.questions.filter(q => q.wrong && level(q) !== 'gut').length;
   const hasKey = !!S.settings.apiKey;
-  return `<div class="card ${s.pct===100?'celebrate':''}">
+  return modeCard(t) + `<div class="card ${s.pct===100?'celebrate':''}">
     <div class="row" style="justify-content:space-between;align-items:flex-end"><div><div class="muted small">Fortschritt · Ziel 100 %</div><div class="pct">${s.pct}<small> %</small></div></div>
     <div class="muted small" style="text-align:right">${s.gut} / ${s.n} Fragen im Reiter „Gut“</div></div>
     <div style="margin-top:12px">${barHtml(s)}</div>${legendHtml(s)}
@@ -855,7 +936,7 @@ $('bpick').addEventListener('change', async e => {
 /* ================= Aktionen ================= */
 const ACT = {
   go: d => go(d.v),
-  open: d => go({name:'topic', id:d.id, tab:'learn'}),
+  open: d => { const t = topicById(d.id); go({name:'topic', id:d.id, tab: t && t.mode === 'rechnen' ? 'ueb' : 'learn'}); },
   tab: d => { V.tab = d.v; V.editSum = false; render(); },
   sub: d => { V.sub = d.v; render(); },
   closemodal: closeModal,
@@ -937,6 +1018,39 @@ const ACT = {
     try { const blob = await withBusy('PDF wird erstellt …', () => makePdf(examHtml(t, ex, sol), name)); offerFile(blob, name, 'Probearbeit als PDF'); }
     catch(e){ toast(errMsg(e)); }
   },
+  sheet: async () => {
+    const t = topicById(V.id); const o = {anzahl:+$('u-anz').value, stufe:$('u-stufe').value, weak:$('u-weak').checked};
+    try {
+      const p = await withBusy('Übungsblatt wird erstellt …', prog => claude([{type:'text', text: sheetPrompt(t, o)}], TOOL_SHEET, 32000, prog));
+      if (!p || !Array.isArray(p.aufgaben) || !p.aufgaben.length) throw new Error('Keine Aufgaben erhalten.');
+      const sh = {id:uid(), created:Date.now(), titel:String(p.titel || 'Übungsblatt'), aufgaben:p.aufgaben.map(a => ({titel:String(a.titel||'Aufgabe'), aufgabentext:String(a.aufgabentext||''), stufe:String(a.stufe||''), antwortzeilen:a.antwortzeilen, loesung:String(a.loesung||''), ergebnis:String(a.ergebnis||''), ok:null}))};
+      t.sheets = t.sheets || []; t.sheets.push(sh); chargeTopic(t); save(); render(); usageToast('Übungsblatt erstellt');
+      modal(`<div style="font-size:34px">🧮</div><h2>Übungsblatt fertig</h2><p class="muted small">${esc(sh.titel)} · ${sh.aufgaben.length} Aufgaben</p>
+        <div class="row" style="justify-content:center"><button class="btn pri" data-act="sheetpdf" data-e="${sh.id}" data-m="aufg">📄 Aufgaben (PDF)</button><button class="btn" data-act="sheetpdf" data-e="${sh.id}" data-m="beides">Aufgaben + Lösungen</button></div>
+        <p class="muted small" style="margin:12px 0 0">Tipp: Erst rechnen, dann die Lösungen holen und unter „✓ Auswerten“ abhaken.</p>
+        <button class="btn ghost sm" style="margin-top:10px" data-act="closemodal">Schließen</button>`);
+    } catch(e){ toast(errMsg(e)); }
+  },
+  sheetpdf: async d => {
+    closeModal();
+    const t = topicById(V.id); const sh = (t.sheets||[]).find(x => x.id === d.e); if (!sh) return;
+    const name = `Uebungsblatt_${fileSafe(t.title)}${d.m === 'loes' ? '_Loesungen' : d.m === 'beides' ? '_mit_Loesungen' : ''}.pdf`;
+    try { const blob = await withBusy('PDF wird erstellt …', () => makePdf(sheetHtml(t, sh, d.m), name)); offerFile(blob, name, d.m === 'loes' ? 'Lösungen als PDF' : 'Übungsblatt als PDF'); }
+    catch(e){ toast(errMsg(e)); }
+  },
+  sheetgrade: d => {
+    const t = topicById(V.id); const sh = (t.sheets||[]).find(x => x.id === d.e); if (!sh) return;
+    modal(`<h2>Auswerten</h2><p class="muted small">Hake an, welche Aufgaben du richtig gelöst hast. Falsche kommen auf den nächsten Blättern verstärkt dran.</p>
+      <div style="text-align:left">${sh.aufgaben.map((a,i) => `<label style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--line)"><input type="checkbox" class="sg" data-i="${i}" ${a.ok?'checked':''} style="margin-top:4px"><span><b>${i+1}. ${esc(a.titel)}</b><br><span class="muted small">Ergebnis: ${esc(a.ergebnis)}</span></span></label>`).join('')}</div>
+      <div class="row" style="justify-content:center;margin-top:14px"><button class="btn pri" data-act="sheetgradesave" data-e="${sh.id}">Speichern</button><button class="btn" data-act="closemodal">Abbrechen</button></div>`);
+  },
+  sheetgradesave: d => {
+    const t = topicById(V.id); const sh = (t.sheets||[]).find(x => x.id === d.e); if (!sh) return;
+    document.querySelectorAll('.sg').forEach(cb => { sh.aufgaben[+cb.dataset.i].ok = cb.checked; });
+    save(); closeModal(); render();
+    const o = sh.aufgaben.filter(a => a.ok).length; toast(`${o} von ${sh.aufgaben.length} richtig gespeichert ✓`);
+  },
+  delsheet: d => { if (!confirm('Übungsblatt löschen?')) return; const t = topicById(V.id); t.sheets = (t.sheets||[]).filter(x => x.id !== d.e); save(); render(); },
   delexam: d => { if (!confirm('Probearbeit löschen?')) return; const t = topicById(V.id); t.exams = t.exams.filter(x => x.id !== d.e); save(); render(); },
   savekey: () => { S.settings.apiKey = $('s-key').value.trim(); S.settings.model = $('s-model').value.trim() || MODELS[0]; save(); toast('Gespeichert ✓'); },
   testkey: async () => {
@@ -982,9 +1096,13 @@ document.addEventListener('click', e => {
   if (b.tagName === 'A') return;
   const f = ACT[b.dataset.act]; if (f){ e.preventDefault(); f(b.dataset, b); }
 });
+document.addEventListener('change', e => {
+  const el = e.target.closest('[data-chg="mode"]'); if (!el) return;
+  const t = topicById(V.id); if (!t) return; t.mode = el.value; t.modeWhy = ''; save(); render();
+});
 $('modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
 
-const APP_VERSION = '1.2.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+const APP_VERSION = '1.3.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
 render();
 </script>
 
