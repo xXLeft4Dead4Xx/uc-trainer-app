@@ -38,7 +38,12 @@ nav button.on{color:var(--text);background:var(--panel2);border-color:var(--line
 @media (max-width:560px){.logo small{display:none}nav button{padding:6px 8px}}
 main{max-width:1000px;margin:0 auto;padding:16px}
 h1{font-size:24px;margin:4px 0 4px}h2{font-size:19px;margin:0 0 8px}h3{font-size:16px;margin:0 0 6px}
-.muted{color:var(--muted)}.mono{font-family:var(--mono)}.small{font-size:13px}
+.muted{color:var(--muted)}.mono{font-family:var(--mono)}
+.frac{display:inline-block;vertical-align:middle;text-align:center;margin:0 .12em;line-height:1.2}
+.frac>span{display:block;padding:0 .2em}.frac>.fn{border-bottom:1.2px solid currentColor;padding-bottom:1px}.frac>.fd{padding-top:1px}
+.sq{white-space:nowrap}.rad{border-top:1.2px solid currentColor;padding:1px .1em 0}
+td.fx{white-space:nowrap;font-size:15px;vertical-align:middle;padding-top:7px!important;padding-bottom:7px!important}
+td.fx sub,td.fx sup{font-size:.7em}.small{font-size:13px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:14px}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .row-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:18px 0 10px;flex-wrap:wrap}
@@ -157,7 +162,7 @@ ol.steps{padding-left:20px;margin:6px 0 10px}ol.steps li{margin:4px 0}
 .pdfdoc .opt2{margin:4px 0 4px 6px}
 .pdfdoc .pb{page-break-before:always;break-before:page}
 .pdfdoc .sol{background:#f6faf9;border-left:3px solid #0f6f66;padding:6px 10px;margin:4px 0 10px}
-.pdfdoc .fs table{width:100%}.pdfdoc .fs td:nth-child(2){font-family:Menlo,Consolas,monospace;font-size:11.5px}
+.pdfdoc .fs table{width:100%}.pdfdoc .fs td{vertical-align:middle}.pdfdoc .fs td.fx{font-size:14px;white-space:nowrap;padding:6px 8px}
 .pdfdoc .foot{margin-top:18px;font-size:11px;color:#666}
 </style>
 </head>
@@ -185,7 +190,7 @@ ol.steps{padding-left:20px;margin:6px 0 10px}ol.steps li{margin:4px 0}
 
 <script>
 'use strict';
-const APP_VERSION = '1.4.1';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+const APP_VERSION = '1.4.2';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
 /* ================= Daten ================= */
 const LS = 'lerntrainer-v1';
 const MODELS = ['claude-sonnet-5-5','claude-opus-5-5','claude-haiku-5-5'];
@@ -245,14 +250,84 @@ function normQ(r){
 function inline(s){
   return esc(s).replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>').replace(/(^|[^*\w])\*([^*\s][^*]*?)\*(?!\w)/g,'$1<i>$2</i>');
 }
-function md(src){
+/* ---------- Formeln mit echten Bruchstrichen ---------- */
+function fmla(src){
+  const s = String(src || ''); let i = 0;
+  const OPS = '+-−·×=;,≈<>≤≥*:', STOP = /[\s()\[\]\/+\-−·×=;,≈<>≤≥*:]/;
+  function seq(stop){
+    const out = [];
+    while (i < s.length){
+      const c = s[i];
+      if (c === stop){ i++; return out; }
+      if (c === '(' || c === '['){ const close = c === '(' ? ')' : ']'; i++; out.push({t:'grp', open:c, close, kids:seq(close)}); continue; }
+      if (/\s/.test(c)){ let j = i; while (j < s.length && /\s/.test(s[j])) j++; out.push({t:'sp'}); i = j; continue; }
+      if (c === '/'){ out.push({t:'div'}); i++; continue; }
+      if (OPS.includes(c)){ out.push({t:'op', v:c}); i++; continue; }
+      let j = i; while (j < s.length && !STOP.test(s[j])) j++; if (j === i) j = i + 1;
+      out.push({t:'atom', v:s.slice(i, j)}); i = j;
+    }
+    return out;
+  }
+  function combine(nodes){
+    const a = [];
+    for (const n of nodes){
+      if (n.t === 'grp') n.kids = combine(n.kids);
+      const prev = a[a.length - 1];
+      if (n.t === 'grp' && prev && prev.t === 'atom'){
+        a.pop();
+        if (prev.v.endsWith('√')){ const base = prev.v.slice(0, -1); if (base) a.push({t:'atom', v:base}); a.push({t:'sqrt', kid:n}); }
+        else a.push({t:'cat', kids:[prev, n]});
+        continue;
+      }
+      a.push(n);
+    }
+    const b = [];
+    for (let k = 0; k < a.length; k++){
+      const n = a[k];
+      if (n.t === 'div'){
+        while (b.length && b[b.length - 1].t === 'sp') b.pop();
+        let m = k + 1; while (m < a.length && a[m].t === 'sp') m++;
+        const L = b.pop(), Rn = a[m];
+        if (!L || !Rn || L.t === 'op' || Rn.t === 'op' || Rn.t === 'div'){ if (L) b.push(L); b.push({t:'op', v:'/'}); continue; }
+        b.push({t:'frac', num:L, den:Rn}); k = m; continue;
+      }
+      b.push(n);
+    }
+    return b;
+  }
+  const trim = arr => { let a = arr.slice(); while (a.length && a[0].t === 'sp') a.shift(); while (a.length && a[a.length-1].t === 'sp') a.pop(); return a; };
+  const strip = n => n.t === 'grp' && n.open === '(' ? trim(n.kids) : [n];
+  const atom = v => {
+    if (v.length > 1 && v.startsWith('√')) return `<span class="sq">√<span class="rad">${atom(v.slice(1))}</span></span>`;
+    const parts = v.split(/([_^])/); let h = esc(parts[0]);
+    for (let q = 1; q < parts.length; q += 2) h += parts[q] === '_' ? `<sub>${esc(parts[q+1] || '')}</sub>` : `<sup>${esc(parts[q+1] || '')}</sup>`;
+    return h;
+  };
+  const r = nodes => nodes.map(rn).join('');
+  function rn(n){
+    switch (n.t){
+      case 'sp': return ' ';
+      case 'op': return n.v === '*' ? '·' : esc(n.v);
+      case 'atom': return atom(n.v);
+      case 'grp': return esc(n.open) + r(n.kids) + esc(n.close);
+      case 'cat': return r(n.kids);
+      case 'sqrt': return `<span class="sq">√<span class="rad">${r(strip(n.kid))}</span></span>`;
+      case 'frac': return `<span class="frac"><span class="fn">${r(strip(n.num))}</span><span class="fd">${r(strip(n.den))}</span></span>`;
+    }
+    return '';
+  }
+  try { return r(combine(seq())); } catch(e){ return esc(s); }
+}
+function md(src, opt){
   const lines = String(src||'').replace(/\r/g,'').split('\n');
   let out='', list=null, inCode=false, code='', tbl=[];
   const closeList = () => { if (list){ out += `</${list}>`; list = null; } };
   const flushTbl = () => {
     if (!tbl.length) return;
     const rows = tbl.filter(r => !/^\s*\|?\s*:?-{2,}/.test(r));
-    out += '<table>' + rows.map((r,i) => '<tr>' + r.trim().replace(/^\||\|$/g,'').split('|').map(c => i ? `<td>${inline(c.trim())}</td>` : `<th>${inline(c.trim())}</th>`).join('') + '</tr>').join('') + '</table>';
+    const cells = r => r.trim().replace(/^\||\|$/g,'').split('|');
+    const fcols = (opt && opt.formula && rows.length) ? cells(rows[0]).map((c,k) => /formel|gleichung/i.test(c) ? k : -1).filter(k => k >= 0) : [];
+    out += '<table>' + rows.map((r,i) => '<tr>' + cells(r).map((c,k) => i ? (fcols.includes(k) ? `<td class="fx">${fmla(c.trim())}</td>` : `<td>${inline(c.trim())}</td>`) : `<th>${inline(c.trim())}</th>`).join('') + '</tr>').join('') + '</table>';
     tbl = [];
   };
   for (const l of lines){
@@ -570,7 +645,7 @@ function tabForm(t){
     <textarea id="form-edit" style="min-height:60vh;font-family:var(--mono);font-size:14px">${esc(t.formulas||'')}</textarea>
     <div class="row" style="margin-top:12px"><button class="btn pri" data-act="formsave">Speichern</button><button class="btn" data-act="formcancel">Abbrechen</button></div></div>`;
   if (t.formulas){
-    h += `<div class="card md">${md(t.formulas)}</div>
+    h += `<div class="card md">${md(t.formulas, {formula:true})}</div>
       <div class="row" style="margin-bottom:14px"><button class="btn pri" data-act="formpdf">📄 Als PDF</button><button class="btn" data-act="formedit">✏️ Bearbeiten</button>
       <button class="btn" data-act="formgen" ${hasKey?'':'disabled'}>↻ Neu erstellen</button>${t.formulasPrev != null ? '<button class="btn ghost" data-act="formundo">↶ Rückgängig</button>' : ''}</div>`;
   } else {
@@ -770,7 +845,7 @@ function setSummary(t, text){
 function qList(t){
   return t.questions.map((q,i) => `${i+1}. [${q.type==='mc'?'mc':q.type==='calc'?'rechnung':'offen'}] ${q.q}` + (q.type==='mc' ? ` | Optionen: ${q.options.join(' / ')} | richtig: ${q.options[q.correct]}` : ` | Lösung: ${q.answer}`)).join('\n');
 }
-const FORM_RULES = `Gliedere nach Unterthemen mit ## Überschriften. Pro Unterthema eine Markdown-Tabelle mit den Spalten | Größe | Formel | Einheit | Hinweis |. Formeln als Klartext mit Unicode (·, √, ², π, φ, Δ, η, Indizes mit _), niemals LaTeX. Bei wichtigen Formeln die gängigen Umstellungen mit in die Spalte Formel (getrennt durch „ ; “). Falls sinnvoll am Ende ## Konstanten & Umrechnungen.`;
+const FORM_RULES = `Gliedere nach Unterthemen mit ## Überschriften. Pro Unterthema eine Markdown-Tabelle mit den Spalten | Größe | Formel | Einheit | Hinweis |. Formeln als Klartext mit Unicode (·, √, ², π, φ, Δ, η), niemals LaTeX. Indizes mit _ (R_1, X_L, P_ab). Brüche immer mit „/“ schreiben und mehrgliedrige Zähler oder Nenner in Klammern setzen, z. B. I = U / (R_1 + R_2), n_s = (f · 60) / p, f_0 = 1 / (2π · √(L · C)) – die App stellt sie als echte Bruchstriche dar. Wurzeln als √(…). Bei wichtigen Formeln die gängigen Umstellungen mit in die Spalte Formel (getrennt durch „ ; “). Falls sinnvoll am Ende ## Konstanten & Umrechnungen.`;
 function formPrompt(t){
   return `Erstelle eine kompakte, übersichtliche Formelsammlung (zum Ausdrucken, ca. 1–2 Seiten) zum Thema „${t.title}“${t.fach ? ' (' + t.fach + ')' : ''} aus diesem Lernstoff. Nur Formeln, die zum Stoff gehören, plus unverzichtbare Grundformeln.\n${FORM_RULES}\n\nLernstoff:\n${t.summary}`;
 }
@@ -1145,7 +1220,7 @@ const ACT = {
   },
   formpdf: async () => {
     const t = topicById(V.id); const name = `Formelsammlung_${fileSafe(t.title)}.pdf`;
-    try { const blob = await withBusy('PDF wird erstellt …', () => makePdf(`<h1>Formelsammlung: ${esc(t.title)}</h1><div style="color:#555;margin-bottom:8px">${esc(t.fach||'')}${t.fach?' · ':''}Stand ${dateDe(Date.now())}</div><div class="fs">${md(t.formulas)}</div>`, name)); offerFile(blob, name, 'Formelsammlung als PDF'); } catch(e){ toast(errMsg(e)); }
+    try { const blob = await withBusy('PDF wird erstellt …', () => makePdf(`<h1>Formelsammlung: ${esc(t.title)}</h1><div style="color:#555;margin-bottom:8px">${esc(t.fach||'')}${t.fach?' · ':''}Stand ${dateDe(Date.now())}</div><div class="fs">${md(t.formulas, {formula:true})}</div>`, name)); offerFile(blob, name, 'Formelsammlung als PDF'); } catch(e){ toast(errMsg(e)); }
   },
   formedit: () => { V.editForm = true; render(); },
   formcancel: () => { V.editForm = false; render(); },

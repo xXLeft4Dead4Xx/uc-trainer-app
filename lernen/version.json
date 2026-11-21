@@ -1,4 +1,4 @@
 {
-  "version": "1.4.1",
-  "notes": "Fehler behoben: App startete mit vorhandenen Themen nicht mehr."
+  "version": "1.4.2",
+  "notes": "Formelsammlung: Brüche werden jetzt mit echtem Bruchstrich dargestellt, Wurzeln mit Wurzelstrich, Indizes tiefgestellt – auch im PDF."
 }
