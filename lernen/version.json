@@ -1,4 +1,4 @@
 {
-  "version": "1.4.0",
-  "notes": "Neu: Rechenaufgaben haben eine eigene Seite (mit PDF) statt im Quiz. Formelsammlung erstellen (auch beim Anlegen) und eigene Formelsammlungen ergänzen lassen."
+  "version": "1.4.1",
+  "notes": "Fehler behoben: App startete mit vorhandenen Themen nicht mehr."
 }

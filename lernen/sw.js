@@ -1,7 +1,7 @@
 // Lern-Trainer Service Worker
 // Die App läuft aus dem Cache (auch offline). Neue Versionen werden erst geladen,
 // wenn du in der App auf „App aktualisieren“ tippst.
-const CACHE = 'lern-trainer-app';
+const CACHE = 'lern-trainer-app-v2';   // neuer Name = einmalige Zwangsaktualisierung (Fix für 1.4.0)
 const CORE = ['./', './index.html', './manifest.webmanifest', './apple-touch-icon.png', './icon-192.png', './icon-512.png'];
 
 async function fetchAll() {
@@ -19,7 +19,10 @@ self.addEventListener('install', e => {
     await self.skipWaiting();
   })());
 });
-self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+self.addEventListener('activate', e => e.waitUntil((async () => {
+  for (const k of await caches.keys()) if (k.startsWith('lern-trainer-app') && k !== CACHE) await caches.delete(k);
+  await self.clients.claim();
+})()));
 
 self.addEventListener('message', e => {
   if (e.data !== 'update') return;

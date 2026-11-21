@@ -185,6 +185,7 @@ ol.steps{padding-left:20px;margin:6px 0 10px}ol.steps li{margin:4px 0}
 
 <script>
 'use strict';
+const APP_VERSION = '1.4.1';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
 /* ================= Daten ================= */
 const LS = 'lerntrainer-v1';
 const MODELS = ['claude-sonnet-5-5','claude-opus-5-5','claude-haiku-5-5'];
@@ -197,7 +198,6 @@ function load(){
   return defaults();
 }
 let S = load();
-if (!S.settings.migCalc){ S.topics.forEach(t => t.questions.forEach(q => { if (looksCalc(q)) q.type = 'calc'; })); S.settings.migCalc = true; try{ localStorage.setItem(LS, JSON.stringify(S)); }catch(e){} }
 function save(){ try{ localStorage.setItem(LS, JSON.stringify(S)); }catch(e){ toast('Speichern fehlgeschlagen – Speicher voll? Bitte Backup exportieren.'); } }
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1203,7 +1203,7 @@ document.addEventListener('change', e => {
 });
 $('modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
 
-const APP_VERSION = '1.4.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+try { if (!S.settings.migCalc){ S.topics.forEach(t => (t.questions||[]).forEach(q => { if (looksCalc(q)) q.type = 'calc'; })); S.settings.migCalc = true; save(); } } catch(e){ console.error(e); }
 render();
 </script>
 
