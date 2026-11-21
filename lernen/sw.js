@@ -50,7 +50,7 @@ self.addEventListener('fetch', e => {
       if (r.ok || r.type === 'opaque') c.put(req, r.clone());
       return r;
     } catch (err) {
-      return (await c.match('./index.html')) || Response.error();
+      return cdn ? Response.error() : ((await c.match('./index.html')) || Response.error());
     }
   })());
 });

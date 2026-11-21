@@ -1,4 +1,4 @@
 {
-  "version": "1.4.2",
-  "notes": "Formelsammlung: Brüche werden jetzt mit echtem Bruchstrich dargestellt, Wurzeln mit Wurzelstrich, Indizes tiefgestellt – auch im PDF."
+  "version": "1.4.3",
+  "notes": "PDF-Export neu gebaut: keine leeren Seiten mehr, Tabellen werden sauber auf Seiten verteilt (Tabellenkopf auf jeder Seite)."
 }
