@@ -1,4 +1,4 @@
 {
-  "version": "1.3.0",
-  "notes": "Neu: Die App erkennt die Lernart (Wissen, Rechnen, Gemischt). Für Rechenthemen gibt es Übungsblätter als PDF mit Lösungswegen und Auswertung."
+  "version": "1.4.0",
+  "notes": "Neu: Rechenaufgaben haben eine eigene Seite (mit PDF) statt im Quiz. Formelsammlung erstellen (auch beim Anlegen) und eigene Formelsammlungen ergänzen lassen."
 }

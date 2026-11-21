@@ -157,6 +157,7 @@ ol.steps{padding-left:20px;margin:6px 0 10px}ol.steps li{margin:4px 0}
 .pdfdoc .opt2{margin:4px 0 4px 6px}
 .pdfdoc .pb{page-break-before:always;break-before:page}
 .pdfdoc .sol{background:#f6faf9;border-left:3px solid #0f6f66;padding:6px 10px;margin:4px 0 10px}
+.pdfdoc .fs table{width:100%}.pdfdoc .fs td:nth-child(2){font-family:Menlo,Consolas,monospace;font-size:11.5px}
 .pdfdoc .foot{margin-top:18px;font-size:11px;color:#666}
 </style>
 </head>
@@ -179,6 +180,7 @@ ol.steps{padding-left:20px;margin:6px 0 10px}ol.steps li{margin:4px 0}
 <div id="toast"></div>
 <div id="pdfhost"></div>
 <input type="file" id="fpick" multiple accept="application/pdf,image/*" style="display:none">
+<input type="file" id="fpick2" multiple accept="application/pdf,image/*" style="display:none">
 <input type="file" id="bpick" accept="application/json,.json" style="display:none">
 
 <script>
@@ -195,6 +197,7 @@ function load(){
   return defaults();
 }
 let S = load();
+if (!S.settings.migCalc){ S.topics.forEach(t => t.questions.forEach(q => { if (looksCalc(q)) q.type = 'calc'; })); S.settings.migCalc = true; try{ localStorage.setItem(LS, JSON.stringify(S)); }catch(e){} }
 function save(){ try{ localStorage.setItem(LS, JSON.stringify(S)); }catch(e){ toast('Speichern fehlgeschlagen – Speicher voll? Bitte Backup exportieren.'); } }
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -215,7 +218,10 @@ function stats(qs){
   const n = qs.length;
   return Object.assign(c, {n, pct: n ? Math.floor(c.gut / n * 100) : 0});
 }
-const allQs = () => S.topics.flatMap(t => t.questions);
+const quizQs = t => t.questions.filter(q => q.type !== 'calc');
+const calcQs = t => t.questions.filter(q => q.type === 'calc');
+const allQs = () => S.topics.flatMap(quizQs);
+const looksCalc = q => q.type === 'open' && /\d/.test(q.q) && /=/.test(q.answer) && /\d/.test(q.answer);
 function barHtml(st, cls=''){
   if (!st.n) return `<div class="bar ${cls}"></div>`;
   const w = k => (st[k] / st.n * 100).toFixed(2) + '%';
@@ -230,7 +236,7 @@ function normQ(r){
   const opts = Array.isArray(r.optionen) ? r.optionen.map(String).filter(s => s.trim()) : [];
   const isMc = (r.typ === 'mc' || (!r.typ && opts.length)) && opts.length >= 2;
   let correct = parseInt(r.richtig, 10); if (!(correct >= 0 && correct < opts.length)) correct = 0;
-  return {id:uid(), type: isMc ? 'mc' : 'open', q:String(r.frage).trim(), options: isMc ? opts : [], correct: isMc ? correct : null,
+  return {id:uid(), type: isMc ? 'mc' : (r.typ === 'rechnung' ? 'calc' : 'open'), q:String(r.frage).trim(), options: isMc ? opts : [], correct: isMc ? correct : null,
           answer: String(r.antwort || (isMc ? opts[correct] : '') || ''), explain: String(r.erklaerung || ''),
           streak:0, right:0, wrong:0, seen:0, last:0};
 }
@@ -268,7 +274,7 @@ function md(src){
 /* ================= KI (Claude API) ================= */
 const SYSTEM = 'Du bist eine erfahrene Lehrkraft an einer Fachschule für Technik (Techniker Elektrotechnik / Automatisierungstechnik) und bereitest Lernstoff prüfungsnah auf. Schreibe auf Deutsch. Formeln immer als Klartext mit Unicode-Zeichen (z. B. U = R · I, P = √3 · U · I · cos φ, X_L = 2π · f · L), niemals LaTeX. Halte dich an den Inhalt der Unterlagen, ergänze nur, wo es dem Verständnis dient, und erfinde keine Messwerte.';
 const Q_SCHEMA = {type:'array', items:{type:'object', properties:{
-  typ:{type:'string', enum:['mc','offen']}, frage:{type:'string'},
+  typ:{type:'string', enum:['mc','offen','rechnung']}, frage:{type:'string'},
   optionen:{type:'array', items:{type:'string'}, description:'Nur bei mc: genau 4 Optionen'},
   richtig:{type:'integer', description:'Nur bei mc: Index (0-3) der richtigen Option'},
   antwort:{type:'string', description:'Musterlösung (bei offen Pflicht)'},
@@ -276,7 +282,8 @@ const Q_SCHEMA = {type:'array', items:{type:'object', properties:{
 const TOOL_PKG = {name:'lernpaket_speichern', description:'Speichert Zusammenfassung und Lernfragen.', input_schema:{type:'object', properties:{
   titel:{type:'string'}, fach:{type:'string'},
   lernart:{type:'string', enum:['wissen','rechnen','gemischt']}, lernart_grund:{type:'string', description:'1 Satz Begründung'},
-  zusammenfassung:{type:'string', description:'Markdown'}, fragen:Q_SCHEMA}, required:['titel','lernart','zusammenfassung','fragen']}};
+  zusammenfassung:{type:'string', description:'Markdown'}, fragen:Q_SCHEMA, formelsammlung:{type:'string', description:'Markdown, nur wenn verlangt'}}, required:['titel','lernart','zusammenfassung','fragen']}};
+const TOOL_FORM = {name:'formelsammlung_speichern', description:'Speichert eine Formelsammlung.', input_schema:{type:'object', properties:{formelsammlung:{type:'string', description:'Markdown'}}, required:['formelsammlung']}};
 const TOOL_SHEET = {name:'uebungsblatt_speichern', description:'Speichert ein Übungsblatt.', input_schema:{type:'object', properties:{
   titel:{type:'string'}, aufgaben:{type:'array', items:{type:'object', properties:{
     titel:{type:'string', description:'kurzer Name, z. B. „Leistung im Drehstromnetz“'}, aufgabentext:{type:'string', description:'Markdown mit allen gegebenen Werten und Einheiten; Teilaufgaben a), b) als eigene Zeilen'},
@@ -376,7 +383,7 @@ $('busy-x').onclick = () => { if (ABORT) ABORT.abort(); };
 const errMsg = e => e && e.name === 'AbortError' ? 'Abgebrochen.' : (e && e.message) || String(e);
 
 /* ---------- Prompts ---------- */
-function pkgPrompt(n, hint, manual){
+function pkgPrompt(n, hint, manual, form){
   let p = `Werte die angehängten Unterlagen (PDFs und/oder Fotos) aus und erstelle daraus ein Lernpaket.
 
 1. titel: kurzer, treffender Thementitel. fach: Fach bzw. Lernfeld, falls erkennbar.
@@ -386,17 +393,19 @@ function pkgPrompt(n, hint, manual){
    - "rechnen": vor allem Rechnen und Anwenden (Mathe, Berechnungen in der Elektrotechnik usw.) → Übungsaufgaben mit Rechenweg.
    - "gemischt": beides wichtig.
    Begründe in "lernart_grund" in einem Satz.
-4. fragen: genau ${n} Lernfragen, die den gesamten Stoff abdecken – von Grundlagen bis prüfungsnah. Mischung je nach Lernart: bei "wissen" ca. 70 % Multiple-Choice, bei "gemischt" ca. 50 %, bei "rechnen" nur ca. 30 % Multiple-Choice (Formeln, Einheiten, Zusammenhänge) und sonst kleine Rechenaufgaben.
+4. fragen: genau ${n} Lernfragen, die den gesamten Stoff abdecken – von Grundlagen bis prüfungsnah. Mischung je nach Lernart: bei "wissen" ca. 70 % Multiple-Choice, bei "gemischt" ca. 50 %, bei "rechnen" nur ca. 30 % Multiple-Choice (Formeln, Einheiten, Zusammenhänge) und sonst Rechenaufgaben (typ "rechnung").
    - Multiple-Choice: typ "mc", genau 4 Optionen in "optionen", genau eine richtig, deren Index (0–3) in "richtig". Falsche Optionen plausibel (typische Denkfehler). Position der richtigen Antwort variieren.
-   - Offene Fragen bzw. Rechenaufgaben: typ "offen", knappe Musterlösung in "antwort" (bei Rechnungen mit Formel, Rechenweg und Einheit).
+   - Offene Wissensfragen: typ "offen", knappe Musterlösung in "antwort".
+   - Rechenaufgaben: typ "rechnung", mit konkreten Werten und Einheiten; in "antwort" Formel, Rechenweg und Ergebnis mit Einheit. (Diese bekommen in der App eine eigene Seite und erscheinen nicht im Quiz.)
    - Jede Frage mit kurzer "erklaerung", warum die Lösung stimmt.`;
+  if (form) p += `\n5. formelsammlung: kompakte Formelsammlung zum Stoff in Markdown. ${FORM_RULES}`;
   if (hint) p += `\n\nZusätzlicher Wunsch: ${hint}`;
   if (manual) p += `\n\nAntworte AUSSCHLIESSLICH mit einem einzigen JSON-Objekt in einem \`\`\`json-Codeblock (kein Artefakt, kein weiterer Text) in genau diesem Format:
-{"titel":"…","fach":"…","lernart":"wissen|rechnen|gemischt","lernart_grund":"…","zusammenfassung":"Markdown …","fragen":[{"typ":"mc","frage":"…","optionen":["…","…","…","…"],"richtig":2,"erklaerung":"…"},{"typ":"offen","frage":"…","antwort":"…","erklaerung":"…"}]}`;
+{"titel":"…","fach":"…","lernart":"wissen|rechnen|gemischt","lernart_grund":"…","zusammenfassung":"Markdown …","fragen":[{"typ":"mc","frage":"…","optionen":["…","…","…","…"],"richtig":2,"erklaerung":"…"},{"typ":"offen","frage":"…","antwort":"…","erklaerung":"…"},{"typ":"rechnung","frage":"…","antwort":"Rechenweg …","erklaerung":"…"}]${form ? ',"formelsammlung":"Markdown …"' : ''}}`;
   return p;
 }
 function morePrompt(t, n){
-  return `Hier ist die Lernzusammenfassung zum Thema „${t.title}“:\n\n${t.summary}\n\nBereits vorhandene Fragen (NICHT wiederholen, auch nicht umformuliert):\n${t.questions.map(q=>'- '+q.q).join('\n')}\n\nErstelle genau ${n} NEUE Lernfragen zu diesem Stoff, möglichst zu Aspekten, die bisher wenig abgefragt wurden: ca. 70 % Multiple-Choice (typ "mc", 4 Optionen, Index der richtigen in "richtig"), ca. 30 % offene Fragen/Rechenaufgaben (typ "offen" mit Musterlösung in "antwort"). Jede mit kurzer "erklaerung".`;
+  return `Hier ist die Lernzusammenfassung zum Thema „${t.title}“:\n\n${t.summary}\n\nBereits vorhandene Fragen (NICHT wiederholen, auch nicht umformuliert):\n${t.questions.map(q=>'- '+q.q).join('\n')}\n\nErstelle genau ${n} NEUE Lernfragen zu diesem Stoff, möglichst zu Aspekten, die bisher wenig abgefragt wurden: ca. 70 % Multiple-Choice (typ "mc", 4 Optionen, Index der richtigen in "richtig"), ca. 30 % offene Fragen (typ "offen") bzw. Rechenaufgaben (typ "rechnung" mit Rechenweg in "antwort"). Jede mit kurzer "erklaerung".`;
 }
 function examPrompt(t, o, manual){
   const weak = t.questions.filter(q => ['schlecht','mittel'].includes(level(q)) || (q.wrong && level(q) !== 'gut'));
@@ -422,6 +431,7 @@ function parsePasted(txt){
 
 /* ================= Dateien ================= */
 const NEWF = {files:[]};
+const FORMF = {files:[]};
 function readB64(f){ return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = () => rej(new Error(f.name + ': konnte nicht gelesen werden')); r.readAsDataURL(f); }); }
 function imgToJpeg(f, max){
   return new Promise((res, rej) => {
@@ -513,11 +523,11 @@ ${t.summary}`;
   return p;
 }
 function sheetHtml(t, sh, mode){   // mode: 'aufg' | 'beides' | 'loes'
-  let h = `<div class="ph"><div><h1>${esc(sh.titel)}</h1><div>${esc(t.fach || 'Übungsblatt')} · ${esc(t.title)}</div><div style="font-size:12px;color:#555">Übungsblatt vom ${dateDe(sh.created)} · ${sh.aufgaben.length} Aufgaben</div></div>
+  let h = `<div class="ph"><div><h1>${esc(sh.titel)}</h1><div>${esc(t.fach || 'Übungsblatt')} · ${esc(t.title)}</div><div style="font-size:12px;color:#555">${esc(sh.kind || 'Übungsblatt')} vom ${dateDe(sh.created)} · ${sh.aufgaben.length} Aufgaben</div></div>
     <table class="kopf"><tr><td>Name:</td></tr><tr><td>Datum:</td></tr></table></div>`;
   if (mode !== 'loes'){
     sh.aufgaben.forEach((a, i) => {
-      h += `<div class="ah"><b>Aufgabe ${i+1}: ${esc(a.titel)}</b><span>${esc(a.stufe||'')}</span></div><div>${md(a.aufgabentext)}</div>`;
+      h += `<div class="ah"><b>Aufgabe ${i+1}${a.titel ? ': ' + esc(a.titel) : ''}</b><span>${esc(a.stufe||'')}</span></div><div>${md(a.aufgabentext)}</div>`;
       const n = Math.max(0, Math.min(18, parseInt(a.antwortzeilen,10) || 8));
       for (let k = 0; k < n; k++) h += '<div class="ln"></div>';
     });
@@ -525,16 +535,63 @@ function sheetHtml(t, sh, mode){   // mode: 'aufg' | 'beides' | 'loes'
   }
   if (mode !== 'aufg'){
     h += `${mode === 'beides' ? '<div class="pb"></div>' : ''}<h1>Lösungen</h1><div style="font-size:12px;color:#555;margin-bottom:6px">${esc(sh.titel)}</div>`;
-    sh.aufgaben.forEach((a, i) => { h += `<h3>Aufgabe ${i+1}: ${esc(a.titel)}</h3><div class="sol">${md(a.loesung)}<p><b>Ergebnis:</b> ${inline(a.ergebnis||'')}</p></div>`; });
+    sh.aufgaben.forEach((a, i) => { h += `<h3>Aufgabe ${i+1}${a.titel ? ': ' + esc(a.titel) : ''}</h3><div class="sol">${md(a.loesung)}${a.ergebnis ? `<p><b>Ergebnis:</b> ${inline(a.ergebnis)}</p>` : ''}</div>`; });
   }
   return h + `<div class="foot">Erstellt mit dem Lern-Trainer.</div>`;
 }
+function topicTabs(t, s){
+  const nc = calcQs(t).length;
+  const L = {learn: t.mode === 'rechnen' ? 'Quiz' : 'Lernen', sum:'Zusammenfassung', calc:'Rechenaufgaben' + (nc ? ' (' + nc + ')' : ''), form:'Formeln', qs:'Fragen (' + s.n + ')', exam:'Probearbeit'};
+  const order = t.mode === 'rechnen' ? ['calc','learn','sum','form','qs','exam'] : ['learn','sum','qs','calc','form','exam'];
+  return order.map(k => [k, L[k]]);
+}
+function calcSheet(t){
+  return {titel:'Rechenaufgaben – ' + t.title, kind:'Rechenaufgaben', created:Date.now(),
+    aufgaben: calcQs(t).map(q => ({titel:'', aufgabentext:q.q, stufe:'', antwortzeilen:8, loesung:q.answer + (q.explain ? '\n\n' + q.explain : ''), ergebnis:''}))};
+}
+function tabCalc(t){
+  const cq = calcQs(t);
+  let h = t.mode === 'rechnen' ? modeCard(t) : '';
+  h += `<div class="card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">🧮 Rechenaufgaben aus deinen Unterlagen</h3>
+    ${cq.length ? `<div class="row"><button class="btn sm pri" data-act="calcpdf" data-m="aufg">📄 Aufgaben</button><button class="btn sm" data-act="calcpdf" data-m="beides">Mit Lösungen</button></div>` : ''}</div>`;
+  if (!cq.length) h += `<p class="muted small" style="margin:8px 0 0">Zu diesem Thema gibt es noch keine Rechenaufgaben. Erstelle unten ein Übungsblatt.</p>`;
+  else h += `<p class="muted small">Rechne selbst (Papier oder Goodnotes), dann Lösung aufklappen und ehrlich abhaken. Rechenaufgaben kommen nicht ins Quiz.</p>`;
+  cq.forEach((q, i) => {
+    h += `<details class="qi"><summary><span class="qt"><b>${i+1}.</b> ${inline(q.q)}</span><span class="small" style="white-space:nowrap">${q.right ? `<span class="ok">✓${q.right}</span> ` : ''}${q.wrong ? `<span class="bad">✗${q.wrong}</span>` : ''}</span></summary>
+      <div class="qb"><div class="answerbox" style="border-style:solid;margin-top:0"><div class="muted small">Lösung</div><div class="md">${md(q.answer)}</div>${q.explain ? `<div class="muted small" style="margin-top:6px">${inline(q.explain)}</div>` : ''}</div>
+      <div class="row" style="margin-top:10px"><button class="btn sm pri" data-act="calcmark" data-q="${q.id}" data-v="1">✓ Richtig gerechnet</button><button class="btn sm red" data-act="calcmark" data-q="${q.id}" data-v="0">✗ Falsch</button><button class="btn sm ghost" data-act="delq" data-q="${q.id}">Löschen</button></div></div></details>`;
+  });
+  return h + '</div>' + tabSheets(t);
+}
+function tabForm(t){
+  const hasKey = !!S.settings.apiKey;
+  let h = '';
+  if (V.editForm) return `<div class="card"><h3>Formelsammlung bearbeiten</h3><p class="muted small" style="margin-top:0">Tabellen: <code>| Größe | Formel | Einheit | Hinweis |</code> · Abschnitte mit <code>## Überschrift</code></p>
+    <textarea id="form-edit" style="min-height:60vh;font-family:var(--mono);font-size:14px">${esc(t.formulas||'')}</textarea>
+    <div class="row" style="margin-top:12px"><button class="btn pri" data-act="formsave">Speichern</button><button class="btn" data-act="formcancel">Abbrechen</button></div></div>`;
+  if (t.formulas){
+    h += `<div class="card md">${md(t.formulas)}</div>
+      <div class="row" style="margin-bottom:14px"><button class="btn pri" data-act="formpdf">📄 Als PDF</button><button class="btn" data-act="formedit">✏️ Bearbeiten</button>
+      <button class="btn" data-act="formgen" ${hasKey?'':'disabled'}>↻ Neu erstellen</button>${t.formulasPrev != null ? '<button class="btn ghost" data-act="formundo">↶ Rückgängig</button>' : ''}</div>`;
+  } else {
+    h += `<div class="card empty"><div class="emo">📐</div><h2>Noch keine Formelsammlung</h2><p class="muted">Claude stellt alle Formeln dieses Themas übersichtlich in Tabellen zusammen – mit Einheiten und Umstellungen, zum Ausdrucken.</p>
+      <button class="btn pri big" data-act="formgen" ${hasKey?'':'disabled'}>✨ Formelsammlung erstellen</button>${hasKey?'':'<div class="hint">Benötigt einen API-Schlüssel (⚙︎ Einstellungen).</div>'}</div>`;
+  }
+  h += `<div class="card"><h3>➕ Bestehende Formelsammlung ergänzen</h3>
+    <p class="muted small" style="margin-top:0">Lade deine eigene Formelsammlung oder dein Formelblatt hoch (PDF oder Foto). Claude übernimmt alles und ergänzt die Formeln aus diesem Thema, die noch fehlen.${t.formulas ? ' Ohne Datei wird die Formelsammlung oben ergänzt.' : ''}</p>
+    <button class="btn" data-act="formpick">📎 Datei auswählen</button><ul class="files" id="formfiles">${FORMF.files.map((f,i) => `<li><span>${isPdf(f)?'📄':'🖼️'} ${esc(f.name)}</span><button class="xbtn" data-act="formrm" data-i="${i}">×</button></li>`).join('')}</ul>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" id="form-mark" checked> Neue Formeln mit 🆕 markieren</label>
+    <div class="row" style="margin-top:12px"><button class="btn pri" data-act="formext" ${hasKey?'':'disabled'}>Ergänzen</button></div>
+    <p class="muted small" style="margin:10px 0 0">Das Ergebnis ersetzt die Formelsammlung dieses Themas (mit Rückgängig) und lässt sich als PDF speichern.</p></div>`;
+  return h;
+}
+function setFormulas(t, txt){ t.formulasPrev = t.formulas || ''; t.formulas = txt; save(); }
 function tabSheets(t){
   const hasKey = !!S.settings.apiKey;
   const sheets = t.sheets || [];
   const graded = sheets.flatMap(sh => sh.aufgaben).filter(a => a.ok != null);
   const okN = graded.filter(a => a.ok).length;
-  let h = (t.mode === 'rechnen' ? modeCard(t) : '') + `<div class="card"><h3>🧮 Übungsblatt erstellen</h3><p class="muted small" style="margin-top:0">Rechen- und Anwendungsaufgaben mit Platz zum Rechnen und vollständigen Lösungswegen – als PDF zum Ausdrucken oder für Goodnotes. Jedes Blatt hat neue Aufgaben.</p>
+  let h = `<div class="card"><h3>🧮 Neues Übungsblatt erstellen</h3><p class="muted small" style="margin-top:0">Rechen- und Anwendungsaufgaben mit Platz zum Rechnen und vollständigen Lösungswegen – als PDF zum Ausdrucken oder für Goodnotes. Jedes Blatt hat neue Aufgaben.</p>
     <div class="grid2"><div><label class="f">Anzahl Aufgaben</label><select id="u-anz">${[4,6,8,10,12].map(n=>`<option ${n===6?'selected':''}>${n}</option>`).join('')}</select></div>
     <div><label class="f">Schwierigkeit</label><select id="u-stufe"><option value="gemischt">aufsteigend (leicht → schwer)</option><option value="leicht">leicht</option><option value="mittel">mittel</option><option value="schwer">schwer (Prüfungsniveau)</option></select></div></div>
     <label style="display:flex;gap:8px;align-items:center;padding:10px 0 0"><input type="checkbox" id="u-weak" checked> Schwerpunkt auf Aufgaben, die ich falsch hatte</label>
@@ -619,7 +676,7 @@ function viewHome(){
       <button class="btn pri big" data-act="go" data-v="new">Erstes Thema anlegen</button></div>`;
   }
   [...S.topics].sort((a,b) => (b.lastUsed||b.created) - (a.lastUsed||a.created)).forEach(t => {
-    const s = stats(t.questions);
+    const s = stats(quizQs(t));
     h += `<div class="card topic" data-act="open" data-id="${t.id}"><div class="tt"><div><h3 style="margin:0">${esc(t.title)}</h3>
       <div class="muted small">${esc(t.fach||'')}${t.fach?' · ':''}${s.n} Fragen${s.schlecht?` · <span class="bad">${s.schlecht} schlecht</span>`:''}</div></div>
       <div class="tp ${s.pct===100?'done100':''}">${s.pct===100?'✓ ':''}${s.pct} %</div></div>${barHtml(s)}</div>`;
@@ -642,6 +699,7 @@ function viewNew(){
       <div><label class="f">Anzahl Lernfragen</label><select id="n-n">${[10,15,20,30,40].map(n=>`<option ${n==S.settings.nQuestions?'selected':''}>${n}</option>`).join('')}</select></div>
       <div><label class="f">Wunsch an die KI (optional)</label><input type="text" id="n-hint" placeholder="z. B. mehr Rechenaufgaben"></div>
     </div>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" id="n-form" ${S.settings.wantForm?'checked':''}> 📐 Formelsammlung mit erstellen</label>
     <div class="row" style="margin-top:16px"><button class="btn pri big" data-act="generate">✨ Zusammenfassung & Fragen erstellen</button></div>
     ${hasKey ? '' : `<div class="hint warn">Für die automatische Erstellung brauchst du einen Claude-API-Schlüssel (⚙︎ Einstellungen). Ohne Schlüssel geht es kostenlos über die Claude-App – siehe unten.</div>`}
   </div>
@@ -658,6 +716,7 @@ function renderFiles(){
   const ul = $('flist'); if (!ul) return;
   ul.innerHTML = NEWF.files.map((f,i) => `<li><span>${isPdf(f)?'📄':'🖼️'} ${esc(f.name)}</span><span class="muted small" style="flex:none">${fmtSize(f.size)} <button class="xbtn" data-act="rmfile" data-i="${i}">×</button></span></li>`).join('');
 }
+$('fpick2').addEventListener('change', e => { FORMF.files.push(...e.target.files); e.target.value = ''; render(); });
 $('fpick').addEventListener('change', e => { NEWF.files.push(...e.target.files); e.target.value = ''; renderFiles(); });
 
 function addTopicFromPkg(p, title, fach, files){
@@ -665,28 +724,29 @@ function addTopicFromPkg(p, title, fach, files){
   const qs = p.fragen.map(normQ).filter(Boolean);
   if (!qs.length) throw new Error('Keine gültigen Fragen gefunden.');
   const t = {id:uid(), title:(title || p.titel || 'Neues Thema').trim(), fach:(fach || p.fach || '').trim(), created:Date.now(), lastUsed:Date.now(),
-             summary:String(p.zusammenfassung||''), questions:qs, exams:[], sheets:[], files:files||[],
+             summary:String(p.zusammenfassung||''), questions:qs, exams:[], sheets:[], files:files||[], formulas:String(p.formelsammlung||''),
              mode:['wissen','rechnen','gemischt'].includes(p.lernart) ? p.lernart : 'gemischt', modeWhy:String(p.lernart_grund||'')};
   S.topics.push(t); chargeTopic(t); save();
   NEWF.files = [];
   go({name:'topic', id:t.id, tab:'sum'});
-  if (t.mode === 'rechnen') setTimeout(() => toast('Rechen-Thema erkannt: Lerne am besten mit Übungsblättern (Reiter „Übungen“).'), 3600);
+  if (t.mode === 'rechnen') setTimeout(() => toast('Rechen-Thema erkannt: Lerne am besten mit dem Reiter „Rechenaufgaben“.'), 3600);
   usageToast(`„${t.title}“ angelegt – ${qs.length} Fragen ✓`);
 }
 
 /* ---------- Thema ---------- */
 function viewTopic(t){
   const tab = V.tab || 'learn';
-  const s = stats(t.questions);
+  const s = stats(quizQs(t));
   let h = `<div class="row" style="justify-content:space-between"><button class="btn ghost sm" data-act="go" data-v="home">‹ Themen</button>
     <div class="row"><button class="btn ghost sm" data-act="rename">Umbenennen</button><button class="btn red sm" data-act="deltopic">Löschen</button></div></div>
     <h1>${esc(t.title)}</h1><div class="muted small">${esc(t.fach||'')}${t.fach?' · ':''}angelegt am ${dateDe(t.created)}${t.files&&t.files.length?' · aus '+t.files.length+' Datei(en)':''}${t.usage ? ' · ' + fmtTok(t.usage.in + t.usage.out) + ' Tokens' + fmtUsd(t.usage.usd || null) : ''}</div>
-    <div class="tabs">${(t.mode === 'rechnen' ? [['ueb','Übungen'],['learn','Quiz'],['sum','Zusammenfassung'],['qs','Fragen ('+s.n+')'],['exam','Probearbeit']] : [['learn','Lernen'],['sum','Zusammenfassung'],['qs','Fragen ('+s.n+')'],['ueb','Übungen'],['exam','Probearbeit']]).map(([k,l]) => `<button class="${tab===k?'on':''}" data-act="tab" data-v="${k}">${l}</button>`).join('')}</div>`;
+    <div class="tabs">${topicTabs(t, s).map(([k,l]) => `<button class="${tab===k?'on':''}" data-act="tab" data-v="${k}">${l}</button>`).join('')}</div>`;
   if (tab === 'learn') h += tabLearn(t, s);
   if (tab === 'sum') h += tabSum(t);
   if (tab === 'qs') h += tabQs(t);
   if (tab === 'exam') h += tabExam(t);
-  if (tab === 'ueb') h += tabSheets(t);
+  if (tab === 'calc' || tab === 'ueb') h += tabCalc(t);
+  if (tab === 'form') h += tabForm(t);
   return h;
 }
 function tabSum(t){
@@ -708,14 +768,21 @@ function setSummary(t, text){
   t.summary = text; t.rev = (t.rev||0) + 1; save();
 }
 function qList(t){
-  return t.questions.map((q,i) => `${i+1}. [${q.type==='mc'?'mc':'offen'}] ${q.q}` + (q.type==='mc' ? ` | Optionen: ${q.options.join(' / ')} | richtig: ${q.options[q.correct]}` : ` | Lösung: ${q.answer}`)).join('\n');
+  return t.questions.map((q,i) => `${i+1}. [${q.type==='mc'?'mc':q.type==='calc'?'rechnung':'offen'}] ${q.q}` + (q.type==='mc' ? ` | Optionen: ${q.options.join(' / ')} | richtig: ${q.options[q.correct]}` : ` | Lösung: ${q.answer}`)).join('\n');
+}
+const FORM_RULES = `Gliedere nach Unterthemen mit ## Überschriften. Pro Unterthema eine Markdown-Tabelle mit den Spalten | Größe | Formel | Einheit | Hinweis |. Formeln als Klartext mit Unicode (·, √, ², π, φ, Δ, η, Indizes mit _), niemals LaTeX. Bei wichtigen Formeln die gängigen Umstellungen mit in die Spalte Formel (getrennt durch „ ; “). Falls sinnvoll am Ende ## Konstanten & Umrechnungen.`;
+function formPrompt(t){
+  return `Erstelle eine kompakte, übersichtliche Formelsammlung (zum Ausdrucken, ca. 1–2 Seiten) zum Thema „${t.title}“${t.fach ? ' (' + t.fach + ')' : ''} aus diesem Lernstoff. Nur Formeln, die zum Stoff gehören, plus unverzichtbare Grundformeln.\n${FORM_RULES}\n\nLernstoff:\n${t.summary}`;
+}
+function extendPrompt(t, mark, haveFiles){
+  return `${haveFiles ? 'Die angehängte Datei ist meine bestehende Formelsammlung bzw. mein Formelblatt.' : 'Unten steht meine bestehende Formelsammlung.'} Übernimm ihren Inhalt vollständig (nichts weglassen, Gliederung und Reihenfolge beibehalten) und ergänze alle Formeln aus dem Lernstoff zum Thema „${t.title}“, die darin noch fehlen – jeweils im passenden Abschnitt oder in einem neuen Abschnitt.${mark ? ' Setze vor jede neu hinzugefügte Größe „🆕 “.' : ''} Fällt dir in der bestehenden Sammlung ein Fehler auf, korrigiere ihn nicht stillschweigend, sondern schreibe „⚠️ prüfen: …“ in die Spalte Hinweis.\n${FORM_RULES}\n\n${haveFiles ? '' : 'Bestehende Formelsammlung:\n' + t.formulas + '\n\n'}Lernstoff:\n${t.summary}`;
 }
 const SYNC_RULES = `Passe danach die Lernfragen an die neue Zusammenfassung an:
 - "fragen_geaendert": nur Fragen, deren Inhalt nicht mehr zur neuen Zusammenfassung passt – mit ihrer bisherigen Nummer "nr" und vollständig neuem Inhalt (gleiches Format wie neue Fragen).
 - "fragen_geloescht": Nummern der Fragen, deren Thema in der neuen Zusammenfassung nicht mehr vorkommt.
 - "fragen_neu": neue Fragen für neu hinzugekommene Inhalte (ca. 1–2 pro neuem Abschnitt bzw. wichtigem Punkt).
 Fragen, die weiterhin passen, NICHT auflisten. Wenn nichts zu tun ist, leere Listen.
-Fragenformat: ca. 70 % Multiple-Choice (typ "mc", genau 4 Optionen, Index der richtigen in "richtig"), sonst typ "offen" mit Musterlösung in "antwort"; jeweils kurze "erklaerung".`;
+Fragenformat: ca. 70 % Multiple-Choice (typ "mc", genau 4 Optionen, Index der richtigen in "richtig"), sonst typ "offen" (Wissensfrage) bzw. "rechnung" (Rechenaufgabe mit Rechenweg) mit Musterlösung in "antwort"; jeweils kurze "erklaerung".`;
 function lineDiff(a, b){
   const A = a.split('\n').map(x => x.trim()).filter(Boolean), B = b.split('\n').map(x => x.trim()).filter(Boolean);
   const sa = new Set(A), sb = new Set(B);
@@ -757,7 +824,7 @@ function modeCard(t){
     ${m === 'rechnen' ? '<div class="hint">Bei Rechenthemen bringt das Quiz nur Formeln und Begriffe. Richtig lernst du mit <b>Übungsblättern</b>: ausdrucken oder in Goodnotes lösen, dann mit der Lösung vergleichen.</div>' : ''}</div>`;
 }
 function tabLearn(t, s){
-  const fehler = t.questions.filter(q => q.wrong && level(q) !== 'gut').length;
+  const fehler = quizQs(t).filter(q => q.wrong && level(q) !== 'gut').length;
   const hasKey = !!S.settings.apiKey;
   return modeCard(t) + `<div class="card ${s.pct===100?'celebrate':''}">
     <div class="row" style="justify-content:space-between;align-items:flex-end"><div><div class="muted small">Fortschritt · Ziel 100 %</div><div class="pct">${s.pct}<small> %</small></div></div>
@@ -775,7 +842,7 @@ function tabLearn(t, s){
 function tabQs(t){
   const sub = V.sub || 'schlecht';
   const groups = {schlecht:[], mittel:[], gut:[], neu:[]};
-  t.questions.forEach(q => groups[level(q)].push(q));
+  quizQs(t).forEach(q => groups[level(q)].push(q));
   let h = `<div class="subtabs">${['schlecht','mittel','gut','neu'].map(k => `<button class="c${k[0]} ${sub===k?'on':''}" data-act="sub" data-v="${k}">${LV[k]} (${groups[k].length})</button>`).join('')}</div>`;
   const list = groups[sub].sort((a,b) => b.wrong - a.wrong);
   if (!list.length) h += `<div class="card empty muted">${sub==='gut' ? 'Noch keine Frage im Reiter „Gut“. Beantworte Fragen '+S.settings.goal+'× hintereinander richtig.' : sub==='schlecht' ? 'Keine schlechten Fragen 👍' : 'Hier ist gerade nichts.'}</div>`;
@@ -826,7 +893,7 @@ let SS = null;
 function buildSession(scope, mode){
   const topics = scope === 'all' ? S.topics : [topicById(scope)].filter(Boolean);
   let refs = [];
-  topics.forEach(t => t.questions.forEach(q => refs.push({t, q})));
+  topics.forEach(t => quizQs(t).forEach(q => refs.push({t, q})));
   if (mode === 'fehler') refs = refs.filter(r => r.q.wrong && level(r.q) !== 'gut');
   if (!refs.length) { toast('Keine passenden Fragen.'); return; }
   const W = {schlecht:0, mittel:1, neu:1.6};
@@ -857,7 +924,7 @@ function viewSession(){
   const c = curRef();
   if (!c){
     const topics = SS.scope === 'all' ? S.topics : [topicById(SS.scope)].filter(Boolean);
-    const st = stats(topics.flatMap(t => t.questions));
+    const st = stats(topics.flatMap(quizQs));
     const total = SS.ok + SS.fail;
     return `<div class="card empty ${st.pct===100?'celebrate':''}"><div class="emo">${SS.fail===0?'🏆':'💪'}</div><h2>Runde geschafft!</h2>
       <p>${SS.ok} von ${total} Antworten richtig${SS.fail?` · ${SS.fail}× falsch – diese Fragen kommen wieder`:''}</p>
@@ -936,8 +1003,8 @@ $('bpick').addEventListener('change', async e => {
 /* ================= Aktionen ================= */
 const ACT = {
   go: d => go(d.v),
-  open: d => { const t = topicById(d.id); go({name:'topic', id:d.id, tab: t && t.mode === 'rechnen' ? 'ueb' : 'learn'}); },
-  tab: d => { V.tab = d.v; V.editSum = false; render(); },
+  open: d => { const t = topicById(d.id); go({name:'topic', id:d.id, tab: t && t.mode === 'rechnen' ? 'calc' : 'learn'}); },
+  tab: d => { V.tab = d.v; V.editSum = false; V.editForm = false; render(); },
   sub: d => { V.sub = d.v; render(); },
   closemodal: closeModal,
   pick: d => {
@@ -948,19 +1015,19 @@ const ACT = {
   generate: async () => {
     if (!NEWF.files.length) return toast('Bitte zuerst Dateien auswählen.');
     if (!S.settings.apiKey) return toast('Kein API-Schlüssel – siehe ⚙︎ Einstellungen oder den Weg über die Claude-App.');
-    const title = $('n-title').value, fach = $('n-fach').value, n = +$('n-n').value, hint = $('n-hint').value.trim();
-    S.settings.nQuestions = n; save();
+    const title = $('n-title').value, fach = $('n-fach').value, n = +$('n-n').value, hint = $('n-hint').value.trim(), form = $('n-form').checked;
+    S.settings.nQuestions = n; S.settings.wantForm = form; save();
     try {
       const names = NEWF.files.map(f => f.name);
       const p = await withBusy('Unterlagen werden ausgewertet …', async prog => {
         const content = await filesToContent(NEWF.files);
-        content.push({type:'text', text: pkgPrompt(n, hint, false)});
-        return claude(content, TOOL_PKG, 32000, prog);
+        content.push({type:'text', text: pkgPrompt(n, hint, false, form)});
+        return claude(content, TOOL_PKG, form ? 48000 : 32000, prog);
       });
       addTopicFromPkg(p, title, fach, names);
     } catch(e){ modal(`<h2>Das hat nicht geklappt</h2><p class="muted">${esc(errMsg(e))}</p><button class="btn" data-act="closemodal">OK</button>`); }
   },
-  copyprompt: () => copyText(pkgPrompt(+$('n-n').value, $('n-hint').value.trim(), true)),
+  copyprompt: () => copyText(pkgPrompt(+$('n-n').value, $('n-hint').value.trim(), true, $('n-form').checked)),
   importpkg: () => {
     try { addTopicFromPkg(parsePasted($('n-paste').value), $('n-title').value, $('n-fach').value, NEWF.files.map(f=>f.name)); }
     catch(e){ toast(errMsg(e)); }
@@ -1050,6 +1117,40 @@ const ACT = {
     save(); closeModal(); render();
     const o = sh.aufgaben.filter(a => a.ok).length; toast(`${o} von ${sh.aufgaben.length} richtig gespeichert ✓`);
   },
+  calcmark: d => { const t = topicById(V.id); const q = t.questions.find(x => x.id === d.q); if (!q) return; q.seen++; q.last = Date.now(); if (d.v === '1'){ q.right++; q.streak++; } else { q.wrong++; q.streak = 0; } save(); render(); toast(d.v === '1' ? 'Richtig gespeichert ✓' : 'Gemerkt – kommt auf Übungsblättern verstärkt dran'); },
+  calcpdf: async d => {
+    const t = topicById(V.id); const sh = calcSheet(t); const name = `Rechenaufgaben_${fileSafe(t.title)}${d.m === 'beides' ? '_mit_Loesungen' : ''}.pdf`;
+    try { const blob = await withBusy('PDF wird erstellt …', () => makePdf(sheetHtml(t, sh, d.m), name)); offerFile(blob, name, 'Rechenaufgaben als PDF'); } catch(e){ toast(errMsg(e)); }
+  },
+  formgen: async () => {
+    const t = topicById(V.id);
+    if (t.formulas && !confirm('Formelsammlung neu erstellen? Die jetzige lässt sich danach mit „Rückgängig“ zurückholen.')) return;
+    try { const p = await withBusy('Formelsammlung wird erstellt …', prog => claude([{type:'text', text: formPrompt(t)}], TOOL_FORM, 24000, prog));
+      if (!p || !String(p.formelsammlung||'').trim()) throw new Error('Keine Formelsammlung erhalten.');
+      setFormulas(t, String(p.formelsammlung)); chargeTopic(t); render(); usageToast('Formelsammlung erstellt');
+    } catch(e){ toast(errMsg(e)); }
+  },
+  formpick: () => $('fpick2').click(),
+  formrm: d => { FORMF.files.splice(+d.i, 1); render(); },
+  formext: async () => {
+    const t = topicById(V.id); const files = FORMF.files.slice(); const mark = $('form-mark').checked;
+    if (!files.length && !t.formulas) return toast('Bitte zuerst deine Formelsammlung (PDF oder Foto) auswählen.');
+    try { const p = await withBusy('Formelsammlung wird ergänzt …', async prog => {
+        const content = files.length ? await filesToContent(files) : [];
+        content.push({type:'text', text: extendPrompt(t, mark, files.length > 0)});
+        return claude(content, TOOL_FORM, 32000, prog); });
+      if (!p || !String(p.formelsammlung||'').trim()) throw new Error('Keine Formelsammlung erhalten.');
+      setFormulas(t, String(p.formelsammlung)); FORMF.files = []; chargeTopic(t); render(); window.scrollTo(0,0); usageToast('Formelsammlung ergänzt');
+    } catch(e){ toast(errMsg(e)); }
+  },
+  formpdf: async () => {
+    const t = topicById(V.id); const name = `Formelsammlung_${fileSafe(t.title)}.pdf`;
+    try { const blob = await withBusy('PDF wird erstellt …', () => makePdf(`<h1>Formelsammlung: ${esc(t.title)}</h1><div style="color:#555;margin-bottom:8px">${esc(t.fach||'')}${t.fach?' · ':''}Stand ${dateDe(Date.now())}</div><div class="fs">${md(t.formulas)}</div>`, name)); offerFile(blob, name, 'Formelsammlung als PDF'); } catch(e){ toast(errMsg(e)); }
+  },
+  formedit: () => { V.editForm = true; render(); },
+  formcancel: () => { V.editForm = false; render(); },
+  formsave: () => { const t = topicById(V.id); const v = $('form-edit').value; if (v !== (t.formulas||'')) setFormulas(t, v); V.editForm = false; render(); toast('Gespeichert ✓'); },
+  formundo: () => { const t = topicById(V.id); if (t.formulasPrev == null) return; const cur = t.formulas || ''; t.formulas = t.formulasPrev; t.formulasPrev = cur; save(); render(); toast('Rückgängig gemacht'); },
   delsheet: d => { if (!confirm('Übungsblatt löschen?')) return; const t = topicById(V.id); t.sheets = (t.sheets||[]).filter(x => x.id !== d.e); save(); render(); },
   delexam: d => { if (!confirm('Probearbeit löschen?')) return; const t = topicById(V.id); t.exams = t.exams.filter(x => x.id !== d.e); save(); render(); },
   savekey: () => { S.settings.apiKey = $('s-key').value.trim(); S.settings.model = $('s-model').value.trim() || MODELS[0]; save(); toast('Gespeichert ✓'); },
@@ -1102,7 +1203,7 @@ document.addEventListener('change', e => {
 });
 $('modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
 
-const APP_VERSION = '1.3.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+const APP_VERSION = '1.4.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
 render();
 </script>
 
