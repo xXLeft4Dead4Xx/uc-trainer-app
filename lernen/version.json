@@ -1,4 +1,4 @@
 {
-  "version": "1.4.3",
-  "notes": "PDF-Export neu gebaut: keine leeren Seiten mehr, Tabellen werden sauber auf Seiten verteilt (Tabellenkopf auf jeder Seite)."
+  "version": "1.4.4",
+  "notes": "Formelsammlung: Wurzelzeichen wachsen jetzt mit dem Inhalt mit und sind mit dem Strich verbunden."
 }

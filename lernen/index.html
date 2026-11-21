@@ -41,7 +41,9 @@ h1{font-size:24px;margin:4px 0 4px}h2{font-size:19px;margin:0 0 8px}h3{font-size
 .muted{color:var(--muted)}.mono{font-family:var(--mono)}
 .frac{display:inline-block;vertical-align:middle;text-align:center;margin:0 .12em;line-height:1.2}
 .frac>span{display:block;padding:0 .2em}.frac>.fn{border-bottom:1.2px solid currentColor;padding-bottom:1px}.frac>.fd{padding-top:1px}
-.sq{white-space:nowrap}.rad{border-top:1.2px solid currentColor;padding:1px .1em 0}
+.sq{display:inline-block;position:relative;vertical-align:middle;white-space:nowrap;margin:0 .05em;padding-left:.6em}
+.sqs{position:absolute;left:0;top:0;width:.62em;height:100%;overflow:visible}
+.rad{display:inline-block;border-top:1.3px solid currentColor;padding:3px .15em 1px .1em}
 td.fx{white-space:nowrap;font-size:15px;vertical-align:middle;padding-top:7px!important;padding-bottom:7px!important}
 td.fx sub,td.fx sup{font-size:.7em}.small{font-size:13px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:14px}
@@ -191,7 +193,7 @@ ol.steps{padding-left:20px;margin:6px 0 10px}ol.steps li{margin:4px 0}
 
 <script>
 'use strict';
-const APP_VERSION = '1.4.3';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+const APP_VERSION = '1.4.4';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
 /* ================= Daten ================= */
 const LS = 'lerntrainer-v1';
 const MODELS = ['claude-sonnet-5-5','claude-opus-5-5','claude-haiku-5-5'];
@@ -298,8 +300,9 @@ function fmla(src){
   }
   const trim = arr => { let a = arr.slice(); while (a.length && a[0].t === 'sp') a.shift(); while (a.length && a[a.length-1].t === 'sp') a.pop(); return a; };
   const strip = n => n.t === 'grp' && n.open === '(' ? trim(n.kids) : [n];
+  const SQ = inner => `<span class="sq"><svg class="sqs" viewBox="0 0 10 100" preserveAspectRatio="none" aria-hidden="true"><path d="M0.6 64 L3.2 57 L6.2 98 L9.6 1" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg><span class="rad">${inner}</span></span>`;
   const atom = v => {
-    if (v.length > 1 && v.startsWith('√')) return `<span class="sq">√<span class="rad">${atom(v.slice(1))}</span></span>`;
+    if (v.length > 1 && v.startsWith('√')) return SQ(atom(v.slice(1)));
     const parts = v.split(/([_^])/); let h = esc(parts[0]);
     for (let q = 1; q < parts.length; q += 2) h += parts[q] === '_' ? `<sub>${esc(parts[q+1] || '')}</sub>` : `<sup>${esc(parts[q+1] || '')}</sup>`;
     return h;
@@ -312,7 +315,7 @@ function fmla(src){
       case 'atom': return atom(n.v);
       case 'grp': return esc(n.open) + r(n.kids) + esc(n.close);
       case 'cat': return r(n.kids);
-      case 'sqrt': return `<span class="sq">√<span class="rad">${r(strip(n.kid))}</span></span>`;
+      case 'sqrt': return SQ(r(strip(n.kid)));
       case 'frac': return `<span class="frac"><span class="fn">${r(strip(n.num))}</span><span class="fd">${r(strip(n.den))}</span></span>`;
     }
     return '';
