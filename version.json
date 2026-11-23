@@ -1,4 +1,4 @@
 {
-  "version": "2.5.0",
-  "notes": "Struktogramm: neue Blöcke Eingabe, Ausgabe und Fallunterscheidung (else-if-Ketten werden automatisch dazu), Design passt sich jetzt an die App an (Export bleibt druckfreundlich)."
+  "version": "2.5.1",
+  "notes": "Fehler behoben: Die Verkabelung im Labor (Von Hand verkabeln) bleibt jetzt nach Updates und beim Neustart der App erhalten."
 }

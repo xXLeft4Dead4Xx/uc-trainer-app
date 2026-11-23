@@ -3026,14 +3026,14 @@ function normLab(d){
   let devs=Array.isArray(d.devices)?d.devices:(Array.isArray(d.comps)?[{name:'Gerät 1',board:d.board,code:d.code,comps:d.comps}]:null);
   if(!devs||!devs.length) return null;
   devs=devs.map((x,i)=>({id:x.id||newDevId(),name:x.name||('Gerät '+(i+1)),board:x.board==='esp32'?'esp32':'uno',code:String(x.code||''),
-    comps:(x.comps||[]).filter(c=>COMP[c.type]).map(c=>{ const n=newComp(c.type,c.pins,c.props); if(c.st) Object.keys(n.st).forEach(k=>{ if(c.st[k]!=null) n.st[k]=c.st[k]; }); return n; })}));
+    comps:(()=>{ const seen=new Set(); return (x.comps||[]).filter(c=>COMP[c.type]).map(c=>{ const n=newComp(c.type,c.pins,c.props); if(typeof c.id==='string'&&/^[\w-]{1,40}$/.test(c.id)&&!seen.has(c.id)) n.id=c.id; seen.add(n.id); if(c.st) Object.keys(n.st).forEach(k=>{ if(c.st[k]!=null) n.st[k]=c.st[k]; }); return n; }); })()}));
   return {name:d.name||'Mein Projekt',sound:false,cur:Math.max(0,Math.min(d.cur||0,devs.length-1)),devices:devs,router:Object.assign({},ROUTER0,d.router||{})};
 }
 function loadLab(){ try{ return normLab(DATA.lab); }catch(e){ return null; } }
 let lab=null, cd=null;
 lab=loadLab()||fromTemplate(TEMPLATES[0]); cd=lab.devices[lab.cur];
 function labSer(){ return {name:lab.name||'Mein Projekt',cur:lab.cur,router:lab.router,devices:lab.devices.map(d=>({id:d.id,name:d.name,board:d.board,code:d.code,
-  comps:d.comps.map(c=>{ const st={}; Object.keys(INIT_ST[c.type]||{}).forEach(k=>st[k]=c.st[k]); return {type:c.type,pins:c.pins,props:c.props,st}; })}))}; }
+  comps:d.comps.map(c=>{ const st={}; Object.keys(INIT_ST[c.type]||{}).forEach(k=>st[k]=c.st[k]); return {id:c.id,type:c.type,pins:c.pins,props:c.props,st}; })}))}; }
 function saveLab(){ DATA.lab=labSer(); store.save(DATA); }
 function usedPins(exceptId){ const s=new Set(); cd.comps.forEach(c=>{ if(c.id!==exceptId) Object.values(c.pins).forEach(p=>{ if(p!=null) s.add(p); }); }); return s; }
 function autoPin(c,pd){
@@ -7217,7 +7217,7 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
 </div>
 <script>
 (function(){
-  var APP_VERSION = '2.5.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+  var APP_VERSION = '2.5.1';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
   window.UCT_VERSION = APP_VERSION;
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register('sw.js').catch(function(){});
