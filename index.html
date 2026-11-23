@@ -458,6 +458,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
       <div class="sg-bottom">
         <button class="btn mini" id="sgUndo">↶ Rückgängig</button>
         <button class="btn mini" id="sgPng">🖼 Als Bild</button>
+        <button class="btn mini" id="sgPdf">📄 Als PDF</button>
         <button class="btn mini" id="sgCode">⌨ Arduino-Code</button>
         <button class="btn mini primary" id="sgLab">▶ Ins Labor</button>
         <button class="btn mini" id="sgExample">📘 Beispiel laden</button>
@@ -3708,11 +3709,95 @@ async function saveFile(name,text){
     catch(e){ if(e && e.code==='declined') return; if(e && e.code==='rate_limited'){ toast('Bitte kurz warten und nochmal versuchen.'); return; } }
   }
   try{
-    const url=URL.createObjectURL(new Blob([text],{type:/\.json$/.test(name)?'application/json':'text/plain'}));
+    const url=URL.createObjectURL(text instanceof Blob?text:new Blob([text],{type:/\.json$/.test(name)?'application/json':'text/plain'}));
     const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),5000);
     toast('Datei „'+name+'“ wird gespeichert (Downloads / Dateien).');
   }catch(e){ toast('Speichern ist in dieser Ansicht nicht möglich.'); }
+}
+/* ---------- PDF-Export (Code & Struktogramm) ---------- */
+let jspdfP=null;
+function loadJsPDF(){
+  if(window.jspdf) return Promise.resolve(window.jspdf);
+  if(!jspdfP) jspdfP=new Promise((res,rej)=>{ const sc=document.createElement('script'); sc.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    sc.onload=()=>window.jspdf?res(window.jspdf):(jspdfP=null,rej(new Error('PDF-Modul konnte nicht geladen werden.')));
+    sc.onerror=()=>{ jspdfP=null; rej(new Error('PDF-Modul konnte nicht geladen werden (Internet?).')); }; document.head.appendChild(sc); });
+  return jspdfP;
+}
+const PDFMAP={'→':'->','←':'<-','⇒':'=>','≤':'<=','≥':'>=','≠':'!=','≈':'~','…':'...','–':'-','—':'-','„':'"','“':'"','”':'"','‚':"'",'‘':"'",'’':"'",'×':'x','Ω':'Ohm','✓':'v','✔':'v','✗':'x','✖':'x','⚠':'!','•':'-','√':'sqrt'};
+const pdfSafe=t=>String(t).replace(/[^\x00-\xFF]/g,ch=>PDFMAP[ch]!=null?PDFMAP[ch]:'?');
+const CKW=/^(if|else|for|while|do|switch|case|default|break|continue|return|void|int|long|float|double|char|bool|boolean|byte|unsigned|const|static|volatile|struct|enum|class|true|false|HIGH|LOW|INPUT|OUTPUT|INPUT_PULLUP|String|uint8_t|uint16_t|uint32_t|int8_t|int16_t|int32_t|size_t|word|new|delete|this|public|private|auto|nullptr|NULL)$/;
+function codeTokens(line,st){   // → [[text,color,italic]]
+  const out=[]; let i=0;
+  const push=(t,c,it)=>{ if(t) out.push([t,c,!!it]); };
+  if(st.blk){ const j=line.indexOf('*/'); if(j<0){ push(line,[120,120,120],1); return out; } push(line.slice(0,j+2),[120,120,120],1); i=j+2; st.blk=false; }
+  if(/^\s*#/.test(line.slice(i))){ push(line.slice(i),[170,40,140]); return out; }
+  while(i<line.length){
+    const r=line.slice(i); let m;
+    if(r.startsWith('//')){ push(r,[120,120,120],1); break; }
+    if(r.startsWith('/*')){ const j=r.indexOf('*/',2); if(j<0){ push(r,[120,120,120],1); st.blk=true; break; } push(r.slice(0,j+2),[120,120,120],1); i+=j+2; continue; }
+    if((m=r.match(/^("(?:\\.|[^"\\])*"?|'(?:\\.|[^'\\])*'?)/))){ push(m[0],[20,130,60]); i+=m[0].length; continue; }
+    if((m=r.match(/^\d[\w.]*/))){ push(m[0],[190,100,0]); i+=m[0].length; continue; }
+    if((m=r.match(/^[A-Za-z_]\w*/))){ const w=m[0]; const isFn=/^\s*\(/.test(r.slice(w.length)); push(w,CKW.test(w)?[30,80,200]:isFn?[150,60,190]:[25,25,25]); i+=w.length; continue; }
+    if((m=r.match(/^\s+/))){ push(m[0],[25,25,25]); i+=m[0].length; continue; }
+    push(r[0],[25,25,25]); i++;
+  }
+  return out;
+}
+async function codePdf(code,title,sub){
+  const {jsPDF}=await loadJsPDF(); const pdf=new jsPDF({unit:'mm',format:'a4'});
+  const M=15, FS=9, LH=FS*0.3528*1.38, NUMW=10, bottom=297-M-6;
+  pdf.setFont('courier','normal'); pdf.setFontSize(FS);
+  const cw=pdf.getTextWidth('M'), maxCh=Math.max(20,Math.floor((210-2*M-NUMW)/cw));
+  let y=M;
+  pdf.setFont('helvetica','bold'); pdf.setFontSize(14); pdf.setTextColor(20); pdf.text(pdfSafe(title||'Sketch'),M,y+5);
+  pdf.setFont('helvetica','normal'); pdf.setFontSize(8.5); pdf.setTextColor(110); pdf.text(pdfSafe(sub||''),M,y+10.5);
+  pdf.setDrawColor(190); pdf.line(M,y+13,210-M,y+13); y+=19;
+  const st={blk:false};
+  String(code||'').replace(/\r/g,'').replace(/\t/g,'  ').split('\n').forEach((line,idx)=>{
+    const toks=codeTokens(pdfSafe(line),st); let col=0, first=true;
+    const newLine=()=>{ y+=LH; col=0; if(y>bottom){ pdf.addPage(); y=M+4; } };
+    if(y>bottom){ pdf.addPage(); y=M+4; }
+    pdf.setFont('courier','normal'); pdf.setFontSize(7.5); pdf.setTextColor(160); pdf.text(String(idx+1),M+NUMW-2,y,{align:'right'}); pdf.setFontSize(FS);
+    if(!toks.length){ y+=LH; return; }
+    toks.forEach(([t,c,it])=>{
+      let rest=t;
+      while(rest.length){
+        if(col>=maxCh){ newLine(); }
+        const take=rest.slice(0,maxCh-col); pdf.setFont('courier',it?'italic':'normal'); pdf.setTextColor(c[0],c[1],c[2]);
+        pdf.text(take,M+NUMW+col*cw,y); col+=take.length; rest=rest.slice(take.length);
+      }
+    });
+    y+=LH;
+  });
+  const n=pdf.getNumberOfPages();
+  for(let i=1;i<=n;i++){ pdf.setPage(i); pdf.setFont('helvetica','normal'); pdf.setFontSize(8); pdf.setTextColor(140); pdf.text(pdfSafe((title||'Sketch')+' · Seite '+i+' von '+n),105,297-8,{align:'center'}); }
+  return pdf.output('blob');
+}
+async function svgPdf(svg,title){
+  const {jsPDF}=await loadJsPDF();
+  const img=await new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=()=>rej(new Error('Bild konnte nicht erzeugt werden.')); im.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg); });
+  const sc=2.5, c=document.createElement('canvas'); c.width=Math.round(img.width*sc); c.height=Math.round(img.height*sc);
+  const g=c.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,c.width,c.height); g.drawImage(img,0,0,c.width,c.height);
+  const pdf=new jsPDF({unit:'mm',format:'a4'}), M=12, PW=210-2*M, PH=297-2*M-6;
+  let w=PW, h=c.height*PW/c.width;
+  if(h<=PH*1.5 && h>PH){ h=PH; w=c.width*PH/c.height; }   // etwas zu hoch: verkleinern, damit es auf eine Seite passt
+  if(h<=PH){ pdf.addImage(c.toDataURL('image/jpeg',0.92),'JPEG',M+(PW-w)/2,M,w,h); }
+  else {                                                     // sehr lang: auf mehrere Seiten aufteilen
+    const slicePx=Math.floor(c.width*PH/PW); let y0=0, first=true;
+    while(y0<c.height){ const hh=Math.min(slicePx,c.height-y0), part=document.createElement('canvas'); part.width=c.width; part.height=hh;
+      part.getContext('2d').drawImage(c,0,y0,c.width,hh,0,0,c.width,hh);
+      if(!first) pdf.addPage(); first=false; pdf.addImage(part.toDataURL('image/jpeg',0.92),'JPEG',M,M,PW,hh*PW/c.width); y0+=hh; }
+  }
+  const n=pdf.getNumberOfPages();
+  for(let i=1;i<=n;i++){ pdf.setPage(i); pdf.setFont('helvetica','normal'); pdf.setFontSize(8); pdf.setTextColor(140); pdf.text(pdfSafe((title||'Struktogramm')+(n>1?' · Seite '+i+' von '+n:'')),105,297-8,{align:'center'}); }
+  return pdf.output('blob');
+}
+async function exportCodePdf(code,title){
+  try{ toast('PDF wird erstellt …'); const d=new Date().toLocaleDateString('de-DE');
+    const blob=await codePdf(code,title,'Arduino-Sketch · '+d+' · '+String(code||'').split('\n').length+' Zeilen');
+    await saveFile(safeName(title||'Sketch').replace(/\s/g,'_')+'.pdf',blob); }
+  catch(e){ toast(e.message||'PDF konnte nicht erstellt werden.'); }
 }
 function pickFile(accept){
   return new Promise(res=>{
@@ -4039,8 +4124,13 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
   $('#sgUndo').onclick=()=>{ if(!hist.length) return; doc().body=JSON.parse(hist.pop()); sel=null; commit(true); };
   $('#sgCode').onclick=()=>{
     const code=arduinoCode();
-    showOut('<pre>'+esc(code)+'</pre><button class="btn mini" id="sgCopy">📋 Kopieren</button>');
+    showOut('<pre>'+esc(code)+'</pre><button class="btn mini" id="sgCopy">📋 Kopieren</button> <button class="btn mini" id="sgCodePdf">📄 Code als PDF</button>');
+    $('#sgCodePdf').onclick=()=>exportCodePdf(code,(doc().title||'Struktogramm')+' – Code');
     $('#sgCopy').onclick=()=>{ (navigator.clipboard?navigator.clipboard.writeText(code):Promise.reject()).then(()=>{ $('#sgCopy').textContent='✓ Kopiert'; }).catch(()=>{ const r=document.createRange(); r.selectNodeContents($('#sgOut pre')); const s=getSelection(); s.removeAllRanges(); s.addRange(r); }); };
+  };
+  $('#sgPdf').onclick=async()=>{
+    try{ toast('PDF wird erstellt …'); const t=doc().title||'Struktogramm'; const blob=await svgPdf(svgFor(true),t); await saveFile(safeName(t).replace(/\s/g,'_')+'.pdf',blob); }
+    catch(e){ toast(e.message||'PDF konnte nicht erstellt werden.'); }
   };
   $('#sgLab').onclick=()=>{ if(window.uctCodeToLab) window.uctCodeToLab(arduinoCode(), doc().title); };
   $('#sgPng').onclick=()=>{
@@ -6466,6 +6556,7 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
       <button data-cl="labSave">💾 Projekt speichern</button>
       <button data-cl="labOpen">📂 Projekt öffnen</button>
       <button data-cl="labIno">⬇ Sketch als .ino</button>
+      <button id="labCodePdf">📄 Sketch als PDF</button>
       <hr><div class="lb">Vorlage laden</div>
       <div style="padding:0 8px 6px"><select id="labTpl2"></select></div>
       <hr><div class="lb">Werkzeuge</div><button id="labToSg">🧩 Struktogramm aus Sketch</button>
@@ -6481,6 +6572,7 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
     window.addEventListener('scroll',()=>pop.classList.remove('on'),{passive:true});
     document.addEventListener('click',e=>{ if(!menu.contains(e.target)) pop.classList.remove('on'); });
     pop.querySelectorAll('[data-cl]').forEach(b=>b.onclick=()=>{ $('#'+b.dataset.cl).click(); if(b.dataset.cl!=='labSound') pop.classList.remove('on'); sync(); });
+    $('#labCodePdf').onclick=()=>{ pop.classList.remove('on'); lab.name=$('#labName').value.trim()||lab.name||'Mein Projekt'; exportCodePdf(labEditor.get(), lab.name+(lab.devices.length>1?' – '+cd.name:'')); };
     $('#labToSg').onclick=()=>{ pop.classList.remove('on'); if(window.uctCodeToSg) window.uctCodeToSg(cd.code, lab.name); };
     $('#labTpl2').onchange=e=>{ const t=$('#labTpl'); t.value=e.target.value; t.dispatchEvent(new Event('change')); pop.classList.remove('on'); };
     const np=$('#netPanel'); if(np) np.open=false;
@@ -7053,7 +7145,7 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
 </div>
 <script>
 (function(){
-  var APP_VERSION = '2.4.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+  var APP_VERSION = '2.4.1';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
   window.UCT_VERSION = APP_VERSION;
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register('sw.js').catch(function(){});

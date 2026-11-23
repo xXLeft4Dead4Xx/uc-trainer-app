@@ -1,4 +1,4 @@
 {
-  "version": "2.4.0",
-  "notes": "Neu: Struktogramm aus fertigem Code erstellen (Reiter Struktogramm → „Aus Code erstellen“ oder im Labor unter ⋯). Eigene Funktionen bekommen ein eigenes Struktogramm."
+  "version": "2.4.1",
+  "notes": "Neu: Sketch als PDF (Labor → ⋯, mit Zeilennummern und Farben) und Struktogramm als PDF (Reiter Struktogramm → „Als PDF“)."
 }
