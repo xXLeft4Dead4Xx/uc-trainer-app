@@ -71,6 +71,10 @@ h3{margin:18px 0 8px;font-size:16px}
 .code-wrap pre{overflow:hidden;pointer-events:none;color:#d6e2ea}
 .code-wrap textarea{background:transparent;color:transparent;caret-color:#fff;resize:none;outline:none;overflow:auto}
 .code-wrap textarea::selection{background:rgba(25,181,165,.35);color:transparent}
+/* Cursor exakt über dem Text (iPad): gleiche Schriftdarstellung in Textfeld und Hervorhebung erzwingen */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+.code-wrap pre,.code-wrap textarea{box-sizing:border-box;font-family:var(--mono);font-weight:400;font-style:normal;font-variant-ligatures:none;font-feature-settings:"liga" 0,"calt" 0;font-kerning:none;font-synthesis:none;text-rendering:optimizeSpeed;-webkit-text-size-adjust:none;text-size-adjust:none;-webkit-appearance:none;appearance:none;border-radius:0;text-indent:0;text-align:left}
+.code-wrap .t-com{font-style:normal}
 .t-com{color:#5f7686;font-style:italic}.t-str{color:#e8b964}.t-pre{color:#d08cf0}.t-num{color:#f6956a}
 .t-kw{color:#d08cf0}.t-type{color:#4fd0e0}.t-fn{color:#7fb0ff}.t-const{color:#ffb86b}.t-obj{color:#9fe58f}
 /* sim */
@@ -6797,7 +6801,7 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
 </div>
 <script>
 (function(){
-  var APP_VERSION = '2.2.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+  var APP_VERSION = '2.2.1';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
   window.UCT_VERSION = APP_VERSION;
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register('sw.js').catch(function(){});
