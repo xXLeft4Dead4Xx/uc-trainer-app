@@ -461,6 +461,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
         <button class="btn mini" id="sgCode">⌨ Arduino-Code</button>
         <button class="btn mini primary" id="sgLab">▶ Ins Labor</button>
         <button class="btn mini" id="sgExample">📘 Beispiel laden</button>
+        <button class="btn mini primary" id="sgFromCode">🧩 Aus Code erstellen</button>
       </div>
       <div class="sg-out" id="sgOut" hidden></div>
     </div>
@@ -3843,12 +3844,13 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
       case 'call': return wrap(n.text,w-2*P-20).length*LH+2*P;
       case 'if':   return wrap(n.cond,w*0.62).length*LH+2*P+LH + Math.max(hList(n.yes,w/2),hList(n.no,w/2));
       case 'switch': { const k=cases(n).length; return wrap(n.expr,w*0.6).length*LH+2*P+LH + Math.max(...cases(n).map(c=>hList(c.body,w/k))); }
-      case 'while': case 'do': return wrap(n.cond,w-2*P).length*LH+2*P + hList(n.body,w-BAR);
+      case 'while': case 'do': return wrap(loopLabel(n),w-2*P).length*LH+2*P + hList(n.body,w-BAR);
       case 'forever': return wrap(foreverLabel(n),w-2*P).length*LH+2*P + hList(n.body,w-BAR) + 12;
     }
     return LH+2*P;
   }
   const foreverLabel=n=>n.text||'wiederhole endlos (loop)';
+  const loopLabel=n=>{ const c=(n.cond||'').trim(); return !c||/^(for\s*\(|solange|bis|wiederhole|für|zähle)/i.test(c)?c:'solange '+c; };
 
   /* ---------- Zeichnen ---------- */
   let out;
@@ -3890,13 +3892,13 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
       C.forEach((c,i)=>{ s+=dList(c.body,k+':c'+i,x+cw*i,y+hh,i===kk-1?w-cw*i:cw,bh); });
       return s;
     } else if(n.t==='while'||n.t==='forever'){
-      const lab=n.t==='while'?n.cond:foreverLabel(n), cl=wrap(lab,w-2*P), hh=cl.length*LH+2*P, foot=n.t==='forever'?12:0;
+      const lab=n.t==='while'?loopLabel(n):foreverLabel(n), cl=wrap(lab,w-2*P), hh=cl.length*LH+2*P, foot=n.t==='forever'?12:0;
       s+=rect(x,y,w,h)+txt(cl,x+P,y);
       if(foot) s+=`<line x1="${x+BAR}" y1="${y+h-foot}" x2="${x+w}" y2="${y+h-foot}" class="l"/>`;
       s+=selBox(k,x,y,w,hh)+'</g>';
       return s+dList(n.body,k+':b',x+BAR,y+hh,w-BAR,h-hh-foot);
     } else if(n.t==='do'){
-      const cl=wrap(n.cond,w-2*P), fh=cl.length*LH+2*P;
+      const cl=wrap(loopLabel(n),w-2*P), fh=cl.length*LH+2*P;
       s+=rect(x,y,w,h)+txt(cl,x+P,y+h-fh);
       s+=selBox(k,x,y+h-fh,w,fh)+'</g>';
       return s+dList(n.body,k+':b',x+BAR,y,w-BAR,h-fh);
@@ -4052,6 +4054,138 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
     img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
   };
 
+  /* ---------- Code → Struktogramm ---------- */
+  function stripComments(src){
+    let o='', i=0; const n=src.length;
+    while(i<n){
+      const c=src[i], d=src[i+1];
+      if(c==='"'||c==="'"){ let j=i+1; while(j<n&&src[j]!==c){ if(src[j]==='\\') j++; j++; } o+=src.slice(i,j+1); i=j+1; continue; }
+      if(c==='/'&&d==='/'){ while(i<n&&src[i]!=='\n') i++; continue; }
+      if(c==='/'&&d==='*'){ const j=src.indexOf('*/',i+2); i=j<0?n:j+2; o+=' '; continue; }
+      o+=c; i++;
+    }
+    return o;
+  }
+  function closeOf(s,i){            // s[i] ist ( { oder [ → Index der passenden Klammer
+    const open=s[i], close={'(':')','{':'}','[':']'}[open]; let d=0;
+    for(let j=i;j<s.length;j++){
+      const c=s[j];
+      if(c==='"'||c==="'"){ j++; while(j<s.length&&s[j]!==c){ if(s[j]==='\\') j++; j++; } continue; }
+      if(c===open) d++; else if(c===close){ d--; if(!d) return j; }
+    }
+    throw new Error('Klammer „'+open+'“ wird nicht geschlossen.');
+  }
+  const norm=t=>t.replace(/\s+/g,' ').trim();
+  function parseCode(src,opt){
+    const s=stripComments(src.replace(/\r/g,''));
+    const ws=i=>{ while(i<s.length&&/\s/.test(s[i])) i++; return i; };
+    const FN=new Set();
+    // 1) oberste Ebene: Funktionen und globale Deklarationen
+    const funcs=[], globals=[]; let i=0;
+    while((i=ws(i))<s.length){
+      if(s[i]==='#'){ const j=s.indexOf('\n',i); const line=s.slice(i,j<0?s.length:j).trim(); if(!/^#include/.test(line)) globals.push(line); i=j<0?s.length:j+1; continue; }
+      let j=i, d=0;
+      while(j<s.length){ const c=s[j];
+        if(c==='"'||c==="'"){ j++; while(j<s.length&&s[j]!==c){ if(s[j]==='\\') j++; j++; } j++; continue; }
+        if(c==='('||c==='[') d++; else if(c===')'||c===']') d--;
+        else if(d===0&&(c===';'||c==='{')) break;
+        j++; }
+      if(j>=s.length){ const rest=norm(s.slice(i)); if(rest) globals.push(rest); break; }
+      const head=norm(s.slice(i,j));
+      if(s[j]===';'){ if(head) globals.push(head+';'); i=j+1; continue; }
+      const k=closeOf(s,j);
+      const m=head.match(/^(?:[\w:<>*&\s]+?\s+[*&]*)?(\w+)\s*\(([^)]*)\)\s*(?:const)?$/);
+      if(m&&!/^(if|while|for|switch)$/.test(m[1])){ funcs.push({name:m[1],params:norm(m[2]),head,a:j+1,b:k}); FN.add(m[1]); i=k+1; continue; }
+      let e=k+1; while(e<s.length&&s[e]!==';'&&/\s/.test(s[e])) e++; if(s[e]===';') e++;
+      globals.push(norm(s.slice(i,e))); i=e;
+    }
+    // 2) Anweisungen
+    function stmtNode(t){
+      const m=t.match(/^(\w+)\s*\(.*\)\s*;$/);
+      if(m&&FN.has(m[1])) return {t:'call',text:t.replace(/;$/,'')};
+      return {t:'stmt',text:t};
+    }
+    function cond(i){ i=ws(i); if(s[i]!=='(') throw new Error('Nach if/while/for/switch fehlt „(“.'); const j=closeOf(s,i); return {c:norm(s.slice(i+1,j)),end:j+1}; }
+    function stmt(i,end){
+      i=ws(i); if(i>=end) return {nodes:[],end:i};
+      if(s[i]==='{'){ const j=closeOf(s,i); return {nodes:list(i+1,j),end:j+1}; }
+      if(s[i]===';') return {nodes:[],end:i+1};
+      const kw=(s.slice(i,i+12).match(/^(if|while|for|do|switch|case|default)\b/)||[])[1];
+      if(kw==='if'){
+        const c=cond(i+2), y=stmt(c.end,end); let e=ws(y.end), no=[];
+        if(/^else\b/.test(s.slice(e,e+5))){ const n=stmt(e+4,end); no=n.nodes; e=n.end; } else e=y.end;
+        return {nodes:[{t:'if',cond:c.c,yes:y.nodes,no}],end:e};
+      }
+      if(kw==='while'){ const c=cond(i+5), b=stmt(c.end,end);
+        if(/^(true|1)$/.test(c.c)) return {nodes:[{t:'forever',text:'wiederhole endlos',body:b.nodes}],end:b.end};
+        return {nodes:[{t:'while',cond:c.c,body:b.nodes}],end:b.end}; }
+      if(kw==='for'){ const c=cond(i+3), b=stmt(c.end,end);
+        if(c.c.replace(/\s/g,'')===';;') return {nodes:[{t:'forever',text:'wiederhole endlos',body:b.nodes}],end:b.end};
+        return {nodes:[{t:'while',cond:'for ('+c.c+')',body:b.nodes}],end:b.end}; }
+      if(kw==='do'){ const b=stmt(i+2,end); let e=ws(b.end); if(!/^while\b/.test(s.slice(e,e+6))) throw new Error('Nach „do { … }“ fehlt „while (…);“.');
+        const c=cond(e+5); e=ws(c.end); if(s[e]===';') e++; return {nodes:[{t:'do',cond:c.c,body:b.nodes}],end:e}; }
+      if(kw==='switch'){ const c=cond(i+6); let b=ws(c.end); if(s[b]!=='{') throw new Error('Nach switch (…) fehlt „{“.');
+        const j=closeOf(s,b), items=list(b+1,j,true), cases=[]; let cur=null;
+        items.forEach(n=>{ if(n.t==='label'){ if(cur&&!cur.body.length&&!cur.closed) cur.label+=', '+n.label; else { cur={label:n.label,body:[]}; cases.push(cur); } }
+          else if(cur){ if(n.t==='stmt'&&n.text==='break;') cur.closed=true; else if(!cur.closed) cur.body.push(n); } });
+        cases.forEach(c=>delete c.closed);
+        if(!cases.length) cases.push({label:'sonst',body:[]});
+        return {nodes:[{t:'switch',expr:c.c,cases}],end:j+1}; }
+      if(kw==='case'||kw==='default'){
+        let j=i; while(j<end&&!(s[j]===':'&&s[j+1]!==':'&&s[j-1]!==':')) j++;
+        const lab=kw==='default'?'sonst':norm(s.slice(i+4,j)); return {nodes:[{t:'label',label:lab}],end:j+1}; }
+      // einfache Anweisung bis ;
+      let j=i, d=0;
+      while(j<end){ const c=s[j];
+        if(c==='"'||c==="'"){ j++; while(j<end&&s[j]!==c){ if(s[j]==='\\') j++; j++; } j++; continue; }
+        if('([{'.includes(c)) d++; else if(')]}'.includes(c)) d--; else if(c===';'&&d<=0) break; j++; }
+      const t=norm(s.slice(i,j))+';';
+      return {nodes:t===';'?[]:[stmtNode(t)],end:j+1};
+    }
+    function list(a,b){ const out=[]; let i=a; let guard=0;
+      while((i=ws(i))<b){ const r=stmt(i,b); out.push(...r.nodes); if(r.end<=i) throw new Error('Code konnte nicht gelesen werden.'); i=r.end; if(++guard>5000) break; }
+      return out; }
+    const fbody=f=>list(f.a,f.b);
+    // 3) Dokumente bauen
+    const docs=[]; const byName=n=>funcs.find(f=>f.name===n);
+    const setup=byName('setup'), loop=byName('loop'), main=byName('main');
+    const decl=opt.decl?globals.map(g=>({t:'stmt',text:/[;{}]$/.test(g)?g:g})):[];
+    if(setup||loop){
+      const body=decl.concat(setup?fbody(setup):[]); body.push({t:'forever',text:'wiederhole endlos (loop)',body:loop?fbody(loop):[]});
+      docs.push({title:(opt.name||'Sketch')+' – Hauptprogramm',body});
+    } else if(main){ docs.push({title:(opt.name||'Programm')+' – main()',body:decl.concat(fbody(main))}); }
+    funcs.filter(f=>!['setup','loop','main'].includes(f.name)).forEach(f=>docs.push({title:'Funktion '+f.name+'('+f.params+')',body:fbody(f)}));
+    if(!docs.length){ const body=list(0,s.length); if(!body.length) throw new Error('Kein Code gefunden.'); docs.push({title:opt.name||'Aus Code',body}); }
+    return docs;
+  }
+  function fromCode(code,name){
+    const docs=parseCode(code,{decl:true,name});
+    docs.forEach(d=>{ d.id=uid(); S.items.push(d); });
+    S.cur=docs[0].id; sel=null; hist=[]; save(); renderPick(); draw(); renderEdit();
+    return docs;
+  }
+  window.uctCodeToSg=(code,name)=>{
+    try { const docs=fromCode(code,name); $('#sgOut').hidden=true;
+      if(typeof showView==='function') showView('struktogramm');
+      (window.toast||alert)(docs.length>1?docs.length+' Struktogramme erstellt (Hauptprogramm + '+(docs.length-1)+' Funktion'+(docs.length>2?'en':'')+') – oben im Auswahlfeld umschalten.':'Struktogramm erstellt.');
+    } catch(e){ (window.toast||alert)('Struktogramm konnte nicht erstellt werden: '+e.message); }
+  };
+  $('#sgFromCode').onclick=()=>{
+    const labCode=(typeof cd!=='undefined'&&cd&&cd.code)||'';
+    showOut(`<p><b>Code einfügen</b> – Arduino-Sketch oder C/C++. Daraus entsteht ein Struktogramm: setup() als Ablauf, loop() als Endlosschleife und jede eigene Funktion als eigenes Struktogramm.</p>
+      <textarea id="sgSrc" spellcheck="false" style="width:100%;min-height:220px;background:var(--panel2);color:var(--text);border:1px solid var(--line2);border-radius:8px;padding:10px;font-family:var(--mono);font-size:13px"></textarea>
+      <label style="display:flex;gap:8px;align-items:center;margin:8px 0;font-size:13.5px"><input type="checkbox" id="sgDecl" checked> Globale Variablen/Konstanten als Anweisungen übernehmen</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${labCode?'<button class="btn mini" id="sgSrcLab">⇣ Labor-Sketch einfügen</button>':''}<button class="btn mini primary" id="sgSrcGo">🧩 Struktogramm erstellen</button></div>`);
+    if($('#sgSrcLab')) $('#sgSrcLab').onclick=()=>{ $('#sgSrc').value=labCode; };
+    $('#sgSrcGo').onclick=()=>{
+      const code=$('#sgSrc').value; if(!code.trim()) return;
+      try { const docs=parseCode(code,{decl:$('#sgDecl').checked,name:(code.trim()===labCode.trim()&&typeof lab!=='undefined'&&lab&&lab.name)||'Aus Code'});
+        docs.forEach(d=>{ d.id=uid(); S.items.push(d); }); S.cur=docs[0].id; sel=null; hist=[]; save(); renderPick(); draw(); renderEdit();
+        showOut('<p>✅ '+(docs.length>1?docs.length+' Struktogramme erstellt: '+docs.map(d=>esc(d.title)).join(' · ')+'. Umschalten oben im Auswahlfeld.':'Struktogramm erstellt.')+' Blöcke kannst du wie gewohnt antippen und bearbeiten.</p>');
+        $('#sgCanvas').scrollIntoView({behavior:'smooth',block:'start'});
+      } catch(e){ showOut('<p style="color:#ffb4ae">❌ '+esc(e.message)+' Prüfe Klammern und Semikolons.</p>'); }
+    };
+  };
   window.uctSgContext=()=>{ let empty=0; const walk=L=>{ if(!L.length){ empty++; return; } L.forEach(n=>{ ['yes','no','body'].forEach(k=>{ if(n[k]) walk(n[k]); }); if(n.cases) n.cases.forEach(c=>walk(c.body)); }); }; walk(doc().body); return {title:doc().title,code:arduinoCode(),empty}; };
   renderPick(); draw(); renderEdit();
   window.addEventListener('resize',()=>{});
@@ -6334,6 +6468,7 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
       <button data-cl="labIno">⬇ Sketch als .ino</button>
       <hr><div class="lb">Vorlage laden</div>
       <div style="padding:0 8px 6px"><select id="labTpl2"></select></div>
+      <hr><div class="lb">Werkzeuge</div><button id="labToSg">🧩 Struktogramm aus Sketch</button>
       <hr><button data-cl="labSound" id="labSnd2"></button></div>`;
     bar.appendChild(menu);
     const pop=$('#labPop');
@@ -6346,6 +6481,7 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
     window.addEventListener('scroll',()=>pop.classList.remove('on'),{passive:true});
     document.addEventListener('click',e=>{ if(!menu.contains(e.target)) pop.classList.remove('on'); });
     pop.querySelectorAll('[data-cl]').forEach(b=>b.onclick=()=>{ $('#'+b.dataset.cl).click(); if(b.dataset.cl!=='labSound') pop.classList.remove('on'); sync(); });
+    $('#labToSg').onclick=()=>{ pop.classList.remove('on'); if(window.uctCodeToSg) window.uctCodeToSg(cd.code, lab.name); };
     $('#labTpl2').onchange=e=>{ const t=$('#labTpl'); t.value=e.target.value; t.dispatchEvent(new Event('change')); pop.classList.remove('on'); };
     const np=$('#netPanel'); if(np) np.open=false;
   }
@@ -6917,7 +7053,7 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
 </div>
 <script>
 (function(){
-  var APP_VERSION = '2.3.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+  var APP_VERSION = '2.4.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
   window.UCT_VERSION = APP_VERSION;
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register('sw.js').catch(function(){});

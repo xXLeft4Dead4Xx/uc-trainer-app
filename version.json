@@ -1,4 +1,4 @@
 {
-  "version": "2.3.0",
-  "notes": "Neu im Labor: Step-up-Wandler (3,3/5 V → bis 28 V) und Lüfter mit MOSFET-Modul (Drehzahl per PWM), dazu die Vorlage „Lüfter-Regelung (24 V über Step-up)“."
+  "version": "2.4.0",
+  "notes": "Neu: Struktogramm aus fertigem Code erstellen (Reiter Struktogramm → „Aus Code erstellen“ oder im Labor unter ⋯). Eigene Funktionen bekommen ein eigenes Struktogramm."
 }
