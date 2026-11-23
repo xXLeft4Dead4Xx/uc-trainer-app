@@ -1235,13 +1235,22 @@ function simRuntime(){
       if(/Cannot read prop|undefined/.test(m)) return line+'Laufzeitfehler: '+m+'\n(Array-Index außerhalb des Bereichs?)';
       return line+'Fehler: '+m;
     }
+    function caseHint(){   // falsche Groß-/Kleinschreibung bei bekannten Namen und Bibliotheken finden
+      const pool=knownNames.concat(LIBS.map(l=>l[2].replace(/\.h$/,'')),['NEO_GRB','NEO_RGB','NEO_KHZ800','INPUT_PULLUP','OUTPUT','INPUT','HIGH','LOW','Serial','delay','millis','pinMode','digitalWrite','digitalRead','analogWrite','analogRead','analogReadMilliVolts']);
+      const low=new Map(pool.map(k=>[k.toLowerCase(),k]));
+      const code=src.replace(/\/\/[^\n]*/g,'').replace(/"(?:\\.|[^"\\])*"/g,'""');
+      const ids=new Set((code.match(/[A-Za-z_]\w*/g)||[]));
+      const exact=new Set(pool); const bad=[...ids].filter(w=>!exact.has(w)&&low.has(w.toLowerCase()));
+      if(!bad.length) return '';
+      return '\nGroß-/Kleinschreibung prüfen – C++ unterscheidet sie: '+bad.slice(0,4).map(w=>'„'+w+'“ → „'+low.get(w.toLowerCase())+'“').join(', ');
+    }
     let fn;
     try{
       fn=new Function('__api','"use strict";\nconst {'+names.join(',')+'} = __api;\nreturn (function*(){\n'+tr.js+'\n;return {setup:typeof setup==="function"?setup:undefined,loop:typeof loop==="function"?loop:undefined};})();');
     }catch(e){
       let m=String(e.message||e);
       if(/end of input/.test(m)) m='Unerwartetes Ende – fehlt eine schließende Klammer } oder )?';
-      else m='Syntaxfehler: '+m+'\n(Prüfe Klammern und Semikolons. Der Simulator versteht nur einen Teil von C++.)';
+      else m='Syntaxfehler: '+m+(caseHint()||'\n(Prüfe Klammern und Semikolons. Der Simulator versteht nur einen Teil von C++.)');
       throw new Error(m);
     }
     let prog;
@@ -7217,7 +7226,7 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
 </div>
 <script>
 (function(){
-  var APP_VERSION = '2.5.1';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+  var APP_VERSION = '2.5.2';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
   window.UCT_VERSION = APP_VERSION;
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register('sw.js').catch(function(){});

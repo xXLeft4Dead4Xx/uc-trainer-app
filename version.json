@@ -1,4 +1,4 @@
 {
-  "version": "2.5.1",
-  "notes": "Fehler behoben: Die Verkabelung im Labor (Von Hand verkabeln) bleibt jetzt nach Updates und beim Neustart der App erhalten."
+  "version": "2.5.2",
+  "notes": "Hilfreichere Fehlermeldung bei falscher Groß-/Kleinschreibung (z. B. Adafruit_Neopixel statt Adafruit_NeoPixel)."
 }
