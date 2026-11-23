@@ -199,6 +199,9 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .waves{opacity:0}
 .comp.sounding .waves{opacity:1}
 .vfan .rotor{transform-origin:35px 35px;animation:fanspin 1s linear infinite;animation-play-state:paused}
+.tftb{background:#111;border:6px solid #222;border-radius:10px;padding:0;display:inline-block;max-width:100%}
+.tftc{display:block;width:min(100%,480px);height:auto;aspect-ratio:auto;image-rendering:auto;touch-action:none;cursor:crosshair;background:#000}
+.tftl{font-size:11px;color:#8a9aa7;text-align:center;padding:3px 0 1px}
 @keyframes fanspin{to{transform:rotate(360deg)}}
 @keyframes wv{from{transform:scale(.96);transform-origin:center}to{transform:scale(1.04)}}
 .comp.lit .lamp{filter:drop-shadow(0 0 6px #ffd60a)}
@@ -541,7 +544,7 @@ function simRuntime(){
     def('compareTo',function(x){ const a=String(this),b=String(x); return a<b?-1:a>b?1:0; });
     def('isEmpty',function(){ return String(this).length===0; });
   })();
-  const ESP_ONLY=['ledcAttach','ledcWrite','ledcSetup','ledcAttachPin','ledcAttachChannel','ledcDetach','touchRead','WiFi','analogReadMilliVolts','analogReadResolution','WIFI_STA','WL_CONNECTED','T0','INPUT_PULLDOWN'];
+  const ESP_ONLY=['Preferences','ledcAttach','ledcWrite','ledcSetup','ledcAttachPin','ledcAttachChannel','ledcDetach','touchRead','WiFi','analogReadMilliVolts','analogReadResolution','WIFI_STA','WL_CONNECTED','T0','INPUT_PULLDOWN'];
 
   function lin(points,t){
     if(!points.length) return 0;
@@ -682,12 +685,17 @@ function simRuntime(){
     s=s.replace(/(^|[^.\w])memcpy\s*\(\s*&?\s*([A-Za-z_][\w.]*(?:\[[^\]]*\])?)\s*,\s*([^;]+?)\s*,\s*([^,;]+)\)\s*;/gm,'$1$2 = __memcpy($2, $3);');
     s=s.replace(/\bserializeJson(?:Pretty)?\s*\(\s*([\w.]+)\s*,\s*([\w.]+)\s*\)\s*;/g,(m,a,b)=>b==='Serial'?'Serial.print(__ser('+a+'));':b+' = __ser('+a+');');
     s=s.replace(/\bStaticJsonDocument\s*<[^>]*>\s+([A-Za-z_]\w*)\s*;/g,'let $1 = new JsonDocument();');
+    const enums=[];
+    s=s.replace(/\benum\s+([A-Za-z_]\w*)?\s*\{([^{}]*)\}\s*;/g,(m,name,body)=>{ let v=-1;
+      const parts=body.split(',').map(x=>x.trim()).filter(Boolean).map(p=>{ const q=p.match(/^([A-Za-z_]\w*)\s*(?:=\s*(-?\w+))?$/); if(!q) return ''; v=q[2]!==undefined?Number(q[2]):v+1; if(isNaN(v)) v=0; return q[1]+' = '+v; }).filter(Boolean);
+      if(name) enums.push(name); return (parts.length?'const '+parts.join(', ')+';':'')+'\n'.repeat((m.match(/\n/g)||[]).length); });
+    enums.forEach(n=>{ s=s.replace(new RegExp('\\b'+n+'\\b(?=\\s+[A-Za-z_*&])','g'),'int'); });
     const structs=[];
     const SZ={char:1,bool:1,boolean:1,byte:1,uint8_t:1,int8_t:1,short:2,int16_t:2,uint16_t:2,word:2,float:4,int:4,long:4,int32_t:4,uint32_t:4,unsigned:4,double:8,int64_t:8,uint64_t:8};
     const defStruct=(name,body,m)=>{
       const fields=[]; let size=0;
       body.split(';').map(x=>x.trim()).filter(Boolean).forEach(f=>{
-        const mm=f.match(/^((?:(?:unsigned|signed|const|volatile)\s+)*[A-Za-z_]\w*)\s+(.+)$/); if(!mm) return;
+        const mm=f.match(/^((?:(?:unsigned|signed|const|volatile)\s+)*[A-Za-z_]\w*)\s*(\*?\s*[A-Za-z_].*)$/); if(!mm) return;
         const ty=mm[1].replace(/^(?:(?:signed|const|volatile)\s+)+/,'').trim(), base=ty.replace(/^unsigned\s+/,'');
         mm[2].split(',').forEach(n=>{ const q=n.trim().match(/^\*?\s*([A-Za-z_]\w*)\s*(?:\[\s*(\w+)\s*\])?$/); if(!q) return;
           const cnt=q[2]?(isNaN(+q[2])?8:+q[2]):0, unit=SZ[base]||4;
@@ -702,7 +710,18 @@ function simRuntime(){
     s=s.replace(/\btypedef\s+struct\s*[A-Za-z_]?\w*\s*\{([^{}]*)\}\s*([A-Za-z_]\w*)\s*;/g,(m,body,name)=>defStruct(name,body,m));
     s=s.replace(/\bstruct\s+([A-Za-z_]\w*)\s*\{([^{}]*)\}\s*;/g,(m,name,body)=>defStruct(name,body,m));
     s=s.replace(/\bchar\s+([A-Za-z_]\w*)\s*\[[^\]]*\]\s*;/g,'let $1 = "";');
+    const splitTop=t=>{ const out=[]; let d=0, a=0; for(let i=0;i<t.length;i++){ const c=t[i]; if('([{'.includes(c)) d++; else if(')]}'.includes(c)) d--; else if(c===','&&!d){ out.push(t.slice(a,i)); a=i+1; } } out.push(t.slice(a)); return out.map(x=>x.trim()).filter(Boolean); };
     structs.forEach(n=>{
+      const re=new RegExp('\\b(?:const\\s+)?(?:struct\\s+)?'+n+'\\s+([A-Za-z_]\\w*)\\s*(\\[\\s*\\w*\\s*\\])?\\s*=\\s*\\{','g'); let mm, out='', last=0;
+      while((mm=re.exec(s))){
+        const st=mm.index+mm[0].length-1; let d=0, j=st; for(;j<s.length;j++){ if(s[j]==='{') d++; else if(s[j]==='}'){ d--; if(!d) break; } }
+        const inner=s.slice(st+1,j); let e=j+1; while(e<s.length&&/\s/.test(s[e])&&s[e]!=='\n') e++; if(s[e]===';') e++;
+        if(!inner.trim()){ continue; }
+        const one=t=>'__initS(__T_'+n+'(), ['+t+'])';
+        const rep=mm[2] ? 'let '+mm[1]+' = ['+splitTop(inner).map(x=>one(x.replace(/^\{|\}$/g,''))).join(', ')+'];' : 'let '+mm[1]+' = '+one(inner)+';';
+        out+=s.slice(last,mm.index)+rep+'\n'.repeat((s.slice(mm.index,e).match(/\n/g)||[]).length); last=e; re.lastIndex=e;
+      }
+      s=out+s.slice(last);
       s=s.replace(new RegExp('\\b(?:struct\\s+)?'+n+'\\s+([A-Za-z_]\\w*)\\s*\\[\\s*(\\w+)\\s*\\]\\s*;','g'),'let $1 = Array.from({length:$2},__T_'+n+');');
       s=s.replace(new RegExp('\\b(?:struct\\s+)?'+n+'\\s+([A-Za-z_]\\w*)\\s*(?:=\\s*\\{\\s*\\})?\\s*;','g'),'let $1 = __T_'+n+'();');
     });
@@ -713,8 +732,9 @@ function simRuntime(){
     s=s.replace(/\b(0[xX][0-9a-fA-F]+)(?:UL|ul|L|l|U|u)\b/g,'$1');
     s=s.replace(/\b(\d+\.\d*|\d+)(?:UL|ul|LU|L|l|U|u|f|F)\b/g,'$1');
     s=s.replace(/\b([A-Za-z_]\w*)::([A-Za-z_]\w*)/g,(m,a,b)=>a==='Adafruit_NeoPixel'?'__NP.'+b:'0');
+    s=s.replace(/\b([A-Za-z_]\w*)\.getTouch\s*\(\s*&\s*([A-Za-z_][\w.]*)\s*,\s*&\s*([A-Za-z_][\w.]*)\s*(?:,[^()]*)?\)/g,'($1.__gt() && (([$2, $3] = [$1.__last.x, $1.__last.y]), true))');
     s=s.replace(/([,(]\s*)&\s*(?=[A-Za-z_])/g,'$1');
-    const CL='Servo|HX711|OneWire|DallasTemperature|DHT|Adafruit_BMP280|Adafruit_BME280|Adafruit_NeoPixel|WebServer|HTTPClient|WiFiClientSecure|WiFiClient|IPAddress|DynamicJsonDocument|JsonDocument|esp_now_peer_info_t';
+    const CL='TFT_eSPI|Preferences|Servo|HX711|OneWire|DallasTemperature|DHT|Adafruit_BMP280|Adafruit_BME280|Adafruit_NeoPixel|WebServer|HTTPClient|WiFiClientSecure|WiFiClient|IPAddress|DynamicJsonDocument|JsonDocument|esp_now_peer_info_t';
     s=s.replace(new RegExp('\\b('+CL+')\\s+([A-Za-z_]\\w*)\\s*=\\s*\\{\\s*\\}\\s*;','g'),'let $2 = new $1();');
     s=s.replace(new RegExp('\\b('+CL+')\\s+([A-Za-z_]\\w*)\\s*=\\s*\\1\\s*\\(([^;]*)\\)\\s*;','g'),'let $2 = new $1($3);');
     s=s.replace(new RegExp('\\b('+CL+')\\s+([A-Za-z_]\\w*)\\s*\\(([^;]*)\\)\\s*;','g'),'let $2 = new $1($3);');
@@ -786,7 +806,7 @@ function simRuntime(){
     if(B.esp && /\bWiFi\s*\./.test(src) && !tr.hasWiFiInclude)
       throw new Error('„WiFi“ wurde in diesem Scope nicht deklariert.\nFehlt oben die Zeile  #include <WiFi.h> ?');
     const LIBS=[['Servo',/(ESP32)?Servo\.h/,B.esp?'ESP32Servo.h':'Servo.h'],['HX711',/HX711\.h/,'HX711.h'],['OneWire',/OneWire\.h/,'OneWire.h'],['DallasTemperature',/DallasTemperature\.h/,'DallasTemperature.h'],
-      ['DHT',/DHT(_U)?\.h/,'DHT.h'],['Adafruit_BMP280',/Adafruit_BMP280\.h/,'Adafruit_BMP280.h'],['Adafruit_BME280',/Adafruit_BME280\.h/,'Adafruit_BME280.h'],['Adafruit_NeoPixel',/Adafruit_NeoPixel\.h/,'Adafruit_NeoPixel.h'],['WebServer',/WebServer\.h/,'WebServer.h'],['HTTPClient',/HTTPClient\.h/,'HTTPClient.h'],['JsonDocument',/ArduinoJson\.h/,'ArduinoJson.h'],['DynamicJsonDocument',/ArduinoJson\.h/,'ArduinoJson.h']];
+      ['DHT',/DHT(_U)?\.h/,'DHT.h'],['Adafruit_BMP280',/Adafruit_BMP280\.h/,'Adafruit_BMP280.h'],['Adafruit_BME280',/Adafruit_BME280\.h/,'Adafruit_BME280.h'],['Adafruit_NeoPixel',/Adafruit_NeoPixel\.h/,'Adafruit_NeoPixel.h'],['WebServer',/WebServer\.h/,'WebServer.h'],['TFT_eSPI',/TFT_eSPI\.h/,'TFT_eSPI.h'],['Preferences',/Preferences\.h/,'Preferences.h'],['HTTPClient',/HTTPClient\.h/,'HTTPClient.h'],['JsonDocument',/ArduinoJson\.h/,'ArduinoJson.h'],['DynamicJsonDocument',/ArduinoJson\.h/,'ArduinoJson.h']];
     if(/\b(?:StaticJsonDocument|deserializeJson|serializeJson)\b/.test(src) && !/ArduinoJson\.h/.test((src.match(/^\s*#\s*include[^\n]*/gm)||[]).join()))
       throw new Error('„deserializeJson“ wurde in diesem Scope nicht deklariert.\nFehlt oben die Zeile  #include <ArduinoJson.h> ?');
     if(/\besp_now_\w+\s*\(/.test(src) && !/esp_now\.h/.test((src.match(/^\s*#\s*include[^\n]*/gm)||[]).join()))
@@ -981,12 +1001,83 @@ function simRuntime(){
       Color(r,g,b){ return NP.Color(r,g,b); } ColorHSV(h,s,v){ return NP.ColorHSV(h,s,v); }
       gamma32(c){ return NP.gamma32(c); } gamma8(x){ return g8(x); } sine8(x){ return NP.sine8(x); }
     }
+    /* ---------- Touch-Display (TFT_eSPI, ILI9341 + XPT2046) ---------- */
+    const tfts={};
+    const c565=c=>{ c=(c>>>0)&0xffff; return 'rgb('+Math.round(((c>>11)&31)*255/31)+','+Math.round(((c>>5)&63)*255/63)+','+Math.round((c&31)*255/31)+')'; };
+    const TFTF={1:[8,'mono'],2:[16,'sans'],4:[26,'sans'],6:[48,'sans'],7:[48,'mono'],8:[75,'sans']};
+    let tftWarned=false;
+    class TFT_eSPI{
+      constructor(w,h){ this.W0=w||240; this.H0=h||320; this.rot=0; this.fg=0xFFFF; this.bg=null; this.sz=1; this.font=1; this.datum=0; this.pad=0; this.cx=0; this.cy=0; this.__last={ok:false,x:0,y:0}; this.on=false; this._mk(); }
+      _mk(){ const w=this.rot&1?this.H0:this.W0, h=this.rot&1?this.W0:this.H0;
+        if(!this.cv) this.cv=document.createElement('canvas'); this.cv.width=w; this.cv.height=h; this.g=this.cv.getContext('2d'); this.g.fillStyle='#000'; this.g.fillRect(0,0,w,h);
+        tfts.main={cv:this.cv,w,h,on:this.on}; }
+      _op(ms){ if(!this.on && !tftWarned){ tftWarned=true; warn('Display: tft.init() fehlt in setup() – ohne init() bleibt der Bildschirm schwarz.'); } tick(ms||0.02); }
+      init(){ call('tft.init'); this.on=true; this._mk(); tick(120); } begin(){ this.init(); }
+      setRotation(r){ this.rot=((r|0)%4+4)%4; this._mk(); } getRotation(){ return this.rot; }
+      width(){ return this.cv.width; } height(){ return this.cv.height; }
+      invertDisplay(){} setSwapBytes(){} setFreeFont(){ this.font=2; } setTextWrap(){} startWrite(){} endWrite(){} loadFont(){} unloadFont(){}
+      color565(r,g,b){ return ((r&0xF8)<<8)|((g&0xFC)<<3)|((b&0xFF)>>3); }
+      _c(c){ return c565(c); }
+      fillScreen(c){ this._op(20); this.g.fillStyle=this._c(c); this.g.fillRect(0,0,this.cv.width,this.cv.height); }
+      fillRect(x,y,w,h,c){ this._op(); this.g.fillStyle=this._c(c); this.g.fillRect(x,y,w,h); }
+      drawRect(x,y,w,h,c){ this._op(); this.g.fillStyle=this._c(c); const G=this.g; G.fillRect(x,y,w,1); G.fillRect(x,y+h-1,w,1); G.fillRect(x,y,1,h); G.fillRect(x+w-1,y,1,h); }
+      drawFastHLine(x,y,w,c){ this._op(0.005); this.g.fillStyle=this._c(c); this.g.fillRect(x,y,w,1); }
+      drawFastVLine(x,y,h,c){ this._op(0.005); this.g.fillStyle=this._c(c); this.g.fillRect(x,y,1,h); }
+      drawPixel(x,y,c){ this._op(0.002); this.g.fillStyle=this._c(c); this.g.fillRect(x,y,1,1); }
+      _path(f){ const G=this.g; G.beginPath(); f(G); }
+      _rr(G,x,y,w,h,r){ r=Math.max(0,Math.min(r,w/2,h/2)); G.moveTo(x+r,y); G.arcTo(x+w,y,x+w,y+h,r); G.arcTo(x+w,y+h,x,y+h,r); G.arcTo(x,y+h,x,y,r); G.arcTo(x,y,x+w,y,r); G.closePath(); }
+      fillRoundRect(x,y,w,h,r,c){ this._op(); this._path(G=>this._rr(G,x,y,w,h,r)); this.g.fillStyle=this._c(c); this.g.fill(); }
+      drawRoundRect(x,y,w,h,r,c){ this._op(); this._path(G=>this._rr(G,x+0.5,y+0.5,w-1,h-1,r)); this.g.strokeStyle=this._c(c); this.g.lineWidth=1; this.g.stroke(); }
+      fillCircle(x,y,r,c){ this._op(); this._path(G=>G.arc(x,y,r+0.5,0,7)); this.g.fillStyle=this._c(c); this.g.fill(); }
+      drawCircle(x,y,r,c){ this._op(); this._path(G=>G.arc(x+0.5,y+0.5,r,0,7)); this.g.strokeStyle=this._c(c); this.g.lineWidth=1; this.g.stroke(); }
+      drawLine(x0,y0,x1,y1,c){ this._op(); this._path(G=>{ G.moveTo(x0+0.5,y0+0.5); G.lineTo(x1+0.5,y1+0.5); }); this.g.strokeStyle=this._c(c); this.g.lineWidth=1; this.g.stroke(); }
+      fillTriangle(a,b,c2,d,e,f,c){ this._op(); this._path(G=>{ G.moveTo(a,b); G.lineTo(c2,d); G.lineTo(e,f); G.closePath(); }); this.g.fillStyle=this._c(c); this.g.fill(); }
+      drawTriangle(a,b,c2,d,e,f,c){ this._op(); this._path(G=>{ G.moveTo(a+0.5,b+0.5); G.lineTo(c2+0.5,d+0.5); G.lineTo(e+0.5,f+0.5); G.closePath(); }); this.g.strokeStyle=this._c(c); this.g.stroke(); }
+      setTextColor(fg,bg){ this.fg=fg; this.bg=(bg===undefined||bg===fg)?null:bg; }
+      setTextSize(n){ this.sz=Math.max(1,n|0); } setTextFont(f){ this.font=f|0||1; } setTextDatum(d){ this.datum=d|0; } getTextDatum(){ return this.datum; }
+      setTextPadding(px){ this.pad=Math.max(0,px|0); } setCursor(x,y,f){ this.cx=x; this.cy=y; if(f) this.font=f; }
+      _font(f){ const F=TFTF[f]||TFTF[2], px=F[0]*this.sz; this.g.font=(F[1]==='mono'?(px*0.95)+'px Menlo, Consolas, monospace':(f>=6?'bold ':'')+(px*0.82)+'px Helvetica, Arial, sans-serif'); return px; }
+      fontHeight(f){ return (TFTF[f||this.font]||TFTF[2])[0]*this.sz; }
+      textWidth(t,f){ this._font(f||this.font); return Math.round(this.g.measureText(String(t)).width); }
+      drawString(t,x,y,f){ this._op(0.1); t=String(t); f=f||this.font; const h=this._font(f), w=Math.round(this.g.measureText(t).width), d=this.datum;
+        const hz=d>=9?d-9:d%3, vt=d>=9?3:Math.floor(d/3);
+        let x0=hz===0?x:hz===1?x-w/2:x-w, y0=vt===0?y:vt===1?y-h/2:vt===2?y-h:y-h*0.8;
+        if(this.bg!==null||this.pad>w){ const pw=Math.max(w,this.pad); const px=hz===0?x:hz===1?x-pw/2:x-pw; if(this.bg!==null){ this.g.fillStyle=this._c(this.bg); this.g.fillRect(Math.floor(px),Math.floor(y0),Math.ceil(pw),Math.ceil(h)); } }
+        this.g.fillStyle=this._c(this.fg); this.g.textBaseline='alphabetic'; this.g.textAlign='left'; this.g.fillText(t,x0,y0+h*0.78); return w; }
+      drawCentreString(t,x,y,f){ const d=this.datum; this.datum=1; const r=this.drawString(t,x,y,f); this.datum=d; return r; }
+      drawCenterString(t,x,y,f){ return this.drawCentreString(t,x,y,f); }
+      drawRightString(t,x,y,f){ const d=this.datum; this.datum=2; const r=this.drawString(t,x,y,f); this.datum=d; return r; }
+      drawNumber(n,x,y,f){ return this.drawString(String(Math.trunc(n)),x,y,f); }
+      drawFloat(v,dp,x,y,f){ return this.drawString(Number(v).toFixed(dp==null?2:dp),x,y,f); }
+      print(v,d){ const t=strFn(v,d), dd=this.datum; this.datum=0; const pd=this.pad; this.pad=0; String(t).split('\n').forEach((ln,i)=>{ if(i){ this.cx=0; this.cy+=this.fontHeight(this.font); } if(ln) this.cx+=this.drawString(ln,this.cx,this.cy,this.font); }); this.datum=dd; this.pad=pd; }
+      println(v,d){ this.print(v===undefined?'':v,d); this.cx=0; this.cy+=this.fontHeight(this.font); }
+      setTouch(cal){ this.cal=cal; } calibrateTouch(){ }
+      __gt(){ tick(0.2); const T=hw.tftTouch?hw.tftTouch():null; this.__last=T&&T.down?{ok:true,x:Math.round(T.x),y:Math.round(T.y)}:{ok:false,x:this.__last.x,y:this.__last.y}; return this.__last.ok; }
+      getTouch(){ return this.__gt(); }
+      getTouchRaw(){ return this.__gt(); }
+    }
+    const TFTK={TFT_BLACK:0x0000,TFT_NAVY:0x000F,TFT_DARKGREEN:0x03E0,TFT_DARKCYAN:0x03EF,TFT_MAROON:0x7800,TFT_PURPLE:0x780F,TFT_OLIVE:0x7BE0,TFT_LIGHTGREY:0xD69A,TFT_DARKGREY:0x7BEF,TFT_BLUE:0x001F,TFT_GREEN:0x07E0,TFT_CYAN:0x07FF,TFT_RED:0xF800,TFT_MAGENTA:0xF81F,TFT_YELLOW:0xFFE0,TFT_WHITE:0xFFFF,TFT_ORANGE:0xFDA0,TFT_GREENYELLOW:0xB7E0,TFT_PINK:0xFE19,TFT_BROWN:0x9A60,TFT_GOLD:0xFEA0,TFT_SILVER:0xC618,TFT_SKYBLUE:0x867D,TFT_VIOLET:0x915C,TFT_TRANSPARENT:0x0120,
+      TL_DATUM:0,TC_DATUM:1,TR_DATUM:2,ML_DATUM:3,CL_DATUM:3,MC_DATUM:4,CC_DATUM:4,MR_DATUM:5,CR_DATUM:5,BL_DATUM:6,BC_DATUM:7,BR_DATUM:8,L_BASELINE:9,C_BASELINE:10,R_BASELINE:11};
+    /* ---------- Preferences (ESP32-Flash, im Simulator dauerhaft im Browser gespeichert) ---------- */
+    const PREFK='uct-prefs-v1';
+    const prefAll=()=>{ try{ return JSON.parse(localStorage.getItem(PREFK))||{}; }catch(e){ return {}; } };
+    class Preferences{
+      begin(ns){ call('prefs.begin'); this.ns=String(ns||'default'); return true; } end(){}
+      _r(){ return prefAll()[this.ns]||{}; } _w(o){ const a=prefAll(); a[this.ns]=o; try{ localStorage.setItem(PREFK,JSON.stringify(a)); }catch(e){} }
+      _put(k,v){ if(!this.ns){ warn('Preferences: begin(...) fehlt.'); return 0; } const o=this._r(); o[k]=v; this._w(o); tick(5); return 1; }
+      _get(k,d){ const o=this._r(); return k in o?o[k]:(d===undefined?0:d); }
+      isKey(k){ return k in this._r(); } remove(k){ const o=this._r(); delete o[k]; this._w(o); return true; } clear(){ this._w({}); return true; }
+    }
+    ['Int','UInt','Long','ULong','Long64','ULong64','Short','UShort','Char','UChar','Float','Double','Bool','String'].forEach(T=>{
+      Preferences.prototype['put'+T]=function(k,v){ return this._put(k,T==='Bool'?!!v:T==='String'?String(v):Number(v)); };
+      Preferences.prototype['get'+T]=function(k,d){ const v=this._get(k,d===undefined?(T==='String'?'':T==='Bool'?false:0):d); return T==='Bool'?!!v:T==='String'?String(v):Number(v); };
+    });
     const strFn=(x,d)=>{ if(typeof x==='number'){ if(d!==undefined && Number.isInteger(x) && (d===2||d===8||d===16)) return (x>>>0).toString(d).toUpperCase(); if(d===undefined && Number.isInteger(x)) return String(x); return x.toFixed(d===undefined?2:d); } if(typeof x==='boolean') return x?'1':'0'; return x===undefined?'':String(x); };
     const api={
       HIGH:1,LOW:0,INPUT:0,OUTPUT:1,INPUT_PULLUP:2,
       DEC:10,HEX:16,OCT:8,BIN:2,PI:Math.PI,TWO_PI:2*Math.PI,HALF_PI:Math.PI/2,DEG_TO_RAD:Math.PI/180,RAD_TO_DEG:180/Math.PI,
       NULL:null,nullptr:null,
-      Serial:S, Servo,
+      Serial:S, Servo, TFT_eSPI, Preferences, __initS:(o,a)=>{ const k=Object.keys(o); a.forEach((v,i)=>{ if(i<k.length) o[k[i]]=v; }); return o; }, ...TFTK,
       __int:x=>typeof x==='number'?Math.trunc(x):typeof x==='boolean'?+x:x,
       __lp:()=>{ t+=0.0005; if(t>=limit) throw STOP; return 0; },
       __D:function*(ms){ api.delay(ms); yield 1; },
@@ -1240,7 +1331,7 @@ function simRuntime(){
       const low=new Map(pool.map(k=>[k.toLowerCase(),k]));
       const code=src.replace(/\/\/[^\n]*/g,'').replace(/"(?:\\.|[^"\\])*"/g,'""');
       const ids=new Set((code.match(/[A-Za-z_]\w*/g)||[]));
-      const exact=new Set(pool); const bad=[...ids].filter(w=>!exact.has(w)&&low.has(w.toLowerCase()));
+      const exact=new Set(pool); const declared=w=>new RegExp('\\b[A-Za-z_]\\w*[\\s*&]+'+w+'\\s*[(;=,\\[)]').test(code); const bad=[...ids].filter(w=>!exact.has(w)&&low.has(w.toLowerCase())&&!declared(w));
       if(!bad.length) return '';
       return '\nGroß-/Kleinschreibung prüfen – C++ unterscheidet sie: '+bad.slice(0,4).map(w=>'„'+w+'“ → „'+low.get(w.toLowerCase())+'“').join(', ');
     }
@@ -1268,7 +1359,7 @@ function simRuntime(){
     }
     return {
       get t(){return t;}, get error(){return error;}, get done(){return done;}, get partial(){return curLine;},
-      runUntil, events, lines, warnings, modes, out, calls, args, tones, servos, strips, net:api.__netIf||null,
+      runUntil, events, lines, warnings, modes, out, calls, args, tones, servos, strips, tfts, net:api.__netIf||null,
       take(){ return {events:events.splice(0), lines:lines.splice(0), warnings:warnings.splice(0)}; }
     };
   }
@@ -2507,7 +2598,12 @@ Object.assign(COMP,{
     info:'DC-Lüfter (2-/3-Draht). Er braucht viel mehr Strom (24 V ≈ 100 mA, 12 V ≈ 150 mA) als ein Pin liefern kann (max. 20–40 mA) – deshalb über ein Logic-Level-MOSFET-Modul (z. B. IRLZ44N, oder Modul mit „IRF520“ nur bei 5-V-Boards) schalten: Lüfter + an die Versorgung (z. B. 24 V vom Step-up-Wandler), Lüfter − an den MOSFET (Drain), Source an GND, Gate (SIG) an einen PWM-Pin. Freilaufdiode (1N4007/1N5819) parallel zum Lüfter, Kathode an +. Alle GNDs verbinden! Mit analogWrite() lässt sich die Drehzahl regeln – unter ca. 25 % läuft der Lüfter meist nicht an.',
     code:'const int LUEFTER = 9;          // PWM-Pin → MOSFET-Gate\n\npinMode(LUEFTER, OUTPUT);       // in setup()\nanalogWrite(LUEFTER, 255);      // volle Drehzahl\nanalogWrite(LUEFTER, 120);      // ca. halbe Drehzahl\nanalogWrite(LUEFTER, 0);        // aus'}
 });
-CATS.splice(0,CATS.length,'Ausgabe','LED-Streifen','Eingabe','Sensor','Temperatur & Luft','Wiegen','Versorgung');
+COMP.tft={name:'Touch-Display 2,8″ (ILI9341 + Touch)',cat:'Anzeige',wide:true,pins:[],props:{},
+  icon:svgI('<rect x="2" y="5" width="28" height="22" rx="2" fill="#222" stroke="#666"/><rect x="5" y="8" width="22" height="16" fill="#0a5fa8"/><rect x="7" y="10" width="9" height="4" fill="#35d07f"/><rect x="7" y="16" width="16" height="2" fill="#fff"/><circle cx="23" cy="12" r="2" fill="#ffb020"/>'),
+  info:'2,8″-TFT (320 × 240) mit ILI9341-Treiber und XPT2046-Touch, Bibliothek TFT_eSPI. Die Pins stehen nicht im Sketch, sondern in der Datei User_Setup.h der Bibliothek (ESP32: SCK 18, MISO 19, MOSI 23, CS 15, DC 2, RST 4, TOUCH_CS 21). Im Simulator kannst du direkt auf das Display tippen – getTouch() liefert dann die Koordinaten. Vor dem ersten echten Einsatz das Beispiel „Touch_calibrate“ laufen lassen und die 5 Werte mit tft.setTouch(calData) setzen.',
+  code:'#include <TFT_eSPI.h>\nTFT_eSPI tft;\n\ntft.init();                       // in setup()\ntft.setRotation(1);               // Querformat 320 × 240\ntft.fillScreen(TFT_BLACK);\ntft.setTextColor(TFT_WHITE, TFT_BLACK);\ntft.drawString("Hallo!", 10, 10, 4);\n\nuint16_t x, y;                    // in loop()\nif (tft.getTouch(&x, &y)) {\n  tft.fillCircle(x, y, 3, TFT_YELLOW);\n}'};
+INIT_ST.tft={};
+CATS.splice(0,CATS.length,'Ausgabe','Anzeige','LED-Streifen','Eingabe','Sensor','Temperatur & Luft','Wiegen','Versorgung');
 Object.assign(INIT_ST,{boost:{vout:24},fan:{},ntc:{t:25},ds18b20:{t:21.5},dht:{t:22.4,h:48},bme:{t:20.5,p:1013.2,h:52},hx711:{w:0}});
 const CTL={
   boost:c=>[{k:'vout',label:'Poti U_aus',min:3,max:28,step:0.1,u:' V'}],
@@ -2987,6 +3083,218 @@ void loop() {
 `}
 ];
 
+TEMPLATES.push({name:'Filament-Trockner (Touch-Display)',board:'esp32',comps:[['tft',{}],['hx711',{dt:32,sck:33}],['dht',{data:27},{model:'DHT22'}],['strip',{din:5},{count:'16'}]],code:`#include <TFT_eSPI.h>
+#include "HX711.h"
+#include <Adafruit_NeoPixel.h>
+#include <DHT.h>
+#include <Preferences.h>
+
+// ---------- Pins ----------
+const int HX_DT = 32, HX_SCK = 33;
+const int LED_PIN = 5, LED_ANZ = 16;
+const int DHT_PIN = 27;
+
+TFT_eSPI tft;
+HX711 waage;
+Adafruit_NeoPixel streifen(LED_ANZ, LED_PIN, NEO_GRB + NEO_KHZ800);
+DHT dht(DHT_PIN, DHT22);
+Preferences prefs;
+
+// ---------- Kalibrierung ----------
+long offsetWaage = 84213;                 // Nullpunkt (Tara-Taste speichert neu)
+const float FAKTOR = 419.6;               // Kalibrierfaktor Waage
+uint16_t calData[5] = {300, 3500, 300, 3500, 7};  // aus "Touch_calibrate" eintragen!
+
+// ---------- Einstellungen ----------
+struct Material { const char* name; float zielRH; };
+Material mats[] = { {"PLA", 20}, {"PETG", 15}, {"ABS", 15}, {"TPU", 10}, {"Nylon", 10} };
+const int MAT_ANZ = 5;
+int matIdx = 0;
+float zielRH = 20;                        // Ziel-Luftfeuchte in %
+const float LEER_GRENZE = 10;             // unter 10 g gilt die Waage als leer
+
+// ---------- Messwerte & Zustand ----------
+float gewicht = 0, feuchte = NAN, temp = NAN;
+float startRH = NAN, startGewicht = NAN;
+float fortschritt = 0;                    // 0.0 … 1.0
+enum Zustand { LEER, TROCKNET, FERTIG };
+Zustand zustand = LEER;
+
+unsigned long tWaage = 0, tDHT = 0, tLED = 0, tTouch = 0, tAnzeige = 0;
+int laufPos = 0;
+bool blinkAn = false;
+
+// ---------- Touch-Buttons ----------
+struct Button { int x, y, w, h; const char* text; };
+Button bMinus  = {  5, 185, 60, 50, "-"   };
+Button bPlus   = { 70, 185, 60, 50, "+"   };
+Button bMat    = {135, 185, 80, 50, "Mat." };
+Button bNeu    = {220, 185, 45, 50, "Neu" };
+Button bTara   = {270, 185, 45, 50, "Tara"};
+
+bool getroffen(Button &b, uint16_t x, uint16_t y) {
+  return x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
+}
+
+void zeichneButton(Button &b, uint16_t farbe) {
+  tft.fillRoundRect(b.x, b.y, b.w, b.h, 8, farbe);
+  tft.setTextColor(TFT_BLACK, farbe);
+  tft.setTextDatum(MC_DATUM);
+  tft.drawString(b.text, b.x + b.w / 2, b.y + b.h / 2, 2);
+}
+
+void zeichneOberflaeche() {
+  tft.fillScreen(TFT_BLACK);
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextColor(TFT_CYAN, TFT_BLACK);
+  tft.drawString("Filament-Trockner", 8, 6, 2);
+  zeichneButton(bMinus, TFT_LIGHTGREY);
+  zeichneButton(bPlus,  TFT_LIGHTGREY);
+  zeichneButton(bMat,   TFT_CYAN);
+  zeichneButton(bNeu,   TFT_ORANGE);
+  zeichneButton(bTara,  TFT_YELLOW);
+}
+
+void zeichneWerte() {
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextPadding(150);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.drawString("Gewicht: " + String(gewicht, 1) + " g", 8, 30, 2);
+  tft.drawString("Feuchte: " + (isnan(feuchte) ? String("--") : String(feuchte, 1)) + " %", 8, 52, 2);
+  tft.drawString("Temp:    " + (isnan(temp) ? String("--") : String(temp, 1)) + " C", 8, 74, 2);
+  float verlust = isnan(startGewicht) ? 0 : startGewicht - gewicht;
+  tft.drawString("Wasser raus: " + String(verlust, 1) + " g", 8, 96, 2);
+
+  tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+  tft.drawString(String(mats[matIdx].name) + "  Ziel: " + String(zielRH, 0) + " %", 170, 30, 2);
+  const char* st = zustand == LEER ? "Waage leer" : zustand == FERTIG ? "TROCKEN!" : "trocknet ...";
+  tft.setTextColor(zustand == FERTIG ? TFT_GREEN : TFT_ORANGE, TFT_BLACK);
+  tft.drawString(st, 170, 52, 2);
+  tft.setTextPadding(0);
+
+  // Fortschrittsbalken rot → grün
+  int bx = 8, by = 130, bw = 304, bh = 26;
+  tft.drawRect(bx, by, bw, bh, TFT_DARKGREY);
+  int voll = (int)(fortschritt * (bw - 4));
+  for (int x = 0; x < bw - 4; x++) {
+    float f = (float)x / (bw - 4);
+    uint16_t c = x < voll ? tft.color565(255 * (1 - f), 255 * f, 0) : TFT_BLACK;
+    tft.drawFastVLine(bx + 2 + x, by + 2, bh - 4, c);
+  }
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextColor(TFT_WHITE);
+  tft.drawString(String((int)(fortschritt * 100)) + " %", bx + bw / 2, by + bh / 2, 2);
+}
+
+void speichern() {
+  prefs.putInt("mat", matIdx);
+  prefs.putFloat("ziel", zielRH);
+  prefs.putLong("offset", offsetWaage);
+}
+
+void neueTrocknung() {
+  startRH = feuchte;
+  startGewicht = gewicht;
+  fortschritt = 0;
+  zustand = TROCKNET;
+}
+
+// ---------- LEDs ----------
+uint32_t verlaufsFarbe(int i) {           // LED 0 = rot … LED 15 = grün
+  float f = (float)i / (LED_ANZ - 1);
+  return streifen.Color(255 * (1 - f), 255 * f, 0);
+}
+
+void ledsAktualisieren() {
+  if (zustand == LEER) {                  // gelb blinken
+    if (millis() - tLED < 500) return;
+    tLED = millis();
+    blinkAn = !blinkAn;
+    if (blinkAn) streifen.fill(streifen.Color(255, 160, 0)); else streifen.clear();
+    streifen.show();
+    return;
+  }
+  if (zustand == FERTIG) {                // dauerhaft grün
+    streifen.fill(streifen.Color(0, 255, 0));
+    streifen.show();
+    return;
+  }
+  // TROCKNET: Fortschritt rot → grün mit laufendem Lichtpunkt
+  if (millis() - tLED < 80) return;
+  tLED = millis();
+  int an = max(1, (int)round(fortschritt * LED_ANZ));
+  streifen.clear();
+  for (int i = 0; i < an; i++) streifen.setPixelColor(i, verlaufsFarbe(i));
+  laufPos = (laufPos + 1) % an;
+  streifen.setPixelColor(laufPos, streifen.Color(255, 255, 255));   // Lauflicht-Punkt
+  streifen.show();
+}
+
+// ---------- Touch ----------
+void touchPruefen() {
+  uint16_t x, y;
+  if (!tft.getTouch(&x, &y) || millis() - tTouch < 300) return;
+  tTouch = millis();
+  if (getroffen(bMinus, x, y)) { zielRH = max(5.0f, zielRH - 1); speichern(); }
+  if (getroffen(bPlus,  x, y)) { zielRH = min(60.0f, zielRH + 1); speichern(); }
+  if (getroffen(bMat,   x, y)) { matIdx = (matIdx + 1) % MAT_ANZ; zielRH = mats[matIdx].zielRH; speichern(); }
+  if (getroffen(bNeu,   x, y) && zustand != LEER) neueTrocknung();
+  if (getroffen(bTara,  x, y)) { waage.tare(10); offsetWaage = waage.get_offset(); speichern(); }
+  zeichneWerte();
+}
+
+// ---------- Setup & Loop ----------
+void setup() {
+  Serial.begin(9600);
+  prefs.begin("trockner", false);
+  matIdx = prefs.getInt("mat", 0);
+  zielRH = prefs.getFloat("ziel", mats[matIdx].zielRH);
+  offsetWaage = prefs.getLong("offset", offsetWaage);
+
+  waage.begin(HX_DT, HX_SCK);
+  waage.set_offset(offsetWaage);
+  waage.set_scale(FAKTOR);
+  dht.begin();
+  streifen.begin();
+  streifen.setBrightness(80);
+
+  tft.init();
+  tft.setRotation(1);                     // Querformat 320 × 240
+  tft.setTouch(calData);
+  zeichneOberflaeche();
+}
+
+void loop() {
+  if (millis() - tWaage >= 500) {         // Waage 2× pro Sekunde
+    tWaage = millis();
+    gewicht = waage.get_units(3);
+  }
+  if (millis() - tDHT >= 2000) {          // DHT22 höchstens alle 2 s
+    tDHT = millis();
+    float h = dht.readHumidity(), t = dht.readTemperature();
+    if (!isnan(h)) feuchte = h;
+    if (!isnan(t)) temp = t;
+  }
+
+  // Zustand bestimmen
+  if (gewicht < LEER_GRENZE) {
+    zustand = LEER; startRH = NAN; startGewicht = NAN; fortschritt = 0;
+  } else if (zustand == LEER && !isnan(feuchte)) {
+    neueTrocknung();                      // Filament aufgelegt → Trocknung startet
+  }
+  if (zustand != LEER && !isnan(feuchte) && !isnan(startRH)) {
+    if (feuchte <= zielRH) { fortschritt = 1; zustand = FERTIG; }
+    else {
+      fortschritt = constrain((startRH - feuchte) / (startRH - zielRH), 0.0, 1.0);
+      if (zustand == FERTIG && feuchte > zielRH + 2) zustand = TROCKNET;   // kleine Hysterese
+    }
+  }
+
+  ledsAktualisieren();
+  touchPruefen();
+  if (millis() - tAnzeige >= 1000) { tAnzeige = millis(); zeichneWerte(); }
+}
+`});
 TEMPLATES.push({name:'Lüfter-Regelung (24 V über Step-up)',board:'uno',comps:[['tmp36',{o:14}],['boost',{},{inp:'5 V'}],['fan',{pwm:9},{volt:'24 V'}]],code:`// Temperaturgesteuerter 24-V-Lüfter
 // TMP36 an A0, MOSFET-Modul (Gate) an Pin 9,
 // Lüfter bekommt 24 V vom Step-up-Wandler.
@@ -3072,6 +3380,7 @@ function visHTML(c){
     case 'tmp36': return '<svg viewBox="0 0 70 70"><path d="M20 46V30a15 15 0 0 1 30 0v16z" fill="#1c1c1c"/><path d="M27 46v20M35 46v20M43 46v20" stroke="#9aa" stroke-width="2.5"/><text x="23" y="38" font-size="8" fill="#888">TMP</text><rect class="therm" x="58" y="10" width="6" height="48" rx="3" fill="#333"/><rect class="thf" x="58" y="40" width="6" height="18" rx="3" fill="#ff453a"/></svg><input type="range" min="-20" max="80" data-range="1" aria-label="Temperatur">';
     case 'pir': return '<svg viewBox="0 0 70 70"><rect x="8" y="44" width="54" height="16" fill="#1d6b3a"/><path d="M14 44a21 21 0 0 1 42 0z" fill="#eee"/><path d="M20 36h30M24 28h22" stroke="#ccc" stroke-width="1.2"/><circle class="pled" cx="56" cy="52" r="3" fill="#400"/></svg><button class="btn mini" data-pir="1">👋 Bewegung</button>';
     case 'hcsr04': return '<svg viewBox="0 0 110 60"><rect x="4" y="8" width="102" height="44" rx="3" fill="#1f5fbf"/><circle cx="30" cy="30" r="16" fill="#ddd" stroke="#888" stroke-width="3"/><circle cx="80" cy="30" r="16" fill="#ddd" stroke="#888" stroke-width="3"/><circle cx="30" cy="30" r="8" fill="#555"/><circle cx="80" cy="30" r="8" fill="#555"/></svg><input type="range" min="2" max="300" data-range="1" aria-label="Abstand in cm">';
+    case 'tft': return '<div class="tftb"><canvas class="tftc" width="320" height="240" data-tft="1"></canvas><div class="tftl">ILI9341 · 320 × 240 · tippen = Touch</div></div>';
     case 'strip': { const n=+c.props.count; let h='';
       if(c.props.form==='Ring'){ const R=n>16?62:n>12?50:42, W=2*R+30; h='<svg viewBox="0 0 '+W+' '+W+'" class="vstrip ring" style="max-width:'+(W*1.4)+'px"><circle cx="'+W/2+'" cy="'+W/2+'" r="'+(R+9)+'" fill="#151515"/><circle cx="'+W/2+'" cy="'+W/2+'" r="'+(R-9)+'" fill="#0a0f13"/>';
         for(let i=0;i<n;i++){ const a=i/n*2*Math.PI-Math.PI/2; h+='<circle class="px" cx="'+(W/2+R*Math.cos(a)).toFixed(1)+'" cy="'+(W/2+R*Math.sin(a)).toFixed(1)+'" r="5.5" fill="#2a2a2a"/>'; }
@@ -3120,6 +3429,10 @@ function cardWarnings(c){
   if(c.type==='servo' && b==='esp32') w.push('Am ESP32 die Bibliothek „ESP32Servo“ installieren und #include <ESP32Servo.h> verwenden.');
   if(c.type==='strip'){ const n=+c.props.count, mA=n*60; if(mA>400) w.push('Bei Weiß und voller Helligkeit bis zu '+mA+' mA ('+(mA/1000).toFixed(1)+' A) – nicht übers Board versorgen, eigenes 5-V-Netzteil verwenden!'); if(b==='esp32') w.push('Der ESP32 liefert nur 3,3-V-Daten – meist geht das, sonst Pegelwandler (z. B. 74AHCT125) einsetzen.'); }
   if(c.type==='strip12' && b==='uno' && Object.values(c.pins).some(p=>!PINMETA.uno.pwm.includes(p))) w.push('Zum Dimmen PWM-Pins (~) verwenden: 3, 5, 6, 9, 10, 11.');
+  if(c.type==='tft'){
+    if(b==='uno') w.push('Auf dem Arduino Uno reicht der Speicher für ein Farb-Touchdisplay mit TFT_eSPI kaum – nimm einen ESP32.');
+    else { const SPI=[18,19,23,15,2,4,21]; const clash=cd.comps.filter(x=>x!==c).flatMap(x=>Object.values(x.pins||{}).filter(p=>SPI.includes(p)).map(p=>p)); if(clash.length) w.push('GPIO '+[...new Set(clash)].join(', ')+' wird vom Display (SPI/Touch) benutzt – andere Bauteile auf freie Pins legen (z. B. 32, 33, 25, 26, 27).'); }
+  }
   if(c.type==='boost'){
     if(c.props.inp==='3,3 V') w.push(b==='uno'?'Der 3,3-V-Pin des Uno liefert nur ca. 50 mA – für einen Lüfter viel zu wenig. Den 5-V-Pin oder ein eigenes Netzteil nehmen.':'Der 3V3-Regler des ESP32-Boards liefert nur ca. 500–800 mA, davon braucht der ESP32 selbst bis 250 mA (WLAN). Besser VIN (5 V vom USB) nehmen.');
     if(c.st.vout<(c.props.inp==='3,3 V'?3.3:5)) w.push('Ein Step-up-Wandler kann die Spannung nur erhöhen – U_aus ist dann ungefähr U_ein.');
@@ -3260,6 +3573,7 @@ function liveHW(dev,idx){
       return null;
     },
     touch(p){ const c=at(p).find(c=>c.type==='touch'); if(!c) return null; return c.st.pressed?14+Math.random()*4:60+Math.random()*5; },
+    tftTouch(){ const c=dev.comps.find(c=>c.type==='tft'); return c?(c.st.touch||{down:false}):null; },
     hx711(d,sk){ const c=dev.comps.find(c=>c.type==='hx711'&&c.pins.dt===d&&c.pins.sck===sk); if(!c) return null; return {raw:84213+c.st.w*(c.props.cap==='20 kg'?104.9:419.6)}; },
     onewire(p){ const c=dev.comps.find(c=>c.type==='ds18b20'&&c.pins.dq===p); return c?{t:c.st.t,pullup:!!c.props.pullup}:null; },
     dht(p){ const c=dev.comps.find(c=>c.type==='dht'&&c.pins.data===p); return c?{model:c.props.model==='DHT11'?11:22,t:c.st.t,h:c.st.h}:null; },
@@ -3312,6 +3626,10 @@ function updateComps(){
         el.querySelector('.pled').setAttribute('fill',on?'#ff453a':'#400');
         txt=on?'Bewegung → HIGH ('+((c.st.until-t)/1000).toFixed(1)+' s)':'ruhig → LOW'; break; }
       case 'hcsr04': txt=c.st.val+' cm → Echo ≈ '+Math.round(c.st.val*58.2)+' µs'; break;
+      case 'tft': { const cv=el.querySelector('.tftc'), D=m&&m.tfts&&m.tfts.main;
+        if(D&&D.cv){ if(cv.width!==D.cv.width||cv.height!==D.cv.height){ cv.width=D.cv.width; cv.height=D.cv.height; } cv.getContext('2d').drawImage(D.cv,0,0); txt=D.cv.width+' × '+D.cv.height+(c.st.touch&&c.st.touch.down?' · Touch '+Math.round(c.st.touch.x)+', '+Math.round(c.st.touch.y):''); }
+        else { const g=cv.getContext('2d'); g.fillStyle='#05080a'; g.fillRect(0,0,cv.width,cv.height); txt=m?'kein Bild – TFT_eSPI tft; und tft.init() im Sketch?':'aus'; }
+        break; }
       case 'strip': { const n=+c.props.count, S=m&&m.strips[c.pins.din]; const px=el.querySelectorAll('.px'); let mA=0; const chipO=c.props.chip.indexOf('GRB')>=0?'GRB':'RGB';
         for(let i=0;i<n;i++){ let v=S&&i<S.n?S.shown[i]:0; let r=(v>>16)&255, g=(v>>8)&255, b=v&255; if(S&&S.order!==chipO){ const x=r; r=g; g=x; }
           mA+=(r+g+b)/255*20+(S?1:0); const bo=x=>Math.round(255*Math.sqrt(x/255)); const col=(r|g|b)?'rgb('+bo(r)+','+bo(g)+','+bo(b)+')':'#2a2a2a';
@@ -3699,6 +4017,13 @@ const press=(e,down)=>{
   else if(c.st.pressed){ c.st.pressed=false; c.st.rT=curM()?curM().t:0; }
   updateComps();
 };
+// Touch-Display: Antippen wird an getTouch() weitergegeben
+const tftPt=(e,down)=>{ const cv=e.target.closest&&e.target.closest('canvas[data-tft]'); if(!cv) return false; const c=cOf(cv); if(!c) return false;
+  const r=cv.getBoundingClientRect(); c.st.touch={down, x:(e.clientX-r.left)*cv.width/r.width, y:(e.clientY-r.top)*cv.height/r.height}; return true; };
+compsHost.addEventListener('pointerdown',e=>{ if(tftPt(e,true)){ e.preventDefault(); try{ e.target.setPointerCapture(e.pointerId); }catch(_){} updateComps(); } });
+compsHost.addEventListener('pointermove',e=>{ const cv=e.target.closest&&e.target.closest('canvas[data-tft]'); if(cv){ const c=cOf(cv); if(c&&c.st.touch&&c.st.touch.down) tftPt(e,true); } });
+compsHost.addEventListener('pointerup',e=>{ if(tftPt(e,false)) updateComps(); });
+compsHost.addEventListener('pointercancel',e=>{ tftPt(e,false); });
 compsHost.addEventListener('pointerdown',e=>press(e,true));
 compsHost.addEventListener('pointerup',e=>press(e,false));
 compsHost.addEventListener('pointercancel',e=>press(e,false));
@@ -7226,7 +7551,7 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
 </div>
 <script>
 (function(){
-  var APP_VERSION = '2.5.2';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+  var APP_VERSION = '2.6.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
   window.UCT_VERSION = APP_VERSION;
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register('sw.js').catch(function(){});
