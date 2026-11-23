@@ -1,4 +1,4 @@
 {
-  "version": "2.2.1",
-  "notes": "Fehler behoben: Im Code-Editor saß der Schreib-Cursor auf dem iPad teilweise mitten im Wort statt am Zeilenende."
+  "version": "2.2.2",
+  "notes": "Bessere Fehlermeldung, wenn bei Vergleichen wie „>= 18 && <= 25“ die Variable fehlt."
 }

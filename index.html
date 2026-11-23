@@ -578,6 +578,9 @@ function simRuntime(){
     for(let i=0;i<lines.length;i++){
       const L=lines[i].trim();
       if(!L || L.startsWith('#')) continue;
+      { const mm=L.match(/(&&|\|\||\()\s*(<=|>=|==|!=|<(?![<=])|>(?![>=]))/) || L.match(/(=)\s*(<=|>=|==|<(?![<=])|>(?![>=]))/);
+        if(mm){ const op=mm[2];
+          throw new Error('Zeile '+(i+1)+': Vor „'+op+'“ fehlt etwas.\n  → '+(olines[i]||'').trim()+'\nIn C++ braucht jeder Vergleich links UND rechts einen Wert – man kann nicht wie in Mathe „18 ≤ T ≤ 25“ zusammenziehen.\nRichtig z. B.: if (Temperatur >= 18 && Temperatur <= 25)\nEin einzelnes „=“ ist eine Zuweisung, kein Vergleich (Vergleich auf Gleichheit: „==“).'); } }
       const c=L.slice(-1);
       if(/\)\s*\}/.test(L.replace(/\(\s*\)\s*\{\s*\}/g,''))) throw new Error('Zeile '+(i+1)+': Vor „}“ fehlt vermutlich ein Semikolon „;“\n  → '+(olines[i]||'').trim());
       if('{};,:([+-*/%=&|<>?!.\\'.includes(c)) continue;
@@ -6801,7 +6804,7 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
 </div>
 <script>
 (function(){
-  var APP_VERSION = '2.2.1';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+  var APP_VERSION = '2.2.2';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
   window.UCT_VERSION = APP_VERSION;
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register('sw.js').catch(function(){});
