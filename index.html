@@ -198,6 +198,8 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .comp.sounding .waves{animation:wv .25s infinite alternate}
 .waves{opacity:0}
 .comp.sounding .waves{opacity:1}
+.vfan .rotor{transform-origin:35px 35px;animation:fanspin 1s linear infinite;animation-play-state:paused}
+@keyframes fanspin{to{transform:rotate(360deg)}}
 @keyframes wv{from{transform:scale(.96);transform-origin:center}to{transform:scale(1.04)}}
 .comp.lit .lamp{filter:drop-shadow(0 0 6px #ffd60a)}
 .push{width:70px;height:70px;border-radius:12px;background:#2a2f33;border:3px solid #555;display:grid;place-items:center;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none}
@@ -2479,9 +2481,22 @@ Object.assign(COMP,{
     info:'Wägezelle (Biegebalken) mit HX711-Verstärker (24-Bit-ADC). Zelle → HX711: Rot E+, Schwarz E−, Weiß A−, Grün A+. HX711 → Board: VCC, GND, DT und SCK an zwei beliebige Pins. Jede Zelle muss mit einem bekannten Gewicht kalibriert werden. Bibliothek: HX711 von Bogdan Necula.',
     code:'#include "HX711.h"\nHX711 waage;\n\nwaage.begin(3, 2);          // DT, SCK\nwaage.set_scale(419.6);     // Kalibrierfaktor\nwaage.tare();               // Nullpunkt\nfloat g = waage.get_units(5);'}
 });
-CATS.splice(0,CATS.length,'Ausgabe','LED-Streifen','Eingabe','Sensor','Temperatur & Luft','Wiegen');
-Object.assign(INIT_ST,{ntc:{t:25},ds18b20:{t:21.5},dht:{t:22.4,h:48},bme:{t:20.5,p:1013.2,h:52},hx711:{w:0}});
+Object.assign(COMP,{
+  boost:{name:'Step-up-Wandler (MT3608)',cat:'Versorgung',pins:[],
+    props:{inp:{label:'Eingang vom Board',opts:['5 V','3,3 V'],def:'5 V'}},
+    icon:svgI('<rect x="2" y="7" width="28" height="18" rx="2" fill="#1f5fbf"/><rect x="6" y="11" width="9" height="9" rx="1" fill="#333"/><circle cx="10.5" cy="15.5" r="2.6" fill="#777"/><rect x="19" y="10" width="7" height="6" rx="1" fill="#2f73ff" stroke="#9cf" stroke-width=".8"/><path d="M20 21h6" stroke="#ffd60a" stroke-width="2"/>'),
+    info:'DC/DC-Aufwärtswandler: macht aus 3,3 V oder 5 V eine höhere Spannung (MT3608: bis ca. 28 V, max. 2 A Eingangsstrom). VIN+ an 5 V (oder 3,3 V), VIN− an GND, an VOUT+/VOUT− hängt der Verbraucher (z. B. 24-V-Lüfter). Ausgangsspannung am Mehrgang-Poti einstellen – mit Multimeter und OHNE Last, bevor der Verbraucher angeschlossen wird! Energie bleibt erhalten: P_aus = U_aus · I_aus ≈ η · U_ein · I_ein (η ≈ 85–90 %). 24 V · 0,1 A ≈ 2,4 W brauchen am 5-V-Eingang schon rund 0,55 A. VOUT+ niemals an einen Board-Pin!',
+    code:'// Der Wandler selbst braucht keinen Code.\n// Ausgangsspannung am Poti einstellen (Multimeter!).\n// Eingangsstrom abschätzen:\n// I_ein = U_aus * I_aus / (eta * U_ein)\n//       = 24 V * 0,1 A / (0,88 * 5 V) ≈ 0,55 A'},
+  fan:{name:'Lüfter (mit MOSFET-Modul)',cat:'Versorgung',pins:[{k:'pwm',label:'SIG / Gate (PWM)',kind:'out',pref:'pwm',def:{uno:9,esp32:25}}],
+    props:{volt:{label:'Lüfter-Nennspannung',opts:['24 V','12 V','5 V'],def:'24 V'},drive:{label:'Ansteuerung',opts:['über MOSFET-Modul','direkt am Pin'],def:'über MOSFET-Modul'}},
+    icon:svgI('<rect x="3" y="3" width="26" height="26" rx="4" fill="#222" stroke="#555"/><circle cx="16" cy="16" r="10" fill="#111"/><path d="M16 16c0-6 3-8 6-7-1 4-3 6-6 7zM16 16c6 0 8 3 7 6-4-1-6-3-7-6zM16 16c0 6-3 8-6 7 1-4 3-6 6-7zM16 16c-6 0-8-3-7-6 4 1 6 3 7 6z" fill="#8a9aa6"/><circle cx="16" cy="16" r="2.4" fill="#444"/>'),
+    info:'DC-Lüfter (2-/3-Draht). Er braucht viel mehr Strom (24 V ≈ 100 mA, 12 V ≈ 150 mA) als ein Pin liefern kann (max. 20–40 mA) – deshalb über ein Logic-Level-MOSFET-Modul (z. B. IRLZ44N, oder Modul mit „IRF520“ nur bei 5-V-Boards) schalten: Lüfter + an die Versorgung (z. B. 24 V vom Step-up-Wandler), Lüfter − an den MOSFET (Drain), Source an GND, Gate (SIG) an einen PWM-Pin. Freilaufdiode (1N4007/1N5819) parallel zum Lüfter, Kathode an +. Alle GNDs verbinden! Mit analogWrite() lässt sich die Drehzahl regeln – unter ca. 25 % läuft der Lüfter meist nicht an.',
+    code:'const int LUEFTER = 9;          // PWM-Pin → MOSFET-Gate\n\npinMode(LUEFTER, OUTPUT);       // in setup()\nanalogWrite(LUEFTER, 255);      // volle Drehzahl\nanalogWrite(LUEFTER, 120);      // ca. halbe Drehzahl\nanalogWrite(LUEFTER, 0);        // aus'}
+});
+CATS.splice(0,CATS.length,'Ausgabe','LED-Streifen','Eingabe','Sensor','Temperatur & Luft','Wiegen','Versorgung');
+Object.assign(INIT_ST,{boost:{vout:24},fan:{},ntc:{t:25},ds18b20:{t:21.5},dht:{t:22.4,h:48},bme:{t:20.5,p:1013.2,h:52},hx711:{w:0}});
 const CTL={
+  boost:c=>[{k:'vout',label:'Poti U_aus',min:3,max:28,step:0.1,u:' V'}],
   ntc:c=>[{k:'t',label:'Temp.',min:-10,max:100,step:0.5,u:' °C'}],
   ds18b20:c=>[{k:'t',label:'Temp.',min:-20,max:100,step:0.5,u:' °C'}],
   dht:c=>[{k:'t',label:'Temp.',min:-10,max:50,step:0.1,u:' °C'},{k:'h',label:'Feuchte',min:5,max:95,step:1,u:' %'}],
@@ -2958,6 +2973,34 @@ void loop() {
 `}
 ];
 
+TEMPLATES.push({name:'Lüfter-Regelung (24 V über Step-up)',board:'uno',comps:[['tmp36',{o:14}],['boost',{},{inp:'5 V'}],['fan',{pwm:9},{volt:'24 V'}]],code:`// Temperaturgesteuerter 24-V-Lüfter
+// TMP36 an A0, MOSFET-Modul (Gate) an Pin 9,
+// Lüfter bekommt 24 V vom Step-up-Wandler.
+const int SENSOR = A0;
+const int LUEFTER = 9;
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(LUEFTER, OUTPUT);
+}
+
+void loop() {
+  float u = analogRead(SENSOR) * 5.0 / 1023.0;
+  float temp = (u - 0.5) * 100.0;
+
+  int pwm = 0;
+  if (temp >= 25) {
+    // 25 °C → langsam (PWM 90), ab 40 °C → volle Drehzahl
+    pwm = map(constrain(temp, 25, 40), 25, 40, 90, 255);
+  }
+  analogWrite(LUEFTER, pwm);
+
+  Serial.print("Temperatur: ");
+  Serial.print(temp);
+  Serial.print(" °C  PWM: ");
+  Serial.println(pwm);
+  delay(500);
+}`});
 /* ---------- state ---------- */
 let compSeq=1;
 function newComp(type,pins,props){
@@ -3025,6 +3068,8 @@ function visHTML(c){
       for(let i=0;i<n;i++){ const r=Math.floor(i/per), k=r%2?per-1-(i%per):i%per; h+='<rect class="px" x="'+(9+k*20)+'" y="'+(6+r*24)+'" width="12" height="12" rx="2" fill="#2a2a2a"/>'; }
       return h+'</svg>'; }
     case 'strip12': { let h='<svg viewBox="0 0 310 28" class="vstrip"><rect x="2" y="3" width="306" height="22" rx="3" fill="#e8e8e8"/>'; for(let i=0;i<12;i++) h+='<rect class="px" x="'+(10+i*25)+'" y="7" width="14" height="14" rx="2" fill="#2a2a2a"/>'; return h+'<text x="270" y="2" font-size="0"></text></svg>'; }
+    case 'boost': return '<svg viewBox="0 0 120 70"><rect x="4" y="10" width="112" height="50" rx="4" fill="#1f5fbf"/><rect x="14" y="20" width="26" height="26" rx="3" fill="#2a2a2a"/><circle cx="27" cy="33" r="9" fill="#7d7d7d"/><circle cx="27" cy="33" r="4" fill="#4a4a4a"/><rect x="48" y="24" width="10" height="8" fill="#111"/><rect x="66" y="18" width="16" height="12" rx="1.5" fill="#2f73ff" stroke="#9cf"/><circle cx="74" cy="24" r="2.6" fill="#ffd60a"/><text x="8" y="56" font-size="8" fill="#cfe0ff">IN</text><text x="94" y="56" font-size="8" fill="#cfe0ff">OUT</text><text class="bv" x="60" y="54" font-size="10" fill="#fff" text-anchor="middle" font-family="monospace">24.0 V</text></svg>';
+    case 'fan': return '<svg viewBox="0 0 70 70" class="vfan"><rect x="4" y="4" width="62" height="62" rx="8" fill="#1c1c1c" stroke="#444" stroke-width="2"/><circle cx="35" cy="35" r="27" fill="#0d0d0d"/><circle cx="9" cy="9" r="2" fill="#555"/><circle cx="61" cy="9" r="2" fill="#555"/><circle cx="9" cy="61" r="2" fill="#555"/><circle cx="61" cy="61" r="2" fill="#555"/><g class="rotor"><path d="M35 35c-2-11 4-20 12-20-1 9-5 15-12 20zM35 35c11-2 20 4 20 12-9-1-15-5-20-12zM35 35c2 11-4 20-12 20 1-9 5-15 12-20zM35 35c-11 2-20-4-20-12 9 1 15 5 20 12z" fill="#7f8f9a"/><circle cx="35" cy="35" r="7" fill="#333" stroke="#555"/></g></svg><div class="burn">💥</div>';
     case 'ntc': return '<svg viewBox="0 0 70 70"><path d="M30 34v34M40 34v34" stroke="#9aa" stroke-width="2.5"/><ellipse cx="35" cy="26" rx="13" ry="14" fill="#1c1c1c"/><text x="25" y="29" font-size="8" fill="#888">NTC</text></svg>';
     case 'ds18b20': return '<svg viewBox="0 0 70 70"><path d="M35 40c0 14 -18 10 -18 28" stroke="#222" stroke-width="6" fill="none"/><rect x="27" y="4" width="16" height="40" rx="8" fill="#c7ccd1" stroke="#8a9096"/><rect x="27" y="30" width="16" height="4" fill="#8a9096"/></svg>';
     case 'dht': return '<svg viewBox="0 0 70 74"><rect class="dbox" x="15" y="4" width="40" height="50" rx="4" fill="#f2f2f2"/>'+[0,1,2,3,4,5].map(i=>'<rect x="21" y="'+(10+i*7)+'" width="28" height="3.5" rx="1.5" fill="#bbb"/>').join('')+'<path d="M26 54v18M32 54v18M38 54v18M44 54v18" stroke="#9aa" stroke-width="2"/></svg>';
@@ -3061,6 +3106,17 @@ function cardWarnings(c){
   if(c.type==='servo' && b==='esp32') w.push('Am ESP32 die Bibliothek „ESP32Servo“ installieren und #include <ESP32Servo.h> verwenden.');
   if(c.type==='strip'){ const n=+c.props.count, mA=n*60; if(mA>400) w.push('Bei Weiß und voller Helligkeit bis zu '+mA+' mA ('+(mA/1000).toFixed(1)+' A) – nicht übers Board versorgen, eigenes 5-V-Netzteil verwenden!'); if(b==='esp32') w.push('Der ESP32 liefert nur 3,3-V-Daten – meist geht das, sonst Pegelwandler (z. B. 74AHCT125) einsetzen.'); }
   if(c.type==='strip12' && b==='uno' && Object.values(c.pins).some(p=>!PINMETA.uno.pwm.includes(p))) w.push('Zum Dimmen PWM-Pins (~) verwenden: 3, 5, 6, 9, 10, 11.');
+  if(c.type==='boost'){
+    if(c.props.inp==='3,3 V') w.push(b==='uno'?'Der 3,3-V-Pin des Uno liefert nur ca. 50 mA – für einen Lüfter viel zu wenig. Den 5-V-Pin oder ein eigenes Netzteil nehmen.':'Der 3V3-Regler des ESP32-Boards liefert nur ca. 500–800 mA, davon braucht der ESP32 selbst bis 250 mA (WLAN). Besser VIN (5 V vom USB) nehmen.');
+    if(c.st.vout<(c.props.inp==='3,3 V'?3.3:5)) w.push('Ein Step-up-Wandler kann die Spannung nur erhöhen – U_aus ist dann ungefähr U_ein.');
+    w.push('Ausgangsspannung mit dem Multimeter einstellen, bevor der Verbraucher angeschlossen wird. GND von Wandler und Board verbinden, VOUT+ niemals an einen Pin!');
+  }
+  if(c.type==='fan'){
+    if(c.props.drive==='direkt am Pin') w.push('Niemals direkt an den Pin: Der Lüfter braucht 100–150 mA und erzeugt beim Abschalten Spannungsspitzen. MOSFET-Modul + Freilaufdiode verwenden!');
+    if(c.props.volt!=='5 V' && !cd.comps.some(x=>x.type==='boost')) w.push('Für einen '+c.props.volt+'-Lüfter fehlt die Versorgung: „Step-up-Wandler“ hinzufügen (oder ein Netzteil).');
+    const bo=cd.comps.find(x=>x.type==='boost'); if(bo && c.props.volt!=='5 V'){ const vn=parseFloat(c.props.volt); if(bo.st.vout>vn*1.12) w.push('Der Wandler ist auf '+bo.st.vout.toFixed(1).replace('.',',')+' V eingestellt – zu viel für einen '+vn+'-V-Lüfter!'); else if(bo.st.vout<vn*0.85) w.push('Der Wandler ist auf '+bo.st.vout.toFixed(1).replace('.',',')+' V eingestellt – der '+vn+'-V-Lüfter dreht nur langsam oder gar nicht.'); }
+    if(c.props.drive!=='direkt am Pin' && b==='uno' && !PINMETA.uno.pwm.includes(c.pins.pwm)) w.push('Zum Regeln der Drehzahl einen PWM-Pin (~) verwenden: 3, 5, 6, 9, 10, 11.');
+  }
   if(c.type==='ds18b20' && !c.props.pullup) w.push('Ohne 4,7-kΩ-Pull-up findet die Bibliothek den Sensor nicht (-127 °C).');
   if(c.type==='bme' && b==='uno') w.push('BMP280/BME280 sind 3,3-V-Sensoren: am Uno ein Modul mit Spannungsregler/Pegelwandler verwenden.');
   return w;
@@ -3261,6 +3317,16 @@ function updateComps(){
         el.querySelector('.wtt').textContent=w>0?(w>=1000?(w/1000).toFixed(2)+' kg':Math.round(w)+' g'):'';
         el.querySelector('.wtt').setAttribute('y',(36-(4+7*Math.min(1,w/cap))).toFixed(1));
         txt='Rohwert ≈ '+Math.round(84213+w*(cap>5000?104.9:419.6))+(w>cap*1.2?' ⚠ ÜBERLAST!':w>cap?' ⚠ über Nennlast':''); break; }
+      case 'boost': { const vin=c.props.inp==='3,3 V'?3.3:5, vo=Math.max(vin-0.3,c.st.vout), L=boostLoad(c);
+        el.querySelector('.bv').textContent=vo.toFixed(1)+' V';
+        const iin=L.p/(0.88*vin);
+        txt=vin.toFixed(1).replace('.',',')+' V → '+vo.toFixed(1).replace('.',',')+' V'+(c.st.vout<vin?' (Step-up kann nicht unter U_ein!)':'')+' · Last '+L.p.toFixed(1).replace('.',',')+' W → I_ein ≈ '+Math.round(iin*1000)+' mA'+
+          (iin>limitIn(c)?' ⚠ zu viel für '+(c.props.inp==='3,3 V'?(cd.board==='uno'?'den 3,3-V-Pin (≈ 50 mA)':'den 3V3-Regler'):'USB (≈ 500 mA)'):'');
+        break; }
+      case 'fan': { const r=fanState(c, ov(c.pins.pwm), now);
+        const rot=el.querySelector('.rotor');
+        if(r.eff>0){ rot.style.animationDuration=(0.22/r.eff).toFixed(3)+'s'; rot.style.animationPlayState='running'; } else rot.style.animationPlayState='paused';
+        el.classList.toggle('burned',!!c.st.burned); txt=r.txt; break; }
       case 'touch': { el.querySelector('.pad').classList.toggle('down',!!c.st.pressed); txt=c.st.pressed?'berührt → touchRead ≈ 15':'frei → touchRead ≈ 62'; break; }
     }
     if(ro.textContent!==txt) ro.textContent=txt;
@@ -3268,6 +3334,36 @@ function updateComps(){
   updateWireActivity();
 }
 
+/* ---------- Lüfter & Step-up ---------- */
+const FAN_P={'24 V':2.4,'12 V':1.8,'5 V':1.0};
+function fanSupply(c){
+  const vn=parseFloat(c.props.volt);
+  if(vn===5) return {v:5,src:'5 V vom Board'};
+  const b=cd.comps.find(x=>x.type==='boost');
+  if(!b) return {v:0,src:'keine '+vn+'-V-Versorgung'};
+  const vin=b.props.inp==='3,3 V'?3.3:5;
+  return {v:Math.max(vin-0.3,b.st.vout),src:'Step-up-Wandler'};
+}
+function fanState(c,duty,now){
+  const vn=parseFloat(c.props.volt), S=fanSupply(c), ratio=S.v/vn;
+  if(c.st.burned) return {eff:0,txt:'💥 Lüfter durchgebrannt – Spannung viel zu hoch. Poti am Wandler zurückdrehen und neu starten.'};
+  if(!curM()) return {eff:0,txt:'aus'};
+  if(c.props.drive==='direkt am Pin') return {eff:0,txt:duty>0?'⚠ dreht nicht: Der Pin liefert nur ca. 20–40 mA – MOSFET-Modul verwenden!':'aus'};
+  if(!S.v) return {eff:0,txt:duty>0?'⚠ keine '+vn+'-V-Versorgung – Step-up-Wandler hinzufügen':'aus'};
+  if(ratio>1.35 && duty>0){ if(c.st.onSince==null) c.st.onSince=now; if(now-c.st.onSince>1500) c.st.burned=true; } else c.st.onSince=null;
+  const eff=duty*Math.min(ratio,1.35);
+  if(duty<=0) return {eff:0,txt:'aus (PWM 0) · Versorgung '+S.v.toFixed(1).replace('.',',')+' V'};
+  if(eff<0.25) return {eff:0,txt:'brummt, läuft nicht an (PWM '+Math.round(duty*255)+' / 255 bzw. Spannung zu klein)'};
+  return {eff, txt:'≈ '+Math.round(3000*eff)+' U/min · PWM '+Math.round(duty*255)+' / 255 · '+S.v.toFixed(1).replace('.',',')+' V'+(ratio>1.12?' ⚠ Überspannung!':ratio<0.85?' (Spannung zu niedrig)':'')};
+}
+function boostLoad(c){
+  let p=0; const m=curM();
+  cd.comps.filter(x=>x.type==='fan'&&x.props.volt!=='5 V'&&x.props.drive!=='direkt am Pin'&&!x.st.burned).forEach(f=>{
+    const duty=m?(m.out[f.pins.pwm]||0):0, vn=parseFloat(f.props.volt), r=Math.min(1.35,Math.max(0,c.st.vout)/vn);
+    p+=FAN_P[f.props.volt]*duty*r*r; });
+  return {p};
+}
+const limitIn=c=>c.props.inp==='3,3 V'?(cd.board==='uno'?0.05:0.4):0.5;
 /* ---------- sound ---------- */
 let actx=null; const oscs={};
 function audioInit(){ if(!lab.sound) return; try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); if(actx.resume) actx.resume(); }catch(e){ actx=null; } }
@@ -6350,6 +6446,8 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
       case 'touch': return sig;
       case 'strip12': return sig.concat([{id:'g',label:'GND',role:'gnd'}]);
       case 'servo': return [{id:'v',label:'+ (rot)',role:'vcc'},sig[0],{id:'g',label:'− (braun)',role:'gnd'}];
+      case 'boost': return [{id:'vin',label:'VIN+ (Eingang)',role:'vcc'},{id:'gi',label:'VIN− (GND)',role:'gnd'},{id:'vo',label:'VOUT+ (hohe Spannung)',role:'vout'},{id:'go',label:'VOUT− (GND)',role:'gnd'}];
+      case 'fan': return [{id:'p',label:'Lüfter + (rot)',role:'vext'},Object.assign({},sig[0],{label:'MOSFET SIG / Gate'}),{id:'g',label:'MOSFET GND',role:'gnd'}];
       default: return [{id:'v',label:'VCC',role:'vcc'}].concat(sig,[{id:'g',label:'GND',role:'gnd'}]);
     }
   }
@@ -6377,7 +6475,7 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
     ws.innerHTML=`<svg id="wireSvg"></svg>
       <div class="wb ${esp?'esp':'uno'}"><div class="tt">${esp?'ESP32 DevKit V1':'Arduino Uno R3'}</div>${esp?'<div class="usb"></div>':''}<div class="chip">${esp?'ESP-WROOM-32':'ATmega328P'}</div>
         <div class="cols"><div>${B.L.map(p=>pinRow(p,'L')).join('')}</div><div>${B.R.map(p=>pinRow(p,'R')).join('')}</div></div></div>
-      <div class="wcs">${cd.comps.length?cd.comps.map(c=>`<div class="wc"><div class="hd">${(COMP[c.type]||{}).icon||''}<span>${E((COMP[c.type]||{}).name||c.type)}</span></div>${terms(c).map(t=>`<div class="wt ${t.role==='gnd'?'gn':t.role==='vcc'?'pw':''}" data-t="C:${c.id}:${t.id}"><span class="d"></span><span>${E(t.label)}</span></div>`).join('')}</div>`).join(''):'<div class="hint" style="color:var(--muted);padding:20px">Füge oben über „＋ Bauteil hinzufügen“ Bauteile hinzu.</div>'}</div>
+      <div class="wcs">${cd.comps.length?cd.comps.map(c=>`<div class="wc"><div class="hd">${(COMP[c.type]||{}).icon||''}<span>${E((COMP[c.type]||{}).name||c.type)}</span></div>${terms(c).map(t=>`<div class="wt ${t.role==='gnd'?'gn':['vcc','vout','vext'].includes(t.role)?'pw':''}" data-t="C:${c.id}:${t.id}"><span class="d"></span><span>${E(t.label)}</span></div>`).join('')}</div>`).join(''):'<div class="hint" style="color:var(--muted);padding:20px">Füge oben über „＋ Bauteil hinzufügen“ Bauteile hinzu.</div>'}</div>
       <div class="wm-tool" id="wmTool"><button id="wmDelW">🗑 Kabel löschen</button></div>`;
     ws.querySelectorAll('[data-t]').forEach(el=>el.onclick=e=>{ e.stopPropagation(); tap(el.dataset.t); });
     ws.onclick=()=>{ sel=null; selWire=-1; mark(); drawWires(); };
@@ -6399,6 +6497,7 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
     const role=t=>{ if(t.startsWith('B:')) return bpin(t.slice(2)).role; const [,cid,tid]=t.split(':'); const c=cd.comps.find(x=>x.id===cid); const T=c&&terms(c).find(x=>x.id===tid); return T?T.role:'sig'; };
     const r=w.map(role);
     if(r.includes('gnd')) return '#2b2f33';
+    if(r.includes('vout')||r.includes('vext')) return '#ff2d55';
     if(r.includes('v5')||r.includes('vin')) return '#e5382e';
     if(r.includes('v33')) return '#ff9a2e';
     const pal=['#3b8cff','#30d158','#ffd60a','#bf5af2','#64d2ff','#ff6fae','#ffffff'];
@@ -6456,8 +6555,21 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
         if(t.role==='gnd'&&!roles.includes('gnd')) say('e','muss mit GND verbunden werden.');
         if(t.role==='vcc'){
           if(!roles.some(r=>['v5','v33','vin'].includes(r))) say('e','braucht Versorgungsspannung ('+(esp?'3V3 oder VIN':'5V oder 3.3V')+').');
+          else if(c.type==='boost') (pinOf[c.id]=pinOf[c.id]||{}).__inp=roles.includes('v33')&&!roles.some(r=>r==='v5'||r==='vin')?'3,3 V':'5 V';
           else if(esp&&roles.includes('vin')&&!NEED5.includes(c.type)) say('w','bekommt 5 V (VIN). Gibt der Sensor 5 V aus, kann das den ESP32-Pin beschädigen – besser 3V3.');
           else if(NEED5.includes(c.type)&&roles.includes('v33')) say('w','braucht eigentlich 5 V – an 3,3 V arbeitet es oft nicht zuverlässig.');
+        }
+        if(t.role==='vout'){
+          if(bp.length) say('e','hohe Ausgangsspannung direkt am Board ('+bp.map(p=>p.label).join(', ')+') – das zerstört den Mikrocontroller!');
+          else if(!net.some(x=>/^C:/.test(x)&&x!==id)) say('w','ist mit keinem Verbraucher verbunden.');
+        }
+        if(t.role==='vext'){
+          const vn=c.props.volt, fromBoost=net.some(x=>{ const q=x.split(':'); const o=cd.comps.find(z=>z.id===q[1]); return o&&o.type==='boost'&&q[2]==='vo'; });
+          if(fromBoost){ if(vn==='5 V') say('w','ein 5-V-Lüfter am Step-up-Wandler – Ausgangsspannung auf 5 V einstellen!'); }
+          else if(roles.some(r=>r==='v5'||r==='vin')){ if(vn!=='5 V') say('w','ein '+vn+'-Lüfter an 5 V dreht kaum oder gar nicht – über den Step-up-Wandler versorgen.'); }
+          else if(roles.includes('v33')) say('e','3,3 V vom Board reicht für den Lüfter nicht.');
+          else say('e','braucht eine Versorgung (z. B. VOUT+ vom Step-up-Wandler).');
+          if(roles.includes('gnd')) say('e','ist direkt mit GND verbunden – Kurzschluss!');
         }
         if(t.role==='gv'){
           if(roles.includes('gnd')) (pinOf[c.id]=pinOf[c.id]||{}).__wire='gegen GND';
@@ -6477,7 +6589,7 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
     res.innerHTML=(e.length?`<div class="r e"><b>${e.length} Fehler – ${started?'':'nicht gestartet. '}Bitte korrigieren:</b></div>`:`<div class="r ok">✅ Verkabelung in Ordnung${w.length?' – mit Hinweisen':''}.${started?' Programm läuft.':''}</div>`)+e.map(x=>`<div class="r e">❌ ${E(x[1])}</div>`).join('')+w.map(x=>`<div class="r w">⚠️ ${E(x[1])}</div>`).join('');
   }
   function apply(r){
-    cd.comps.forEach(c=>{ const m=r.pinOf[c.id]; if(!m) return; Object.entries(m).forEach(([k,v])=>{ if(k==='__wire') c.props.wire=v; else c.pins[k]=v; }); });
+    cd.comps.forEach(c=>{ const m=r.pinOf[c.id]; if(!m) return; Object.entries(m).forEach(([k,v])=>{ if(k==='__wire') c.props.wire=v; else if(k==='__inp') c.props.inp=v; else c.pins[k]=v; }); });
     renderComps(); saveLab();
   }
   const origRun=labStart;
@@ -6495,7 +6607,8 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
     cd.comps.forEach(c=>terms(c).forEach(t=>{ const id=`C:${c.id}:${t.id}`;
       if(t.role==='sig'){ const bp=byPin(c.pins[t.k]); if(bp) S.wires.push(['B:'+bp.id,id]); }
       if(t.role==='gnd') S.wires.push(['B:'+gnd.id,id]);
-      if(t.role==='vcc') S.wires.push(['B:'+(NEED5.includes(c.type)?v5:v).id,id]);
+      if(t.role==='vcc'){ const v3=all.find(x=>x.role==='v33'); S.wires.push(['B:'+(c.type==='boost'?(c.props.inp==='3,3 V'?v3:v5):NEED5.includes(c.type)?v5:v).id,id]); }
+      if(t.role==='vext'){ const bo=cd.comps.find(x=>x.type==='boost'); if(c.props.volt!=='5 V'&&bo) S.wires.push(['C:'+bo.id+':vo',id]); else S.wires.push(['B:'+v5.id,id]); }
       if(t.role==='gv') S.wires.push(['B:'+(c.props.wire==='gegen GND'?gnd:v).id,id]);
     }));
     res.innerHTML=''; saveW(); render(); toast('Vorverkabelt – prüf die Kabel und drück ▶ Start.');
@@ -6804,7 +6917,7 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
 </div>
 <script>
 (function(){
-  var APP_VERSION = '2.2.2';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+  var APP_VERSION = '2.3.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
   window.UCT_VERSION = APP_VERSION;
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register('sw.js').catch(function(){});
