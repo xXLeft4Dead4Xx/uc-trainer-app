@@ -1,4 +1,4 @@
 {
-  "version": "2.4.2",
-  "notes": "Struktogramm aus Code: Verzweigungen bekommen so viel Platz, wie ihr Inhalt braucht (nichts mehr zusammengedrückt, breite Diagramme scrollen seitlich). Variablen-Deklarationen werden weggelassen."
+  "version": "2.5.0",
+  "notes": "Struktogramm: neue Blöcke Eingabe, Ausgabe und Fallunterscheidung (else-if-Ketten werden automatisch dazu), Design passt sich jetzt an die App an (Export bleibt druckfreundlich)."
 }

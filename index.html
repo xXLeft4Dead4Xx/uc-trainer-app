@@ -442,8 +442,11 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
       <div class="sg-ins">
         <span class="sg-lbl">Einfügen:</span>
         <button class="btn mini" data-ins="stmt">▭ Anweisung</button>
+        <button class="btn mini" data-ins="in">⇥ Eingabe</button>
+        <button class="btn mini" data-ins="out">↦ Ausgabe</button>
         <button class="btn mini" data-ins="if">◿◺ Verzweigung</button>
         <button class="btn mini" data-ins="switch">⋔ Fallauswahl</button>
+        <button class="btn mini" data-ins="multi">⋔ Fallunterscheidung</button>
         <button class="btn mini" data-ins="while">⊏ Kopfgesteuert</button>
         <button class="btn mini" data-ins="do">⊑ Fußgesteuert</button>
         <button class="btn mini" data-ins="forever">∞ Endlos (loop)</button>
@@ -3868,7 +3871,7 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
 .sg-edit input{background:var(--panel2);color:var(--text);border:1px solid var(--line2);border-radius:8px;padding:8px 10px;font-size:15px;font-family:var(--mono)}
 .sg-edit .acts{display:flex;gap:6px;flex-wrap:wrap}
 .sg-edit .none{color:var(--muted);font-size:13.5px}
-.sg-canvas{background:#fff;border-radius:8px;padding:12px;overflow:auto;-webkit-overflow-scrolling:touch}
+.sg-canvas{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;overflow:auto;-webkit-overflow-scrolling:touch}
 .sg-canvas svg{display:block;width:100%;height:auto;min-width:520px;touch-action:manipulation}
 .sg-canvas g[data-k]{cursor:pointer}
 .sg-hint{margin:0;color:var(--muted);font-size:12.5px}
@@ -3881,7 +3884,7 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
 (function(){
   const $=s=>document.querySelector(s);
   const KEY='uct-sg-v1';
-  const FONT='14px "IBM Plex Sans", system-ui, sans-serif';
+  const FONT='13px "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace';
   const LH=18, P=7, BAR=26, EMPTY=34, W0=680; let W=W0;
   const uid=()=>Math.random().toString(36).slice(2,9);
 
@@ -3931,24 +3934,31 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
     if(MW.has(n)) return MW.get(n); let v=MINLEAF;
     switch(n.t){
       case 'stmt': v=Math.min(MAXLEAF,tw(n.text)+2*P+6); break;
+      case 'in': case 'out': v=Math.min(MAXLEAF+40,tw(ioLabel(n))+2*P+10); break;
       case 'call': v=Math.min(MAXLEAF+20,tw(n.text)+2*P+26); break;
       case 'if': v=Math.max(Math.min(240,tw(n.cond))/0.62+10, minL(n.yes)+minL(n.no)); break;
-      case 'switch': v=Math.max(Math.min(240,tw(n.expr))/0.6+10, cases(n).reduce((a,c)=>a+Math.max(80,minL(c.body),tw(c.label)+20),0)); break;
+      case 'switch': v=Math.max(Math.min(240,tw(swLabel(n)))/0.6+10, cases(n).reduce((a,c)=>a+caseNeed(c),0)); break;
       case 'while': case 'do': v=Math.max(Math.min(MAXLEAF,tw(loopLabel(n))+2*P+6), BAR+minL(n.body)); break;
       case 'forever': v=Math.max(Math.min(MAXLEAF,tw(foreverLabel(n))+2*P+6), BAR+minL(n.body)); break;
     }
     v=Math.max(MINLEAF,v); MW.set(n,v); return v;
   }
   function ifSplit(n,w){ const a=minL(n.yes), b=minL(n.no); return Math.round(w*a/(a+b)); }
-  function caseWs(n,w){ const need=cases(n).map(c=>Math.max(80,minL(c.body),tw(c.label)+20)), sum=need.reduce((a,b)=>a+b,0); let acc=0; return need.map((x,i)=>{ const v=i===need.length-1?w-acc:Math.round(w*x/sum); acc+=v; return v; }); }
+  const caseNeed=c=>Math.max(80,minL(c.body),Math.min(220,tw(c.label)+18));
+  const ioLabel=n=>(n.t==='in'?'Eingabe: ':'Ausgabe: ')+(n.text||'');
+  const swLabel=n=>(n.expr||'').trim()||(n.mode==='cond'?'Fallunterscheidung':'');
+  function swHead(n,w){ const cw=caseWs(n,w), labs=cases(n).map((c,i)=>wrap(c.label,cw[i]-10)), ll=Math.max(1,...labs.map(l=>l.length)), cl=wrap(swLabel(n),w*0.6);
+    return {cw,labs,cl,hh:cl.length*LH+2*P+ll*LH+2}; }
+  function caseWs(n,w){ const need=cases(n).map(caseNeed), sum=need.reduce((a,b)=>a+b,0); let acc=0; return need.map((x,i)=>{ const v=i===need.length-1?w-acc:Math.round(w*x/sum); acc+=v; return v; }); }
   function hList(list,w){ return list.length?list.reduce((a,n)=>a+hNode(n,w),0):EMPTY; }
   function cases(n){ return n.cases; }
   function hNode(n,w){
     switch(n.t){
       case 'stmt': return wrap(n.text,w-2*P).length*LH+2*P;
+      case 'in': case 'out': return wrap(ioLabel(n),w-2*P-6).length*LH+2*P;
       case 'call': return wrap(n.text,w-2*P-20).length*LH+2*P;
       case 'if':   { const hw=ifSplit(n,w); return wrap(n.cond,w*0.62).length*LH+2*P+LH + Math.max(hList(n.yes,hw),hList(n.no,w-hw)); }
-      case 'switch': { const cw=caseWs(n,w); return wrap(n.expr,w*0.6).length*LH+2*P+LH + Math.max(...cases(n).map((c,i)=>hList(c.body,cw[i]))); }
+      case 'switch': { const H=swHead(n,w); return H.hh + Math.max(...cases(n).map((c,i)=>hList(c.body,H.cw[i]))); }
       case 'while': case 'do': return wrap(loopLabel(n),w-2*P).length*LH+2*P + hList(n.body,w-BAR);
       case 'forever': return wrap(foreverLabel(n),w-2*P).length*LH+2*P + hList(n.body,w-BAR) + 12;
     }
@@ -3958,53 +3968,57 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
   const loopLabel=n=>{ const c=(n.cond||'').trim(); return !c||/^(for\s*\(|solange|bis|wiederhole|für|zähle)/i.test(c)?c:'solange '+c; };
 
   /* ---------- Zeichnen ---------- */
-  let out;
-  function txt(lines,x,y,anchor){ return lines.map((l,i)=>`<text x="${x}" y="${y+P+LH*(i+1)-5}" text-anchor="${anchor||'start'}">${esc(l)}</text>`).join(''); }
-  function rect(x,y,w,h){ return `<rect x="${x}" y="${y}" width="${w}" height="${h}" class="b"/>`; }
+  let out, EXPORTING=false;
+  function txt(lines,x,y,anchor,cls){ return lines.map((l,i)=>`<text x="${x}" y="${y+P+LH*(i+1)-5}" text-anchor="${anchor||'start'}"${cls?` class="${cls}"`:''}>${esc(l)}</text>`).join(''); }
+  function rect(x,y,w,h,cls){ return `<rect x="${x}" y="${y}" width="${w}" height="${h}" class="${cls||'b'}"/>`; }
   function selBox(k,x,y,w,h){ return (sel&&sel.key===k)?`<rect x="${x+1.5}" y="${y+1.5}" width="${w-3}" height="${h-3}" class="sel"/>`:''; }
   function dList(list,key,x,y,w,minH){
     let s='';
     if(!list.length){
       const h=Math.max(EMPTY,minH||0);
-      s+=`<g data-k="${key}" data-kind="slot">${rect(x,y,w,h)}${sel&&sel.key===key?`<rect x="${x+1.5}" y="${y+1.5}" width="${w-3}" height="${h-3}" class="sel"/>`:''}<text x="${x+w/2}" y="${y+h/2+5}" text-anchor="middle" class="ph">∅ leer – tippen</text></g>`;
+      s+=`<g data-k="${key}" data-kind="slot">${rect(x,y,w,h,'bs')}${sel&&sel.key===key?`<rect x="${x+1.5}" y="${y+1.5}" width="${w-3}" height="${h-3}" class="sel"/>`:''}<text x="${x+w/2}" y="${y+h/2+5}" text-anchor="middle" class="ph">${EXPORTING?'∅':'∅ leer – tippen'}</text></g>`;
       return s;
     }
     let cy=y;
     list.forEach((n,i)=>{ const h=hNode(n,w); s+=dNode(n,key+'/'+i,x,cy,w,h); cy+=h; });
-    if(minH && cy-y<minH){ s+=rect(x,cy,w,minH-(cy-y)); }
+    if(minH && cy-y<minH){ s+=rect(x,cy,w,minH-(cy-y),'bf'); }
     return s;
   }
   function dNode(n,k,x,y,w,h){
     let s=`<g data-k="${k}" data-kind="node">`;
     if(n.t==='stmt'){
       s+=rect(x,y,w,h)+txt(wrap(n.text,w-2*P),x+P,y);
+    } else if(n.t==='in'||n.t==='out'){
+      const ls=wrap(ioLabel(n),w-2*P-6), pre=n.t==='in'?'Eingabe:':'Ausgabe:';
+      s+=rect(x,y,w,h,n.t==='in'?'bi':'bo')+`<rect x="${x}" y="${y}" width="4" height="${h}" class="${n.t==='in'?'mi':'mo'}"/>`;
+      s+=ls.map((l,i)=>{ const yy=y+P+LH*(i+1)-5; if(i===0&&l.startsWith(pre)) return `<text x="${x+P+4}" y="${yy}"><tspan class="${n.t==='in'?'ti':'to'}">${pre}</tspan>${esc(l.slice(pre.length))}</text>`; return `<text x="${x+P+4}" y="${yy}">${esc(l)}</text>`; }).join('');
     } else if(n.t==='call'){
-      s+=rect(x,y,w,h)+`<line x1="${x+10}" y1="${y}" x2="${x+10}" y2="${y+h}" class="l"/><line x1="${x+w-10}" y1="${y}" x2="${x+w-10}" y2="${y+h}" class="l"/>`+txt(wrap(n.text,w-2*P-20),x+w/2,y,'middle');
+      s+=rect(x,y,w,h,'bc')+`<line x1="${x+10}" y1="${y}" x2="${x+10}" y2="${y+h}" class="l"/><line x1="${x+w-10}" y1="${y}" x2="${x+w-10}" y2="${y+h}" class="l"/>`+txt(wrap(n.text,w-2*P-20),x+w/2,y,'middle');
     } else if(n.t==='if'){
       const cl=wrap(n.cond,w*0.62), hh=cl.length*LH+2*P+LH, hw=ifSplit(n,w);
-      s+=rect(x,y,w,hh)+`<line x1="${x}" y1="${y}" x2="${x+hw}" y2="${y+hh}" class="l"/><line x1="${x+w}" y1="${y}" x2="${x+hw}" y2="${y+hh}" class="l"/>`;
-      s+=txt(cl,x+w/2,y,'middle')+`<text x="${x+P}" y="${y+hh-6}" class="sm">ja</text><text x="${x+w-P}" y="${y+hh-6}" text-anchor="end" class="sm">nein</text>`;
+      s+=rect(x,y,w,hh,'bh')+`<line x1="${x}" y1="${y}" x2="${x+hw}" y2="${y+hh}" class="l"/><line x1="${x+w}" y1="${y}" x2="${x+hw}" y2="${y+hh}" class="l"/>`;
+      s+=txt(cl,x+w/2,y,'middle','tc')+`<text x="${x+P}" y="${y+hh-6}" class="sm">ja</text><text x="${x+w-P}" y="${y+hh-6}" text-anchor="end" class="sm">nein</text>`;
       s+=selBox(k,x,y,w,hh)+'</g>';
       const bh=h-hh;
       return s+dList(n.yes,k+':y',x,y+hh,hw,bh)+dList(n.no,k+':n',x+hw,y+hh,w-hw,bh);
     } else if(n.t==='switch'){
-      const C=cases(n), kk=C.length, cl=wrap(n.expr,w*0.6), hh=cl.length*LH+2*P+LH, cws=caseWs(n,w), cx=cws.map((_,i)=>cws.slice(0,i).reduce((a,b)=>a+b,0)), px=x+cx[kk-1];
-      s+=rect(x,y,w,hh)+`<line x1="${x}" y1="${y}" x2="${px}" y2="${y+hh}" class="l"/><line x1="${x+w}" y1="${y}" x2="${px}" y2="${y+hh}" class="l"/>`;
-      s+=txt(cl,x+w*0.45,y,'middle');
-      C.forEach((c,i)=>{ s+=`<text x="${x+cx[i]+cws[i]/2}" y="${y+hh-6}" text-anchor="middle" class="sm">${esc(c.label)}</text>`; });
+      const C=cases(n), kk=C.length, Hd=swHead(n,w), cl=Hd.cl, hh=Hd.hh, cws=Hd.cw, cx=cws.map((_,i)=>cws.slice(0,i).reduce((a,b)=>a+b,0)), px=x+cx[kk-1], ty=y+cl.length*LH+2*P;
+      s+=rect(x,y,w,hh,'bh')+`<line x1="${x}" y1="${y}" x2="${px}" y2="${ty}" class="l"/><line x1="${x+w}" y1="${y}" x2="${px}" y2="${ty}" class="l"/><line x1="${x}" y1="${ty}" x2="${x+w}" y2="${ty}" class="l2"/>`;
+      s+=txt(cl,x+w*0.45,y,'middle','tc');
+      C.forEach((c,i)=>{ if(i) s+=`<line x1="${x+cx[i]}" y1="${ty}" x2="${x+cx[i]}" y2="${y+hh}" class="l2"/>`; Hd.labs[i].forEach((l,j)=>{ s+=`<text x="${x+cx[i]+cws[i]/2}" y="${ty+LH*(j+1)-3}" text-anchor="middle" class="cl">${esc(l)}</text>`; }); });
       s+=selBox(k,x,y,w,hh)+'</g>';
       const bh=h-hh;
       C.forEach((c,i)=>{ s+=dList(c.body,k+':c'+i,x+cx[i],y+hh,cws[i],bh); });
       return s;
     } else if(n.t==='while'||n.t==='forever'){
       const lab=n.t==='while'?loopLabel(n):foreverLabel(n), cl=wrap(lab,w-2*P), hh=cl.length*LH+2*P, foot=n.t==='forever'?12:0;
-      s+=rect(x,y,w,h)+txt(cl,x+P,y);
+      s+=rect(x,y,w,h,'bl')+txt(cl,x+P,y,'start','tl');
       if(foot) s+=`<line x1="${x+BAR}" y1="${y+h-foot}" x2="${x+w}" y2="${y+h-foot}" class="l"/>`;
       s+=selBox(k,x,y,w,hh)+'</g>';
       return s+dList(n.body,k+':b',x+BAR,y+hh,w-BAR,h-hh-foot);
     } else if(n.t==='do'){
       const cl=wrap(loopLabel(n),w-2*P), fh=cl.length*LH+2*P;
-      s+=rect(x,y,w,h)+txt(cl,x+P,y+h-fh);
+      s+=rect(x,y,w,h,'bl')+txt(cl,x+P,y+h-fh,'start','tl');
       s+=selBox(k,x,y+h-fh,w,fh)+'</g>';
       return s+dList(n.body,k+':b',x+BAR,y,w-BAR,h-fh);
     }
@@ -4014,10 +4028,15 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
     MW=new WeakMap(); W=Math.max(W0,Math.ceil(minL(doc().body)));
     const d=doc(), body=d.body, tl=wrap(d.title||'Struktogramm',W-2*P), th=tl.length*LH+2*P;
     const H=th+hList(body,W);
-    const st=`<style>.sgsvg .b{fill:#fff;stroke:#111;stroke-width:1.4}.sgsvg .l{stroke:#111;stroke-width:1.2}.sgsvg text{font:${FONT};fill:#111}.sgsvg .sm{font-size:12px;fill:#333}.sgsvg .ph{fill:#999;font-size:12.5px}.sgsvg .sel{fill:rgba(25,181,165,.18);stroke:#19b5a5;stroke-width:3}.sgsvg .t{font-weight:700}</style>`;
+    EXPORTING=!!forExport;
+    const K=forExport
+      ? {bg:'#fff',b:'#fff',ln:'#1a1a1a',tx:'#111',mu:'#555',h:'#eef3f6',lp:'#f6f3ea',cl:'#f3f0f8',ii:'#eaf6ef',oo:'#eaf0fb',ti:'#16804a',to:'#2357b8',tt:'#111',tbg:'#e6ecef',acc:'#0f6f66',sl:'#fafafa',slp:'#999',f:'#fff',sw:1.3,font:'13px Menlo, Consolas, "IBM Plex Mono", monospace',tfont:'bold 15px Helvetica, Arial, sans-serif'}
+      : {bg:'var(--panel)',b:'var(--panel2)',ln:'var(--line2)',tx:'var(--text)',mu:'var(--muted)',h:'color-mix(in srgb, var(--accent) 12%, var(--panel2))',lp:'color-mix(in srgb, #ffb020 10%, var(--panel2))',cl:'color-mix(in srgb, #9b7bff 12%, var(--panel2))',ii:'color-mix(in srgb, #35d07f 13%, var(--panel2))',oo:'color-mix(in srgb, #4f8cff 14%, var(--panel2))',ti:'#35d07f',to:'#6fa0ff',tt:'var(--accent)',tbg:'color-mix(in srgb, var(--accent) 16%, var(--panel))',acc:'var(--accent)',sl:'var(--panel)',slp:'var(--muted)',f:'var(--panel2)',sw:1.2,font:FONT,tfont:'600 15px "IBM Plex Sans", system-ui, sans-serif'};
+    const st=`<style>.sgsvg rect.b{fill:${K.b};stroke:${K.ln};stroke-width:${K.sw}}.sgsvg rect.bf{fill:${K.f};stroke:${K.ln};stroke-width:${K.sw}}.sgsvg rect.bh{fill:${K.h};stroke:${K.ln};stroke-width:${K.sw}}.sgsvg rect.bl{fill:${K.lp};stroke:${K.ln};stroke-width:${K.sw}}.sgsvg rect.bc{fill:${K.cl};stroke:${K.ln};stroke-width:${K.sw}}.sgsvg rect.bi{fill:${K.ii};stroke:${K.ln};stroke-width:${K.sw}}.sgsvg rect.bo{fill:${K.oo};stroke:${K.ln};stroke-width:${K.sw}}.sgsvg rect.bs{fill:${K.sl};stroke:${K.ln};stroke-width:${K.sw};stroke-dasharray:4 3}.sgsvg rect.bt{fill:${K.tbg};stroke:${K.ln};stroke-width:${K.sw}}.sgsvg rect.mi{fill:${K.ti}}.sgsvg rect.mo{fill:${K.to}}
+.sgsvg .l{stroke:${forExport?K.ln:'color-mix(in srgb, var(--accent) 45%, var(--line2))'};stroke-width:${K.sw}}.sgsvg .cl{font-size:12px;font-weight:600;fill:${K.acc}}.sgsvg .l2{stroke:${K.ln};stroke-width:1;stroke-dasharray:${forExport?'0':'0'}}.sgsvg text{font:${K.font};fill:${K.tx}}.sgsvg .sm{font-size:11.5px;fill:${K.mu}}.sgsvg .ph{fill:${K.slp};font-size:12px}.sgsvg .tc{fill:${K.acc};font-weight:600}.sgsvg .tl{fill:${forExport?'#7a5600':'#ffc65c'};font-weight:600}.sgsvg .ti{fill:${K.ti};font-weight:700}.sgsvg .to{fill:${K.to};font-weight:700}.sgsvg .sel{fill:none;stroke:${forExport?'#19b5a5':'var(--accent)'};stroke-width:3}.sgsvg .t{font:${K.tfont};fill:${K.tt}}</style>`;
     let s=`<svg class="sgsvg" xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 ${W+4} ${H+4}" width="${W+4}" height="${H+4}"${forExport?'':` style="width:max(100%,${Math.round((W+4)*1.25)}px)"`}>${st}`;
-    s+=`<rect x="-2" y="-2" width="${W+4}" height="${H+4}" fill="#fff"/>`;
-    s+=`<g>${rect(0,0,W,th)}${tl.map((l,i)=>`<text x="${P}" y="${P+LH*(i+1)-5}" class="t">${esc(l)}</text>`).join('')}</g>`;
+    s+=`<rect x="-2" y="-2" width="${W+4}" height="${H+4}" fill="${K.bg}"/>`;
+    s+=`<g>${rect(0,0,W,th,'bt')}${tl.map((l,i)=>`<text x="${P}" y="${P+LH*(i+1)-5}" class="t">${esc(l)}</text>`).join('')}</g>`;
     const keep=sel; if(forExport) sel=null;
     s+=dList(body,'r',0,th,W,0);
     sel=keep;
@@ -4039,6 +4058,9 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
   function make(t){
     switch(t){
       case 'stmt': return {t,text:'Anweisung'};
+      case 'in': return {t:'in',text:'Variable'};
+      case 'out': return {t:'out',text:'Wert'};
+      case 'multi': return {t:'switch',mode:'cond',expr:'',cases:[{label:'Bedingung 1',body:[]},{label:'Bedingung 2',body:[]},{label:'sonst',body:[]}]};
       case 'call': return {t,text:'unterprogramm()'};
       case 'if': return {t,cond:'Bedingung?',yes:[],no:[]};
       case 'switch': return {t,expr:'Variable',cases:[{label:'1',body:[]},{label:'2',body:[]},{label:'sonst',body:[]}]};
@@ -4058,7 +4080,7 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
   }
 
   /* ---------- Bearbeiten-Leiste ---------- */
-  const NAMES={stmt:'Anweisung',call:'Unterprogramm-Aufruf',if:'Verzweigung (wenn – dann – sonst)',switch:'Fallauswahl',while:'Kopfgesteuerte Schleife',do:'Fußgesteuerte Schleife',forever:'Endlosschleife (loop)'};
+  const NAMES={in:'Eingabe (z. B. Sensor lesen, Taster abfragen)',out:'Ausgabe (z. B. LED schalten, Text anzeigen)',stmt:'Anweisung',call:'Unterprogramm-Aufruf',if:'Verzweigung (wenn – dann – sonst)',switch:'Fallauswahl',while:'Kopfgesteuerte Schleife',do:'Fußgesteuerte Schleife',forever:'Endlosschleife (loop)'};
   function field(label,val,on,ph){ return {label,val,on,ph}; }
   function renderEdit(){
     const box=$('#sgEdit');
@@ -4066,14 +4088,14 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
     if(sel.kind==='slot'){ box.innerHTML='<span class="none">Leeres Feld markiert – wähle oben, was hier hinein soll.</span>'; return; }
     const n=nodeByKey(sel.key); if(!n){ sel=null; return renderEdit(); }
     let F=[];
-    if(n.t==='stmt'||n.t==='call') F.push(field('Text',n.text,v=>n.text=v));
+    if(n.t==='stmt'||n.t==='call'||n.t==='in'||n.t==='out') F.push(field('Text',n.text,v=>n.text=v,n.t==='in'?'z. B. Temperatur   oder   t = analogRead(A0);':n.t==='out'?'z. B. LED an   oder   digitalWrite(LED, HIGH);':''));
     if(n.t==='if'||n.t==='while'||n.t==='do') F.push(field(n.t==='if'?'Bedingung':'Schleifenbedingung',n.cond,v=>n.cond=v,n.t==='while'?'z. B. i < 10   oder   for (int i=0; i<10; i++)':''));
     if(n.t==='forever') F.push(field('Beschriftung',n.text,v=>n.text=v,'wiederhole endlos (loop)'));
-    if(n.t==='switch'){ F.push(field('Ausdruck',n.expr,v=>n.expr=v)); F.push(field('Fälle (mit Komma getrennt, „sonst“ = default)',n.cases.map(c=>c.label).join(', '),v=>{
-      const labels=v.split(',').map(s=>s.trim()).filter(Boolean); if(!labels.length) return;
+    if(n.t==='switch'){ const sep=n.mode==='cond'?';':','; F.push(field(n.mode==='cond'?'Überschrift (optional, z. B. Variable)':'Ausdruck',n.expr,v=>n.expr=v)); F.push(field(n.mode==='cond'?'Bedingungen (mit ; getrennt, „sonst“ am Ende)':'Fälle (mit Komma getrennt, „sonst“ = default)',n.cases.map(c=>c.label).join(sep+' '),v=>{
+      const labels=v.split(sep).map(s=>s.trim()).filter(Boolean); if(!labels.length) return;
       n.cases=labels.map((l,i)=>({label:l,body:(n.cases[i]&&n.cases[i].body)||[]}));
     })); }
-    box.innerHTML=`<div style="width:100%;font-size:12px;color:var(--teal)">${NAMES[n.t]}</div>`+
+    box.innerHTML=`<div style="width:100%;font-size:12px;color:var(--teal)">${n.t==='switch'&&n.mode==='cond'?'Fallunterscheidung (mehrfache Verzweigung)':NAMES[n.t]}</div>`+
       F.map((f,i)=>`<label>${esc(f.label)}<input data-f="${i}" value="${esc(f.val||'')}" placeholder="${esc(f.ph||'')}" autocapitalize="off" autocomplete="off" spellcheck="false"></label>`).join('')+
       `<div class="acts"><button class="btn mini" data-a="up">↑</button><button class="btn mini" data-a="down">↓</button><button class="btn mini" data-a="dup">⧉ Kopie</button><button class="btn mini" data-a="del">✕ Entfernen</button></div>`;
     box.querySelectorAll('input[data-f]').forEach(inp=>{
@@ -4097,11 +4119,12 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
   function codeOf(list,ind){
     const I='  '.repeat(ind); let s='';
     list.forEach(n=>{
-      if(n.t==='stmt'){ const t=(n.text||'').trim(); s+= /;\s*$/.test(t)||/^[{}]/.test(t) ? I+t+'\n' : I+'// '+t+'\n'; }
+      if(n.t==='stmt'||n.t==='in'||n.t==='out'){ const t=(n.text||'').trim(); s+= /;\s*$/.test(t)||/^[{}]/.test(t) ? I+t+'\n' : I+'// '+(n.t==='in'?'Eingabe: ':n.t==='out'?'Ausgabe: ':'')+t+'\n'; }
       else if(n.t==='call'){ let t=(n.text||'').trim().replace(/;$/,''); if(!/\)$/.test(t)) t+='()'; s+=I+t+';\n'; }
       else if(n.t==='if'){ s+=I+'if ('+n.cond.replace(/\?$/,'').trim()+') {\n'+codeOf(n.yes,ind+1)+(n.no.length?I+'} else {\n'+codeOf(n.no,ind+1):'')+I+'}\n'; }
       else if(n.t==='while'){ const c=n.cond.trim(); s+= /^for\s*\(/.test(c) ? I+c+' {\n' : I+'while ('+c+') {\n'; s+=codeOf(n.body,ind+1)+I+'}\n'; }
       else if(n.t==='do'){ s+=I+'do {\n'+codeOf(n.body,ind+1)+I+'} while ('+n.cond.trim()+');\n'; }
+      else if(n.t==='switch'&&n.mode==='cond'){ n.cases.forEach((c,i)=>{ const d=/^(sonst|default)$/i.test(c.label); s+=(i?I+'} else ':I)+(d?'{':'if ('+c.label.trim()+') {')+'\n'+codeOf(c.body,ind+1); }); s+=I+'}\n'; }
       else if(n.t==='switch'){ s+=I+'switch ('+n.expr.trim()+') {\n'; n.cases.forEach(c=>{ const d=/^(sonst|default)$/i.test(c.label); s+=I+'  '+(d?'default:':'case '+c.label+':')+'\n'+codeOf(c.body,ind+2)+I+'    break;\n'; }); s+=I+'}\n'; }
       else if(n.t==='forever'){ s+=I+'while (true) {\n'+codeOf(n.body,ind+1)+I+'}\n'; }
     });
@@ -4219,11 +4242,27 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
       if(!parts.every(p=>/^[A-Za-z_]\w*(\s*\[[^\]]*\])?\s*(=[\s\S]*)?$/.test(p))) return null;
       return parts.filter(p=>/=/.test(p)&&!/^\w+\s*\[/.test(p)).map(p=>({t:'stmt',text:p.replace(/\s*=\s*/,' = ')+';'}));
     }
+    const IN_RE=/\b(digitalRead|analogRead|analogReadMilliVolts|pulseIn|touchRead|readTemperature|readHumidity|readPressure|getTempC\w*|getTempF\w*|get_units|read_average|parseInt|parseFloat|readString\w*|readBytes\w*)\s*\(|\bSerial\d?\.read\s*\(|\b\w+\.read\s*\(\)/;
+    const OUT_RE=/^(digitalWrite|analogWrite|ledcWrite|dacWrite|tone|noTone)\s*\(|^\w+\.(print|println|printf|write|show|setPixelColor|fill|clear|display|drawString|setCursor)\s*\(/;
+    function ioKind(t){ if(!opt.io) return 'stmt'; if(OUT_RE.test(t)) return 'out'; if(IN_RE.test(t)) return 'in'; return 'stmt'; }
     function stmtNode(t){
-      const dn=declNodes(t); if(dn) return dn;
+      const dn=declNodes(t); if(dn) return dn.map(n=>Object.assign(n,{t:ioKind(n.text)}));
       const m=t.match(/^(\w+)\s*\(.*\)\s*;$/);
       if(m&&FN.has(m[1])) return {t:'call',text:t.replace(/;$/,'')};
-      return {t:'stmt',text:t};
+      return {t:ioKind(t),text:t};
+    }
+    const CHAIN=new WeakSet();
+    function chainToMulti(node){      // if / else if / else (≥ 3 Zweige) → Fallunterscheidung
+      if(!opt.multi) return node;
+      const C=[]; let n=node;
+      while(n&&n.t==='if'){ C.push({label:n.cond,body:n.yes});
+        if(n.no.length===1&&n.no[0].t==='if'){ n=n.no[0]; continue; }
+        if(n.no.length===1&&CHAIN.has(n.no[0])){ C.push(...n.no[0].cases); n=null; break; }
+        C.push({label:'sonst',body:n.no}); n=null; }
+      if(C.length<3) return node;
+      const v=C.slice(0,-1).map(c=>(c.label.match(/^\(?\s*([A-Za-z_][\w.\[\]]*)\s*(?:[<>!=]=?|==)/)||[])[1]);
+      const common=v.every(x=>x&&x===v[0])?v[0]:'';
+      const r={t:'switch',mode:'cond',expr:common,cases:C}; CHAIN.add(r); return r;
     }
     function cond(i){ i=ws(i); if(s[i]!=='(') throw new Error('Nach if/while/for/switch fehlt „(“.'); const j=closeOf(s,i); return {c:norm(s.slice(i+1,j)),end:j+1}; }
     function stmt(i,end){
@@ -4234,7 +4273,7 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
       if(kw==='if'){
         const c=cond(i+2), y=stmt(c.end,end); let e=ws(y.end), no=[];
         if(/^else\b/.test(s.slice(e,e+5))){ const n=stmt(e+4,end); no=n.nodes; e=n.end; } else e=y.end;
-        return {nodes:[{t:'if',cond:c.c,yes:y.nodes,no}],end:e};
+        return {nodes:[chainToMulti({t:'if',cond:c.c,yes:y.nodes,no})],end:e};
       }
       if(kw==='while'){ const c=cond(i+5), b=stmt(c.end,end);
         if(/^(true|1)$/.test(c.c)) return {nodes:[{t:'forever',text:'wiederhole endlos',body:b.nodes}],end:b.end};
@@ -4279,7 +4318,7 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
     return docs;
   }
   function fromCode(code,name){
-    const docs=parseCode(code,{decl:false,vars:true,name});
+    const docs=parseCode(code,{decl:false,vars:true,io:true,multi:true,name});
     docs.forEach(d=>{ d.id=uid(); S.items.push(d); });
     S.cur=docs[0].id; sel=null; hist=[]; save(); renderPick(); draw(); renderEdit();
     return docs;
@@ -4295,12 +4334,14 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
     showOut(`<p><b>Code einfügen</b> – Arduino-Sketch oder C/C++. Daraus entsteht ein Struktogramm: setup() als Ablauf, loop() als Endlosschleife und jede eigene Funktion als eigenes Struktogramm.</p>
       <textarea id="sgSrc" spellcheck="false" style="width:100%;min-height:220px;background:var(--panel2);color:var(--text);border:1px solid var(--line2);border-radius:8px;padding:10px;font-family:var(--mono);font-size:13px"></textarea>
       <label style="display:flex;gap:8px;align-items:center;margin:8px 0 4px;font-size:13.5px"><input type="checkbox" id="sgVars" checked> Variablen-Deklarationen weglassen (aus „float t = x;“ wird „t = x“)</label>
+      <label style="display:flex;gap:8px;align-items:center;margin:0 0 4px;font-size:13.5px"><input type="checkbox" id="sgIO" checked> Ein- und Ausgaben erkennen (digitalRead, analogRead … / digitalWrite, Serial.print …)</label>
+      <label style="display:flex;gap:8px;align-items:center;margin:0 0 4px;font-size:13.5px"><input type="checkbox" id="sgMulti" checked> „else if“-Ketten (ab 3 Fällen) als Fallunterscheidung</label>
       <label style="display:flex;gap:8px;align-items:center;margin:0 0 8px;font-size:13.5px"><input type="checkbox" id="sgDecl"> Globale Variablen/Konstanten trotzdem oben auflisten</label>
       <div style="display:flex;gap:6px;flex-wrap:wrap">${labCode?'<button class="btn mini" id="sgSrcLab">⇣ Labor-Sketch einfügen</button>':''}<button class="btn mini primary" id="sgSrcGo">🧩 Struktogramm erstellen</button></div>`);
     if($('#sgSrcLab')) $('#sgSrcLab').onclick=()=>{ $('#sgSrc').value=labCode; };
     $('#sgSrcGo').onclick=()=>{
       const code=$('#sgSrc').value; if(!code.trim()) return;
-      try { const docs=parseCode(code,{decl:$('#sgDecl').checked,vars:$('#sgVars').checked,name:(code.trim()===labCode.trim()&&typeof lab!=='undefined'&&lab&&lab.name)||'Aus Code'});
+      try { const docs=parseCode(code,{decl:$('#sgDecl').checked,vars:$('#sgVars').checked,io:$('#sgIO').checked,multi:$('#sgMulti').checked,name:(code.trim()===labCode.trim()&&typeof lab!=='undefined'&&lab&&lab.name)||'Aus Code'});
         docs.forEach(d=>{ d.id=uid(); S.items.push(d); }); S.cur=docs[0].id; sel=null; hist=[]; save(); renderPick(); draw(); renderEdit();
         showOut('<p>✅ '+(docs.length>1?docs.length+' Struktogramme erstellt: '+docs.map(d=>esc(d.title)).join(' · ')+'. Umschalten oben im Auswahlfeld.':'Struktogramm erstellt.')+' Blöcke kannst du wie gewohnt antippen und bearbeiten.</p>');
         $('#sgCanvas').scrollIntoView({behavior:'smooth',block:'start'});
@@ -7176,7 +7217,7 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
 </div>
 <script>
 (function(){
-  var APP_VERSION = '2.4.2';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+  var APP_VERSION = '2.5.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
   window.UCT_VERSION = APP_VERSION;
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register('sw.js').catch(function(){});
