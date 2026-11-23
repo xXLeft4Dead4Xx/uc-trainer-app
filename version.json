@@ -1,4 +1,4 @@
 {
-  "version": "2.4.1",
-  "notes": "Neu: Sketch als PDF (Labor → ⋯, mit Zeilennummern und Farben) und Struktogramm als PDF (Reiter Struktogramm → „Als PDF“)."
+  "version": "2.4.2",
+  "notes": "Struktogramm aus Code: Verzweigungen bekommen so viel Platz, wie ihr Inhalt braucht (nichts mehr zusammengedrückt, breite Diagramme scrollen seitlich). Variablen-Deklarationen werden weggelassen."
 }

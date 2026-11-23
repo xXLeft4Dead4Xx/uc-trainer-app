@@ -3779,7 +3779,8 @@ async function svgPdf(svg,title){
   const img=await new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=()=>rej(new Error('Bild konnte nicht erzeugt werden.')); im.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg); });
   const sc=2.5, c=document.createElement('canvas'); c.width=Math.round(img.width*sc); c.height=Math.round(img.height*sc);
   const g=c.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,c.width,c.height); g.drawImage(img,0,0,c.width,c.height);
-  const pdf=new jsPDF({unit:'mm',format:'a4'}), M=12, PW=210-2*M, PH=297-2*M-6;
+  const land=c.width>c.height*1.25, PWf=land?297:210, PHf=land?210:297;
+  const pdf=new jsPDF({unit:'mm',format:'a4',orientation:land?'landscape':'portrait'}), M=12, PW=PWf-2*M, PH=PHf-2*M-6;
   let w=PW, h=c.height*PW/c.width;
   if(h<=PH*1.5 && h>PH){ h=PH; w=c.width*PH/c.height; }   // etwas zu hoch: verkleinern, damit es auf eine Seite passt
   if(h<=PH){ pdf.addImage(c.toDataURL('image/jpeg',0.92),'JPEG',M+(PW-w)/2,M,w,h); }
@@ -3790,7 +3791,7 @@ async function svgPdf(svg,title){
       if(!first) pdf.addPage(); first=false; pdf.addImage(part.toDataURL('image/jpeg',0.92),'JPEG',M,M,PW,hh*PW/c.width); y0+=hh; }
   }
   const n=pdf.getNumberOfPages();
-  for(let i=1;i<=n;i++){ pdf.setPage(i); pdf.setFont('helvetica','normal'); pdf.setFontSize(8); pdf.setTextColor(140); pdf.text(pdfSafe((title||'Struktogramm')+(n>1?' · Seite '+i+' von '+n:'')),105,297-8,{align:'center'}); }
+  for(let i=1;i<=n;i++){ pdf.setPage(i); pdf.setFont('helvetica','normal'); pdf.setFontSize(8); pdf.setTextColor(140); pdf.text(pdfSafe((title||'Struktogramm')+(n>1?' · Seite '+i+' von '+n:'')),PWf/2,PHf-8,{align:'center'}); }
   return pdf.output('blob');
 }
 async function exportCodePdf(code,title){
@@ -3881,7 +3882,7 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
   const $=s=>document.querySelector(s);
   const KEY='uct-sg-v1';
   const FONT='14px "IBM Plex Sans", system-ui, sans-serif';
-  const LH=18, P=7, BAR=26, EMPTY=34, W=680;
+  const LH=18, P=7, BAR=26, EMPTY=34, W0=680; let W=W0;
   const uid=()=>Math.random().toString(36).slice(2,9);
 
   /* ---------- Daten ---------- */
@@ -3921,14 +3922,33 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
   const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
   /* ---------- Messen ---------- */
+  /* ---------- Breitenbedarf: Zweige bekommen so viel Platz, wie ihr Inhalt braucht ---------- */
+  const MINLEAF=110, MAXLEAF=300;
+  const tw=t=>Math.max(0,...String(t||'').split('\n').map(l=>ctx.measureText(l).width));
+  let MW=new WeakMap();
+  const minL=L=>L.length?Math.max(...L.map(minW)):70;
+  function minW(n){
+    if(MW.has(n)) return MW.get(n); let v=MINLEAF;
+    switch(n.t){
+      case 'stmt': v=Math.min(MAXLEAF,tw(n.text)+2*P+6); break;
+      case 'call': v=Math.min(MAXLEAF+20,tw(n.text)+2*P+26); break;
+      case 'if': v=Math.max(Math.min(240,tw(n.cond))/0.62+10, minL(n.yes)+minL(n.no)); break;
+      case 'switch': v=Math.max(Math.min(240,tw(n.expr))/0.6+10, cases(n).reduce((a,c)=>a+Math.max(80,minL(c.body),tw(c.label)+20),0)); break;
+      case 'while': case 'do': v=Math.max(Math.min(MAXLEAF,tw(loopLabel(n))+2*P+6), BAR+minL(n.body)); break;
+      case 'forever': v=Math.max(Math.min(MAXLEAF,tw(foreverLabel(n))+2*P+6), BAR+minL(n.body)); break;
+    }
+    v=Math.max(MINLEAF,v); MW.set(n,v); return v;
+  }
+  function ifSplit(n,w){ const a=minL(n.yes), b=minL(n.no); return Math.round(w*a/(a+b)); }
+  function caseWs(n,w){ const need=cases(n).map(c=>Math.max(80,minL(c.body),tw(c.label)+20)), sum=need.reduce((a,b)=>a+b,0); let acc=0; return need.map((x,i)=>{ const v=i===need.length-1?w-acc:Math.round(w*x/sum); acc+=v; return v; }); }
   function hList(list,w){ return list.length?list.reduce((a,n)=>a+hNode(n,w),0):EMPTY; }
   function cases(n){ return n.cases; }
   function hNode(n,w){
     switch(n.t){
       case 'stmt': return wrap(n.text,w-2*P).length*LH+2*P;
       case 'call': return wrap(n.text,w-2*P-20).length*LH+2*P;
-      case 'if':   return wrap(n.cond,w*0.62).length*LH+2*P+LH + Math.max(hList(n.yes,w/2),hList(n.no,w/2));
-      case 'switch': { const k=cases(n).length; return wrap(n.expr,w*0.6).length*LH+2*P+LH + Math.max(...cases(n).map(c=>hList(c.body,w/k))); }
+      case 'if':   { const hw=ifSplit(n,w); return wrap(n.cond,w*0.62).length*LH+2*P+LH + Math.max(hList(n.yes,hw),hList(n.no,w-hw)); }
+      case 'switch': { const cw=caseWs(n,w); return wrap(n.expr,w*0.6).length*LH+2*P+LH + Math.max(...cases(n).map((c,i)=>hList(c.body,cw[i]))); }
       case 'while': case 'do': return wrap(loopLabel(n),w-2*P).length*LH+2*P + hList(n.body,w-BAR);
       case 'forever': return wrap(foreverLabel(n),w-2*P).length*LH+2*P + hList(n.body,w-BAR) + 12;
     }
@@ -3961,20 +3981,20 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
     } else if(n.t==='call'){
       s+=rect(x,y,w,h)+`<line x1="${x+10}" y1="${y}" x2="${x+10}" y2="${y+h}" class="l"/><line x1="${x+w-10}" y1="${y}" x2="${x+w-10}" y2="${y+h}" class="l"/>`+txt(wrap(n.text,w-2*P-20),x+w/2,y,'middle');
     } else if(n.t==='if'){
-      const cl=wrap(n.cond,w*0.62), hh=cl.length*LH+2*P+LH, hw=w/2;
+      const cl=wrap(n.cond,w*0.62), hh=cl.length*LH+2*P+LH, hw=ifSplit(n,w);
       s+=rect(x,y,w,hh)+`<line x1="${x}" y1="${y}" x2="${x+hw}" y2="${y+hh}" class="l"/><line x1="${x+w}" y1="${y}" x2="${x+hw}" y2="${y+hh}" class="l"/>`;
-      s+=txt(cl,x+hw,y,'middle')+`<text x="${x+P}" y="${y+hh-6}" class="sm">ja</text><text x="${x+w-P}" y="${y+hh-6}" text-anchor="end" class="sm">nein</text>`;
+      s+=txt(cl,x+w/2,y,'middle')+`<text x="${x+P}" y="${y+hh-6}" class="sm">ja</text><text x="${x+w-P}" y="${y+hh-6}" text-anchor="end" class="sm">nein</text>`;
       s+=selBox(k,x,y,w,hh)+'</g>';
       const bh=h-hh;
       return s+dList(n.yes,k+':y',x,y+hh,hw,bh)+dList(n.no,k+':n',x+hw,y+hh,w-hw,bh);
     } else if(n.t==='switch'){
-      const C=cases(n), kk=C.length, cl=wrap(n.expr,w*0.6), hh=cl.length*LH+2*P+LH, cw=w/kk, px=x+cw*(kk-1);
+      const C=cases(n), kk=C.length, cl=wrap(n.expr,w*0.6), hh=cl.length*LH+2*P+LH, cws=caseWs(n,w), cx=cws.map((_,i)=>cws.slice(0,i).reduce((a,b)=>a+b,0)), px=x+cx[kk-1];
       s+=rect(x,y,w,hh)+`<line x1="${x}" y1="${y}" x2="${px}" y2="${y+hh}" class="l"/><line x1="${x+w}" y1="${y}" x2="${px}" y2="${y+hh}" class="l"/>`;
       s+=txt(cl,x+w*0.45,y,'middle');
-      C.forEach((c,i)=>{ s+=`<text x="${x+cw*i+cw/2}" y="${y+hh-6}" text-anchor="middle" class="sm">${esc(c.label)}</text>`; });
+      C.forEach((c,i)=>{ s+=`<text x="${x+cx[i]+cws[i]/2}" y="${y+hh-6}" text-anchor="middle" class="sm">${esc(c.label)}</text>`; });
       s+=selBox(k,x,y,w,hh)+'</g>';
       const bh=h-hh;
-      C.forEach((c,i)=>{ s+=dList(c.body,k+':c'+i,x+cw*i,y+hh,i===kk-1?w-cw*i:cw,bh); });
+      C.forEach((c,i)=>{ s+=dList(c.body,k+':c'+i,x+cx[i],y+hh,cws[i],bh); });
       return s;
     } else if(n.t==='while'||n.t==='forever'){
       const lab=n.t==='while'?loopLabel(n):foreverLabel(n), cl=wrap(lab,w-2*P), hh=cl.length*LH+2*P, foot=n.t==='forever'?12:0;
@@ -3991,10 +4011,11 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
     return s+selBox(k,x,y,w,h)+'</g>';
   }
   function svgFor(forExport){
+    MW=new WeakMap(); W=Math.max(W0,Math.ceil(minL(doc().body)));
     const d=doc(), body=d.body, tl=wrap(d.title||'Struktogramm',W-2*P), th=tl.length*LH+2*P;
     const H=th+hList(body,W);
     const st=`<style>.sgsvg .b{fill:#fff;stroke:#111;stroke-width:1.4}.sgsvg .l{stroke:#111;stroke-width:1.2}.sgsvg text{font:${FONT};fill:#111}.sgsvg .sm{font-size:12px;fill:#333}.sgsvg .ph{fill:#999;font-size:12.5px}.sgsvg .sel{fill:rgba(25,181,165,.18);stroke:#19b5a5;stroke-width:3}.sgsvg .t{font-weight:700}</style>`;
-    let s=`<svg class="sgsvg" xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 ${W+4} ${H+4}" width="${W+4}" height="${H+4}">${st}`;
+    let s=`<svg class="sgsvg" xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 ${W+4} ${H+4}" width="${W+4}" height="${H+4}"${forExport?'':` style="width:max(100%,${Math.round((W+4)*1.25)}px)"`}>${st}`;
     s+=`<rect x="-2" y="-2" width="${W+4}" height="${H+4}" fill="#fff"/>`;
     s+=`<g>${rect(0,0,W,th)}${tl.map((l,i)=>`<text x="${P}" y="${P+LH*(i+1)-5}" class="t">${esc(l)}</text>`).join('')}</g>`;
     const keep=sel; if(forExport) sel=null;
@@ -4190,7 +4211,16 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
       globals.push(norm(s.slice(i,e))); i=e;
     }
     // 2) Anweisungen
+    const TYPE=/^((?:(?:static|const|volatile|unsigned|signed|long|short|constexpr)\s+)*(?:int|long|short|float|double|bool|boolean|byte|char|String|word|size_t|auto|uint8_t|uint16_t|uint32_t|uint64_t|int8_t|int16_t|int32_t|int64_t|unsigned)\b\s*\**)\s+(?=[A-Za-z_])/;
+    function topSplit(t){ const out=[]; let d=0, q=null, a=0; for(let i=0;i<t.length;i++){ const c=t[i]; if(q){ if(c==='\\') i++; else if(c===q) q=null; continue; } if(c==='"'||c==="'") q=c; else if('([{'.includes(c)) d++; else if(')]}'.includes(c)) d--; else if(c===','&&!d){ out.push(t.slice(a,i)); a=i+1; } } out.push(t.slice(a)); return out.map(x=>x.trim()); }
+    function declNodes(t){            // „float t = x;“ → „t = x;“, „int x;“ → weglassen
+      if(!opt.vars) return null; const m=t.match(TYPE); if(!m) return null;
+      const parts=topSplit(t.slice(m[0].length).replace(/;$/,''));
+      if(!parts.every(p=>/^[A-Za-z_]\w*(\s*\[[^\]]*\])?\s*(=[\s\S]*)?$/.test(p))) return null;
+      return parts.filter(p=>/=/.test(p)&&!/^\w+\s*\[/.test(p)).map(p=>({t:'stmt',text:p.replace(/\s*=\s*/,' = ')+';'}));
+    }
     function stmtNode(t){
+      const dn=declNodes(t); if(dn) return dn;
       const m=t.match(/^(\w+)\s*\(.*\)\s*;$/);
       if(m&&FN.has(m[1])) return {t:'call',text:t.replace(/;$/,'')};
       return {t:'stmt',text:t};
@@ -4230,7 +4260,7 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
         if(c==='"'||c==="'"){ j++; while(j<end&&s[j]!==c){ if(s[j]==='\\') j++; j++; } j++; continue; }
         if('([{'.includes(c)) d++; else if(')]}'.includes(c)) d--; else if(c===';'&&d<=0) break; j++; }
       const t=norm(s.slice(i,j))+';';
-      return {nodes:t===';'?[]:[stmtNode(t)],end:j+1};
+      return {nodes:t===';'?[]:[].concat(stmtNode(t)),end:j+1};
     }
     function list(a,b){ const out=[]; let i=a; let guard=0;
       while((i=ws(i))<b){ const r=stmt(i,b); out.push(...r.nodes); if(r.end<=i) throw new Error('Code konnte nicht gelesen werden.'); i=r.end; if(++guard>5000) break; }
@@ -4249,7 +4279,7 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
     return docs;
   }
   function fromCode(code,name){
-    const docs=parseCode(code,{decl:true,name});
+    const docs=parseCode(code,{decl:false,vars:true,name});
     docs.forEach(d=>{ d.id=uid(); S.items.push(d); });
     S.cur=docs[0].id; sel=null; hist=[]; save(); renderPick(); draw(); renderEdit();
     return docs;
@@ -4264,12 +4294,13 @@ renderQuiz(); renderRef(); openEx(cur); showView(location.hash.slice(1));
     const labCode=(typeof cd!=='undefined'&&cd&&cd.code)||'';
     showOut(`<p><b>Code einfügen</b> – Arduino-Sketch oder C/C++. Daraus entsteht ein Struktogramm: setup() als Ablauf, loop() als Endlosschleife und jede eigene Funktion als eigenes Struktogramm.</p>
       <textarea id="sgSrc" spellcheck="false" style="width:100%;min-height:220px;background:var(--panel2);color:var(--text);border:1px solid var(--line2);border-radius:8px;padding:10px;font-family:var(--mono);font-size:13px"></textarea>
-      <label style="display:flex;gap:8px;align-items:center;margin:8px 0;font-size:13.5px"><input type="checkbox" id="sgDecl" checked> Globale Variablen/Konstanten als Anweisungen übernehmen</label>
+      <label style="display:flex;gap:8px;align-items:center;margin:8px 0 4px;font-size:13.5px"><input type="checkbox" id="sgVars" checked> Variablen-Deklarationen weglassen (aus „float t = x;“ wird „t = x“)</label>
+      <label style="display:flex;gap:8px;align-items:center;margin:0 0 8px;font-size:13.5px"><input type="checkbox" id="sgDecl"> Globale Variablen/Konstanten trotzdem oben auflisten</label>
       <div style="display:flex;gap:6px;flex-wrap:wrap">${labCode?'<button class="btn mini" id="sgSrcLab">⇣ Labor-Sketch einfügen</button>':''}<button class="btn mini primary" id="sgSrcGo">🧩 Struktogramm erstellen</button></div>`);
     if($('#sgSrcLab')) $('#sgSrcLab').onclick=()=>{ $('#sgSrc').value=labCode; };
     $('#sgSrcGo').onclick=()=>{
       const code=$('#sgSrc').value; if(!code.trim()) return;
-      try { const docs=parseCode(code,{decl:$('#sgDecl').checked,name:(code.trim()===labCode.trim()&&typeof lab!=='undefined'&&lab&&lab.name)||'Aus Code'});
+      try { const docs=parseCode(code,{decl:$('#sgDecl').checked,vars:$('#sgVars').checked,name:(code.trim()===labCode.trim()&&typeof lab!=='undefined'&&lab&&lab.name)||'Aus Code'});
         docs.forEach(d=>{ d.id=uid(); S.items.push(d); }); S.cur=docs[0].id; sel=null; hist=[]; save(); renderPick(); draw(); renderEdit();
         showOut('<p>✅ '+(docs.length>1?docs.length+' Struktogramme erstellt: '+docs.map(d=>esc(d.title)).join(' · ')+'. Umschalten oben im Auswahlfeld.':'Struktogramm erstellt.')+' Blöcke kannst du wie gewohnt antippen und bearbeiten.</p>');
         $('#sgCanvas').scrollIntoView({behavior:'smooth',block:'start'});
@@ -7145,7 +7176,7 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
 </div>
 <script>
 (function(){
-  var APP_VERSION = '2.4.1';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+  var APP_VERSION = '2.4.2';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
   window.UCT_VERSION = APP_VERSION;
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register('sw.js').catch(function(){});
