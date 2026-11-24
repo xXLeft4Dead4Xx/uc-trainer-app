@@ -1,4 +1,4 @@
 {
-  "version": "2.7.0",
-  "notes": "Neuer Code-Editor: Vollbild-Modus, Klammern und Anführungszeichen schließen sich automatisch, Befehls-Vorschläge beim Tippen (auch nach „strip.“ usw.) und ein Menü „📚 Bibliothek einfügen“."
+  "version": "2.7.1",
+  "notes": "Editor für iPad mit Tastatur & Maus: Tastenkürzel (⌘+Enter Start, ⌘+/ Kommentar, Tab/⇧Tab einrücken, ⌥↑↓ Zeile verschieben, ⌘⇧F Vollbild), Zeilen-/Spaltenanzeige, Maus-Hover in den Vorschlägen, größeres Codefeld – auch im geteilten Bildschirm."
 }

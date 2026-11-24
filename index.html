@@ -90,6 +90,14 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .ed-host.full{position:fixed;inset:0;z-index:2000;background:var(--bg,#070b0e);padding:10px;padding-top:max(10px,env(safe-area-inset-top));padding-bottom:max(10px,env(safe-area-inset-bottom));display:flex;flex-direction:column}
 .ed-host.full .editor{flex:1;height:auto !important;resize:none;font-size:15px;line-height:23px}
 html.ed-noscroll,html.ed-noscroll body{overflow:hidden}
+.ed-pos{font-family:var(--mono);font-size:12px;color:var(--muted,#7f93a1);white-space:nowrap}
+.ed-help{background:#0e161c;border:1px solid var(--line2);border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:12.5px;line-height:1.9;color:#b9c8d2}
+.ed-help kbd{font-family:var(--mono);font-size:11px;background:#1b2730;border:1px solid #2d3d48;border-bottom-width:2px;border-radius:4px;padding:0 5px}
+.ed-host .editor{height:max(360px,52vh)}
+.ac-i{cursor:pointer}
+.ed-host .code-wrap textarea{cursor:text}
+@media (hover:hover){.ed-bar .btn:hover{border-color:var(--teal)}.ed-lib:hover{border-color:var(--teal)}.ed-lib{cursor:pointer}}
+@media (max-width:760px){.ed-bar .ed-fs{padding:5px 8px}.ed-lib{flex:1 1 160px}.ed-pos{order:9;flex-basis:100%;text-align:right}}
 /* sim */
 .sim{margin-top:14px;display:none}
 .sim.on{display:block}
@@ -2272,9 +2280,18 @@ function makeEditor(host,onChange,opts){
   host.innerHTML='<div class="ed-bar"><select class="ed-lib" aria-label="Bibliothek einfügen"><option value="">📚 Bibliothek einfügen …</option>'+
     ED_LIBS.map((l,i)=>'<option value="'+i+'">'+esc(l.n)+'</option>').join('')+'</select><span class="ed-sp"></span>'+
     (opts.run?'<button type="button" class="btn ed-run">▶ Start</button>':'')+
-    '<button type="button" class="btn ed-fs" aria-label="Vollbild">⛶ Vollbild</button></div>'+
+    '<span class="ed-pos">Z 1 · S 1</span><button type="button" class="btn ed-keys" aria-label="Tastenkürzel" title="Tastenkürzel">⌨︎</button>'+
+    '<button type="button" class="btn ed-fs" aria-label="Vollbild" title="Vollbild (⌘ ⇧ F)">⛶ Vollbild</button></div>'+
+    '<div class="ed-help" hidden><b>Tastenkürzel</b> (⌘ = Cmd, auf Windows-Tastatur Strg)<br>'+
+    '<kbd>⌘</kbd>+<kbd>Enter</kbd> Sketch starten · <kbd>⌘</kbd>+<kbd>⇧</kbd>+<kbd>F</kbd> Vollbild · <kbd>Esc</kbd> Vollbild/Vorschläge schließen<br>'+
+    '<kbd>⌘</kbd>+<kbd>/</kbd> Zeilen aus-/einkommentieren · <kbd>Tab</kbd> / <kbd>⇧</kbd>+<kbd>Tab</kbd> markierte Zeilen ein-/ausrücken<br>'+
+    '<kbd>⌥</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> Zeile verschieben · <kbd>⌥</kbd>+<kbd>⇧</kbd>+<kbd>↓</kbd> Zeile duplizieren · <kbd>⌘</kbd>+<kbd>S</kbd> speichern (passiert auch automatisch)<br>'+
+    'Vorschläge: <kbd>↑</kbd>/<kbd>↓</kbd> wählen, <kbd>Enter</kbd>/<kbd>Tab</kbd> übernehmen – oder mit der Maus anklicken.</div>'+
     '<div class="editor"><div class="gutter"></div><div class="code-wrap"><pre aria-hidden="true"></pre><textarea spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="Code-Editor"></textarea><span class="ed-measure" aria-hidden="true">xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</span><div class="ac" hidden role="listbox"></div></div></div>';
-  const ta=host.querySelector('textarea'),pre=host.querySelector('pre'),gut=host.querySelector('.gutter'),ac=host.querySelector('.ac'),meas=host.querySelector('.ed-measure');
+  const ta=host.querySelector('textarea'),pre=host.querySelector('pre'),gut=host.querySelector('.gutter'),ac=host.querySelector('.ac'),meas=host.querySelector('.ed-measure'),posEl=host.querySelector('.ed-pos'),helpEl=host.querySelector('.ed-help');
+  const showPos=()=>{const b=ta.value.slice(0,ta.selectionStart),l=b.split('\n');let t='Z '+l.length+' · S '+(l[l.length-1].length+1);const n=Math.abs(ta.selectionEnd-ta.selectionStart);if(n)t+=' · '+n+' markiert';posEl.textContent=t;};
+  document.addEventListener('selectionchange',()=>{if(document.activeElement===ta)showPos();});
+  host.querySelector('.ed-keys').addEventListener('click',()=>{helpEl.hidden=!helpEl.hidden;});
   const render=()=>{
     pre.innerHTML=hl(ta.value)+'\n';
     const n=ta.value.split('\n').length;
@@ -2347,6 +2364,7 @@ function makeEditor(host,onChange,opts){
     if(fn&&v[c]!=='('){ const t=it.t+'()'; ins(t,acStart,c,ED_NOARG.has(it.t)?t.length:t.length-1); }
     else ins(it.t,acStart,c);
   }
+  ac.addEventListener('pointermove',e=>{const el=e.target.closest('.ac-i');if(el&&+el.dataset.i!==sel){sel=+el.dataset.i;ac.querySelectorAll('.ac-i').forEach((x,i)=>x.classList.toggle('on',i===sel));}});
   ac.addEventListener('pointerdown',e=>{const el=e.target.closest('.ac-i'); if(!el) return; e.preventDefault(); acAccept(+el.dataset.i);});
   /* ---- Klammern & Anführungszeichen automatisch schließen ---- */
   ta.addEventListener('beforeinput',e=>{
@@ -2375,7 +2393,7 @@ function makeEditor(host,onChange,opts){
   ta.addEventListener('input',()=>{render();onChange&&onChange(ta.value);if(!busy) acUpdate();});
   ta.addEventListener('scroll',()=>{sync();acHide();});
   ta.addEventListener('blur',()=>setTimeout(acHide,150));
-  ta.addEventListener('click',acHide);
+  ta.addEventListener('click',()=>{acHide();showPos();});
   ta.addEventListener('keydown',e=>{
     if(!ac.hidden&&items.length){
       if(e.key==='ArrowDown'){e.preventDefault();acSel(1);return;}
@@ -2384,6 +2402,16 @@ function makeEditor(host,onChange,opts){
       if(e.key==='Escape'){e.preventDefault();acHide();return;}
     }
     if(e.key==='Escape'&&host.classList.contains('full')){e.preventDefault();setFull(false);return;}
+    const mod=e.metaKey||e.ctrlKey;
+    if(mod&&e.key==='Enter'){e.preventDefault();if(opts.run){setFull(false);opts.run();}return;}
+    if(mod&&e.shiftKey&&(e.key==='f'||e.key==='F')){e.preventDefault();setFull(!host.classList.contains('full'));return;}
+    if(mod&&(e.key==='s'||e.key==='S')){e.preventDefault();onChange&&onChange(ta.value);posEl.textContent='✓ gespeichert';setTimeout(showPos,1200);return;}
+    if(mod&&(e.key==='/'||e.code==='Slash'||e.key==='7'&&e.shiftKey)){e.preventDefault();
+      lineOp(ls=>{const all=ls.filter(l=>l.trim()).every(l=>/^\s*\/\//.test(l));
+        return all?ls.map(l=>l.replace(/^(\s*)\/\/ ?/,'$1')):ls.map(l=>l.trim()?l.replace(/^(\s*)/,'$1// '):l);});return;}
+    if(e.altKey&&!mod&&(e.key==='ArrowUp'||e.key==='ArrowDown')){e.preventDefault();moveLine(e.key==='ArrowUp'?-1:1,e.shiftKey);return;}
+    if(e.key==='Tab'&&(e.shiftKey||ta.value.slice(ta.selectionStart,ta.selectionEnd).includes('\n'))){e.preventDefault();
+      lineOp(ls=>e.shiftKey?ls.map(l=>l.replace(/^ {1,2}|^\t/,'')):ls.map(l=>'  '+l));return;}
     if(e.key==='Tab'){e.preventDefault();ins('  ',ta.selectionStart,ta.selectionEnd);}
     else if(e.key==='Enter' && !e.isComposing){
       const s=ta.selectionStart, v=ta.value, before=v.slice(0,s);
@@ -2397,6 +2425,17 @@ function makeEditor(host,onChange,opts){
       ins('\n'+ind,s,ta.selectionEnd);
     }
   });
+  /* ---- Zeilen-Operationen (Hardware-Tastatur) ---- */
+  function lineRange(){const v=ta.value,s=ta.selectionStart;let e=ta.selectionEnd;if(e>s&&v[e-1]==='\n')e--;
+    const a=v.lastIndexOf('\n',s-1)+1;let b=v.indexOf('\n',e);if(b<0)b=v.length;return [a,b];}
+  function lineOp(fn){const [a,b]=lineRange(),v=ta.value,s=ta.selectionStart,e=ta.selectionEnd,old=v.slice(a,b),nw=fn(old.split('\n')).join('\n');
+    if(nw===old)return; acHide(); ins(nw,a,b);
+    if(old.includes('\n')||e>s) ta.setSelectionRange(a,a+nw.length);
+    else{const fl=nw.split('\n')[0].length-old.split('\n')[0].length,c=Math.max(a,s+fl);ta.setSelectionRange(c,c);}}
+  function moveLine(d,dup){const [a,b]=lineRange(),v=ta.value,blk=v.slice(a,b),s=ta.selectionStart-a,e=ta.selectionEnd-a;acHide();
+    if(dup){ins('\n'+blk,b,b);const o=b+1;ta.setSelectionRange(o+s,o+e);return;}
+    if(d<0){if(a===0)return;const pa=v.lastIndexOf('\n',a-2)+1,prev=v.slice(pa,a-1);ins(blk+'\n'+prev,pa,b);ta.setSelectionRange(pa+s,pa+e);}
+    else{if(b>=v.length)return;let nb=v.indexOf('\n',b+1);if(nb<0)nb=v.length;const next=v.slice(b+1,nb);ins(next+'\n'+blk,a,nb);const o=a+next.length+1;ta.setSelectionRange(o+s,o+e);}}
   /* ---- Bibliothek einfügen ---- */
   const libSel=host.querySelector('.ed-lib');
   libSel.addEventListener('change',()=>{
@@ -7734,7 +7773,7 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
 </div>
 <script>
 (function(){
-  var APP_VERSION = '2.7.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+  var APP_VERSION = '2.7.1';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
   window.UCT_VERSION = APP_VERSION;
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register('sw.js').catch(function(){});
