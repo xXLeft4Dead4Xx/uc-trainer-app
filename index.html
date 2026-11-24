@@ -77,6 +77,19 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .code-wrap .t-com{font-style:normal}
 .t-com{color:#5f7686;font-style:italic}.t-str{color:#e8b964}.t-pre{color:#d08cf0}.t-num{color:#f6956a}
 .t-kw{color:#d08cf0}.t-type{color:#4fd0e0}.t-fn{color:#7fb0ff}.t-const{color:#ffb86b}.t-obj{color:#9fe58f}
+/* Editor-Leiste, Vollbild, Autovervollständigung */
+.ed-bar{display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap}
+.ed-bar .ed-sp{flex:1}
+.ed-bar .btn{padding:5px 10px;font-size:13px}
+.ed-lib{background:var(--panel,#111a20);color:inherit;border:1px solid var(--line2);border-radius:8px;padding:5px 8px;font:inherit;font-size:13px;max-width:100%}
+.ed-measure{position:absolute;visibility:hidden;white-space:pre;left:0;top:0;pointer-events:none;font-family:var(--mono);font-variant-ligatures:none;font-kerning:none}
+.ac{position:absolute;z-index:30;min-width:180px;max-width:280px;max-height:232px;overflow:auto;background:#121b22;border:1px solid var(--line2);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.45);padding:3px;font-size:13px}
+.ac-i{display:flex;justify-content:space-between;gap:10px;padding:5px 8px;border-radius:5px;cursor:pointer;white-space:nowrap}
+.ac-i b{font-weight:500;color:#d6e2ea;overflow:hidden;text-overflow:ellipsis}.ac-i small{color:#6f8796;font-size:11px}
+.ac-i.on,.ac-i:hover{background:rgba(25,181,165,.25)}
+.ed-host.full{position:fixed;inset:0;z-index:2000;background:var(--bg,#070b0e);padding:10px;padding-top:max(10px,env(safe-area-inset-top));padding-bottom:max(10px,env(safe-area-inset-bottom));display:flex;flex-direction:column}
+.ed-host.full .editor{flex:1;height:auto !important;resize:none;font-size:15px;line-height:23px}
+html.ed-noscroll,html.ed-noscroll body{overflow:hidden}
 /* sim */
 .sim{margin-top:14px;display:none}
 .sim.on{display:block}
@@ -2213,9 +2226,55 @@ function hl(code){
 }
 
 /* ---------- editor ---------- */
-function makeEditor(host,onChange){
-  host.innerHTML='<div class="editor"><div class="gutter"></div><div class="code-wrap"><pre aria-hidden="true"></pre><textarea spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="Code-Editor"></textarea></div></div>';
-  const ta=host.querySelector('textarea'),pre=host.querySelector('pre'),gut=host.querySelector('.gutter');
+const ED_LIBS=[
+  {n:'Adafruit NeoPixel (LED-Streifen)',inc:['Adafruit_NeoPixel.h'],cls:'Adafruit_NeoPixel',decl:'Adafruit_NeoPixel strip(8, 5, NEO_GRB + NEO_KHZ800);  // Anzahl LEDs, Pin'},
+  {n:'HX711 (Wägezelle)',inc:['HX711.h'],cls:'HX711',decl:'HX711 waage;'},
+  {n:'DHT (Temperatur/Feuchte)',inc:['DHT.h'],cls:'DHT',decl:'DHT dht(27, DHT22);  // Pin, Typ'},
+  {n:'DS18B20 (OneWire + Dallas)',inc:['OneWire.h','DallasTemperature.h'],cls:'DallasTemperature',decl:'OneWire oneWire(4);\nDallasTemperature sensoren(&oneWire);'},
+  {n:'Servo (Arduino Uno)',inc:['Servo.h'],cls:'Servo',decl:'Servo servo;'},
+  {n:'ESP32Servo (ESP32)',inc:['ESP32Servo.h'],cls:'Servo',decl:'Servo servo;'},
+  {n:'TFT_eSPI (Touch-Display)',inc:['TFT_eSPI.h'],cls:'TFT_eSPI',decl:'TFT_eSPI tft = TFT_eSPI();'},
+  {n:'Preferences (Speicher, ESP32)',inc:['Preferences.h'],cls:'Preferences',decl:'Preferences prefs;'},
+  {n:'Wire (I²C)',inc:['Wire.h']},
+  {n:'Adafruit BMP280',inc:['Wire.h','Adafruit_BMP280.h'],cls:'Adafruit_BMP280',decl:'Adafruit_BMP280 bmp;'},
+  {n:'Adafruit BME280',inc:['Wire.h','Adafruit_BME280.h'],cls:'Adafruit_BME280',decl:'Adafruit_BME280 bme;'},
+  {n:'WiFi (ESP32)',inc:['WiFi.h']},
+  {n:'WebServer (ESP32)',inc:['WiFi.h','WebServer.h'],cls:'WebServer',decl:'WebServer server(80);'},
+  {n:'HTTPClient (ESP32)',inc:['WiFi.h','HTTPClient.h']},
+  {n:'ArduinoJson',inc:['ArduinoJson.h']}
+];
+const ED_METH={
+  Serial:'begin print println printf available read write flush',
+  WiFi:'begin status localIP mode RSSI disconnect softAP macAddress',
+  Adafruit_NeoPixel:'begin show clear setPixelColor Color setBrightness numPixels fill getPixelColor',
+  HX711:'begin read read_average get_value get_units tare set_scale set_offset get_offset is_ready power_down power_up',
+  DHT:'begin readTemperature readHumidity',
+  OneWire:'reset search write read',
+  DallasTemperature:'begin requestTemperatures getTempCByIndex getTempFByIndex getDeviceCount setResolution',
+  Servo:'attach write read detach writeMicroseconds attached',
+  TFT_eSPI:'init begin setRotation fillScreen setTextColor setTextSize setTextDatum drawString drawNumber drawFloat setCursor print println fillRect drawRect fillRoundRect drawRoundRect drawLine fillCircle drawCircle getTouch width height color565',
+  Preferences:'begin end getInt putInt getFloat putFloat getBool putBool getString putString getLong putLong clear remove isKey',
+  WebServer:'on begin handleClient send arg hasArg onNotFound',
+  HTTPClient:'begin GET POST getString end addHeader',
+  Adafruit_BMP280:'begin readTemperature readPressure readAltitude',
+  Adafruit_BME280:'begin readTemperature readPressure readAltitude readHumidity',
+  Wire:'begin beginTransmission endTransmission write read requestFrom available'
+};
+const ED_SNIP={
+  'if':'if (|) {\n  \n}','else':'else {\n  |\n}','for':'for (int i = 0; i < |; i++) {\n  \n}','while':'while (|) {\n  \n}',
+  'switch':'switch (|) {\n  case 0:\n    break;\n  default:\n    break;\n}','setup':'void setup() {\n  |\n}','loop':'void loop() {\n  |\n}'
+};
+const ED_NOARG=new Set('millis micros show clear read available requestTemperatures readTemperature readHumidity readPressure is_ready handleClient localIP status RSSI numPixels width height tare end GET getString endTransmission'.split(' '));
+const ED_PAIR={'(':')','[':']','{':'}','"':'"',"'":"'"};
+function makeEditor(host,onChange,opts){
+  opts=opts||{};
+  host.classList.add('ed-host');
+  host.innerHTML='<div class="ed-bar"><select class="ed-lib" aria-label="Bibliothek einfügen"><option value="">📚 Bibliothek einfügen …</option>'+
+    ED_LIBS.map((l,i)=>'<option value="'+i+'">'+esc(l.n)+'</option>').join('')+'</select><span class="ed-sp"></span>'+
+    (opts.run?'<button type="button" class="btn ed-run">▶ Start</button>':'')+
+    '<button type="button" class="btn ed-fs" aria-label="Vollbild">⛶ Vollbild</button></div>'+
+    '<div class="editor"><div class="gutter"></div><div class="code-wrap"><pre aria-hidden="true"></pre><textarea spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="Code-Editor"></textarea><span class="ed-measure" aria-hidden="true">xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</span><div class="ac" hidden role="listbox"></div></div></div>';
+  const ta=host.querySelector('textarea'),pre=host.querySelector('pre'),gut=host.querySelector('.gutter'),ac=host.querySelector('.ac'),meas=host.querySelector('.ed-measure');
   const render=()=>{
     pre.innerHTML=hl(ta.value)+'\n';
     const n=ta.value.split('\n').length;
@@ -2223,23 +2282,147 @@ function makeEditor(host,onChange){
     sync();
   };
   const sync=()=>{pre.scrollTop=ta.scrollTop;pre.scrollLeft=ta.scrollLeft;gut.scrollTop=ta.scrollTop;};
-  ta.addEventListener('input',()=>{render();onChange&&onChange(ta.value);});
-  ta.addEventListener('scroll',sync);
-  ta.addEventListener('keydown',e=>{
-    if(e.key==='Tab'){e.preventDefault();ta.setRangeText('  ',ta.selectionStart,ta.selectionEnd,'end');ta.dispatchEvent(new Event('input'));}
-    else if(e.key==='Enter' && !e.isComposing){
-      const s=ta.selectionStart, before=ta.value.slice(0,s);
-      const line=before.slice(before.lastIndexOf('\n')+1);
-      let ind=(line.match(/^\s*/)||[''])[0];
-      if(/\{\s*$/.test(line)) ind+='  ';
-      e.preventDefault(); ta.setRangeText('\n'+ind,s,ta.selectionEnd,'end'); ta.dispatchEvent(new Event('input'));
+  let busy=false;
+  // Text einfügen (mit Rückgängig-Unterstützung, wo möglich); caret = Position relativ zum Start
+  function ins(text,s,e,caret){
+    busy=true; ta.focus(); ta.setSelectionRange(s,e);
+    let ok=false; try{ ok=text===''?document.execCommand('delete'):document.execCommand('insertText',false,text); }catch(_){}
+    if(!ok||ta.value.slice(s,s+text.length)!==text){ ta.setRangeText(text,s,e,'end'); ta.dispatchEvent(new Event('input')); }
+    busy=false;
+    const c=s+(caret==null?text.length:caret); ta.setSelectionRange(c,c);
+  }
+  /* ---- Autovervollständigung ---- */
+  let items=[],sel=0,acStart=0,noAc=false;
+  const acHide=()=>{ac.hidden=true;items=[];};
+  const declType=(code,name)=>{
+    if(ED_METH[name]) return name;
+    const m=code.match(new RegExp('\\b([A-Za-z_]\\w*)\\s*\\*?\\s*\\b'+name+'\\b\\s*(?:[;=(\\[,)]|$)','m'));
+    return m&&ED_METH[m[1]]?m[1]:null;
+  };
+  function acUpdate(){
+    if(noAc){noAc=false;acHide();return;}
+    const c=ta.selectionStart; if(c!==ta.selectionEnd){acHide();return;}
+    const v=ta.value, before=v.slice(0,c), line=before.slice(before.lastIndexOf('\n')+1);
+    if(/\/\/|^\s*#/.test(line) || (line.split('"').length-1)%2){acHide();return;}
+    const m=before.match(/([A-Za-z_]\w*\s*(?:\.|->))?([A-Za-z_]\w*)?$/), pfx=(m&&m[2])||'', obj=m&&m[1]?m[1].replace(/\s*(\.|->)$/,''):null;
+    if(m&&m[1]&&/\w/.test(v[c]||'')){acHide();return;}
+    let cand=[];
+    if(obj){
+      const t=declType(v,obj); if(!t){acHide();return;}
+      cand=ED_METH[t].split(' ').map(w=>({t:w,k:'Methode'}));
+    } else {
+      if(pfx.length<2||/\w/.test(v[c]||'')){acHide();return;}
+      const rest=v.slice(0,c-pfx.length)+v.slice(c), seen=new Set();
+      const add=(w,k)=>{ if(!seen.has(w)){seen.add(w);cand.push({t:w,k});} };
+      Object.keys(ED_SNIP).forEach(w=>add(w,'Vorlage'));
+      FN.forEach(w=>add(w,'Funktion')); TY.forEach(w=>add(w,'Typ')); CO.forEach(w=>add(w,'Konstante'));
+      KW.forEach(w=>add(w,'Befehl')); OB.forEach(w=>add(w,'Objekt')); Object.keys(ED_METH).forEach(w=>add(w,'Klasse'));
+      'NEO_GRB NEO_KHZ800 DHT22 DHT11 TFT_BLACK TFT_WHITE TFT_RED TFT_GREEN TFT_BLUE TFT_YELLOW'.split(' ').forEach(w=>add(w,'Konstante'));
+      (rest.replace(/\/\/.*$|\/\*[\s\S]*?\*\/|"(?:\\.|[^"\\\n])*"/gm,'').match(/\b[A-Za-z_]\w{2,}\b/g)||[]).forEach(w=>add(w,'Variable'));
     }
-    else if(e.key==='}'){
-      const s=ta.selectionStart, before=ta.value.slice(0,s), ls=before.lastIndexOf('\n')+1, line=before.slice(ls);
-      if(/^\s{2,}$/.test(line)){ e.preventDefault(); ta.setRangeText(line.slice(2)+'}',ls,ta.selectionEnd,'end'); ta.dispatchEvent(new Event('input')); }
+    const lp=pfx.toLowerCase();
+    let f=cand.filter(x=>x.t.toLowerCase().startsWith(lp)&&(x.t!==pfx||x.k==='Vorlage'));
+    f.sort((a,b)=>(b.t.startsWith(pfx)-a.t.startsWith(pfx))||((a.k==='Variable')-(b.k==='Variable'))||a.t.length-b.t.length);
+    // exakte Eingabe in anderer Schreibweise (z. B. "serial") nach vorne
+    items=f.slice(0,8); if(!items.length){acHide();return;}
+    sel=0; acStart=c-pfx.length;
+    ac.innerHTML=items.map((x,i)=>'<div class="ac-i'+(i?'':' on')+'" data-i="'+i+'"><b>'+esc(x.t)+'</b><small>'+x.k+'</small></div>').join('');
+    const row=before.split('\n').length-1, col=line.length-pfx.length;
+    const cw=(meas.getBoundingClientRect().width||330)/50, lh=parseFloat(getComputedStyle(ta).lineHeight)||21;
+    const W=ta.clientWidth, x=Math.max(4,Math.min(12+col*cw-ta.scrollLeft,W-190));
+    let y=10+(row+1)*lh-ta.scrollTop; const H=ta.clientHeight;
+    ac.hidden=false; const ah=ac.offsetHeight;
+    if(y+ah>H&&y-lh-ah>0) y=y-lh-ah;
+    ac.style.left=x+'px'; ac.style.top=y+'px';
+  }
+  function acSel(d){ sel=(sel+d+items.length)%items.length; ac.querySelectorAll('.ac-i').forEach((el,i)=>el.classList.toggle('on',i===sel)); const on=ac.children[sel]; on&&on.scrollIntoView({block:'nearest'}); }
+  function acAccept(i){
+    const it=items[i]; if(!it) return; const c=ta.selectionStart, v=ta.value; acHide(); noAc=true;
+    if(it.k==='Vorlage'){
+      const ls=v.lastIndexOf('\n',acStart-1)+1, ind=(v.slice(ls).match(/^[ \t]*/)||[''])[0];
+      let t=ED_SNIP[it.t].replace(/\n/g,'\n'+ind); const p=t.indexOf('|'); t=t.replace('|','');
+      ins(t,acStart,c,p); return;
+    }
+    const fn=it.k==='Funktion'||it.k==='Methode';
+    if(fn&&v[c]!=='('){ const t=it.t+'()'; ins(t,acStart,c,ED_NOARG.has(it.t)?t.length:t.length-1); }
+    else ins(it.t,acStart,c);
+  }
+  ac.addEventListener('pointerdown',e=>{const el=e.target.closest('.ac-i'); if(!el) return; e.preventDefault(); acAccept(+el.dataset.i);});
+  /* ---- Klammern & Anführungszeichen automatisch schließen ---- */
+  ta.addEventListener('beforeinput',e=>{
+    if(busy) return;
+    const s=ta.selectionStart, en=ta.selectionEnd, v=ta.value;
+    if(e.inputType==='insertText'&&e.data&&e.data.length===1){
+      let ch=e.data; if('“”„'.includes(ch)) ch='"'; else if('‘’‚'.includes(ch)) ch="'";
+      const nx=v[s]||'', pv=v[s-1]||'';
+      if(')]}'.includes(ch)||ch==='"'||ch==="'"){
+        if(s===en&&nx===ch){ e.preventDefault(); ta.setSelectionRange(s+1,s+1); return; }
+      }
+      if(ch==='}'&&s===en){
+        const ls=v.lastIndexOf('\n',s-1)+1, line=v.slice(ls,s);
+        if(/^\s{2,}$/.test(line)){ e.preventDefault(); ins(line.slice(2)+'}',ls,s); return; }
+      }
+      if(ED_PAIR[ch]&&(ch!=='"'&&ch!=="'"||(!/[\w\\]/.test(pv)))){
+        if(s!==en){ e.preventDefault(); const t=ch+v.slice(s,en)+ED_PAIR[ch]; ins(t,s,en,t.length); return; }
+        if(!nx||/[\s)\]};,]/.test(nx)){ e.preventDefault(); ins(ch+ED_PAIR[ch],s,en,1); return; }
+      }
+      if(ch!==e.data){ e.preventDefault(); ins(ch,s,en); }
+    }
+    else if(e.inputType==='deleteContentBackward'&&s===en&&s>0){
+      const o=v[s-1]; if(ED_PAIR[o]&&v[s]===ED_PAIR[o]){ e.preventDefault(); ins('',s-1,s+1); }
     }
   });
-  return {get:()=>ta.value,set:v=>{ta.value=v;ta.scrollTop=0;render();}};
+  ta.addEventListener('input',()=>{render();onChange&&onChange(ta.value);if(!busy) acUpdate();});
+  ta.addEventListener('scroll',()=>{sync();acHide();});
+  ta.addEventListener('blur',()=>setTimeout(acHide,150));
+  ta.addEventListener('click',acHide);
+  ta.addEventListener('keydown',e=>{
+    if(!ac.hidden&&items.length){
+      if(e.key==='ArrowDown'){e.preventDefault();acSel(1);return;}
+      if(e.key==='ArrowUp'){e.preventDefault();acSel(-1);return;}
+      if(e.key==='Enter'||e.key==='Tab'){e.preventDefault();acAccept(sel);return;}
+      if(e.key==='Escape'){e.preventDefault();acHide();return;}
+    }
+    if(e.key==='Escape'&&host.classList.contains('full')){e.preventDefault();setFull(false);return;}
+    if(e.key==='Tab'){e.preventDefault();ins('  ',ta.selectionStart,ta.selectionEnd);}
+    else if(e.key==='Enter' && !e.isComposing){
+      const s=ta.selectionStart, v=ta.value, before=v.slice(0,s);
+      const line=before.slice(before.lastIndexOf('\n')+1);
+      let ind=(line.match(/^\s*/)||[''])[0];
+      e.preventDefault();
+      if(/\{\s*$/.test(line)){
+        if(v[ta.selectionEnd]==='}'){ const t='\n'+ind+'  \n'+ind; ins(t,s,ta.selectionEnd,ind.length+3); return; }
+        ind+='  ';
+      }
+      ins('\n'+ind,s,ta.selectionEnd);
+    }
+  });
+  /* ---- Bibliothek einfügen ---- */
+  const libSel=host.querySelector('.ed-lib');
+  libSel.addEventListener('change',()=>{
+    const L=ED_LIBS[+libSel.value]; libSel.value=''; if(!L) return;
+    let v=ta.value; const incs=[];
+    L.inc.forEach(h=>{ if(!new RegExp('#\\s*include\\s*[<"]'+h.replace('.','\\.')+'[>"]').test(v)) incs.push('#include <'+h+'>'); });
+    let decl=L.decl&&!(L.cls&&new RegExp('^\\s*'+L.cls+'\\s+\\w','m').test(v))?L.decl:'';
+    if(!incs.length&&!decl){ ta.focus(); return; }
+    // Position: nach der letzten #include-Zeile, sonst ganz oben
+    const re=/^[ \t]*#\s*include[^\n]*\n?/gm; let m,pos=0; while((m=re.exec(v))) pos=m.index+m[0].length;
+    if(pos&&v[pos-1]!=='\n'){ v+='\n'; pos++; }
+    let block=incs.join('\n'); if(block) block+='\n';
+    if(decl) block+=decl+'\n';
+    if(!pos&&v.trim()) block+='\n';
+    const declPos=pos+block.length;
+    ins(block,pos,pos,block.length); ta.focus(); ta.setSelectionRange(declPos-1,declPos-1);
+  });
+  /* ---- Vollbild ---- */
+  const fsBtn=host.querySelector('.ed-fs');
+  function setFull(on){
+    host.classList.toggle('full',on); document.documentElement.classList.toggle('ed-noscroll',on);
+    fsBtn.textContent=on?'✕ Schließen':'⛶ Vollbild'; acHide(); ta.focus(); render();
+  }
+  fsBtn.addEventListener('click',()=>setFull(!host.classList.contains('full')));
+  const runBtn=host.querySelector('.ed-run'); if(runBtn) runBtn.addEventListener('click',()=>{ setFull(false); opts.run(); });
+  return {get:()=>ta.value,set:v=>{ta.value=v;ta.scrollTop=0;acHide();render();},full:setFull};
 }
 
 /* ---------- simulation panel ---------- */
@@ -3974,7 +4157,7 @@ $('#brQuick').onchange=e=>{ if(e.target.value){ brOpen(e.target.value); e.target
 $('#brReload').onclick=()=>brOpen(Net.br.url);
 brOpen('http://demo.iot/');
 /* ---------- events ---------- */
-const labEditor=makeEditor($('#labEditor'),v=>{ cd.code=v; saveLab(); });
+const labEditor=makeEditor($('#labEditor'),v=>{ cd.code=v; saveLab(); },{run:()=>labStart()});
 labEditor.set(cd.code);
 $('#labRun').onclick=labStart;
 $('#labStopBtn').onclick=labStop;
@@ -7551,7 +7734,7 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
 </div>
 <script>
 (function(){
-  var APP_VERSION = '2.6.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+  var APP_VERSION = '2.7.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
   window.UCT_VERSION = APP_VERSION;
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register('sw.js').catch(function(){});

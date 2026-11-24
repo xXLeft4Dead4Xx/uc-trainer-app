@@ -1,4 +1,4 @@
 {
-  "version": "2.6.0",
-  "notes": "Neu im Labor: Touch-Display 2,8″ (ILI9341, TFT_eSPI) – einfach auf das Display tippen. Dazu Preferences (dauerhaft speichern), enum, struct mit Startwerten und die Vorlage „Filament-Trockner (Touch-Display)“."
+  "version": "2.7.0",
+  "notes": "Neuer Code-Editor: Vollbild-Modus, Klammern und Anführungszeichen schließen sich automatisch, Befehls-Vorschläge beim Tippen (auch nach „strip.“ usw.) und ein Menü „📚 Bibliothek einfügen“."
 }
