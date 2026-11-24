@@ -1,4 +1,4 @@
 {
-  "version": "2.7.1",
-  "notes": "Editor für iPad mit Tastatur & Maus: Tastenkürzel (⌘+Enter Start, ⌘+/ Kommentar, Tab/⇧Tab einrücken, ⌥↑↓ Zeile verschieben, ⌘⇧F Vollbild), Zeilen-/Spaltenanzeige, Maus-Hover in den Vorschlägen, größeres Codefeld – auch im geteilten Bildschirm."
+  "version": "2.8.0",
+  "notes": "Serieller Monitor: Eingabefeld zum Senden (Enter), Zeilenende wählbar – Serial.available(), read(), readString(), parseInt() funktionieren jetzt. Neu: „✓ Prüfen“ (⌘B) prüft den Code ohne zu starten."
 }

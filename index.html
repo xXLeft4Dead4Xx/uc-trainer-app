@@ -252,7 +252,15 @@ html.ed-noscroll,html.ed-noscroll body{overflow:hidden}
 .cinfo pre{background:#0a0f13;border:1px solid var(--line);border-radius:6px;padding:8px;font-family:var(--mono);font-size:12px;overflow:auto;margin:0}
 .labbottom{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:12px;margin-top:12px}
 @media (max-width:900px){.labbottom{grid-template-columns:1fr}}
-.labbottom .monitor .mon{height:310px}
+.labbottom .monitor{display:flex;flex-direction:column}
+.labbottom .monitor .mon{height:auto;flex:1;min-height:240px}
+.mon-in{display:flex;gap:6px;padding:6px;border-top:1px solid var(--line)}
+.mon-in input{flex:1;min-width:0;background:#0a0f13;color:#d6e2ea;border:1px solid var(--line2);border-radius:8px;padding:6px 9px;font-family:var(--mono);font-size:13px}
+.mon-in input:focus{outline:none;border-color:var(--teal)}
+.mon-in select{background:#0a0f13;color:inherit;border:1px solid var(--line2);border-radius:8px;font-size:12px;padding:0 4px}
+.mon-in .btn{padding:5px 10px;font-size:13px}
+.mon .sent{color:#7fb0ff}.mon .sent .eol{color:#5f7686}
+.msg.ok{background:#0f2219;border:1px solid #1f5a3c;color:#9fe5b8}
 .lbl{font-size:12px;color:var(--muted);margin-bottom:4px;font-family:var(--mono)}
 .mini2{background:none;border:1px solid var(--line2);color:var(--muted);border-radius:6px;font-size:11px;padding:1px 8px;cursor:pointer}
 .mon .partial{color:#9fb}
@@ -393,6 +401,7 @@ html.ed-noscroll,html.ed-noscroll body{overflow:hidden}
     <div class="card labbar">
       <label>Board <select id="labBoard"><option value="uno">Arduino Uno</option><option value="esp32">ESP32 DevKit</option></select></label>
       <button class="btn primary" id="labRun">▶ Start</button>
+      <button class="btn" id="labVerify" title="Code prüfen ohne zu starten (⌘ B)">✓ Prüfen</button>
       <button class="btn" id="labStopBtn" disabled>■ Stopp</button>
       <span id="labStatus"><span id="labTime">gestoppt</span></span>
       <span class="grow"></span>
@@ -410,7 +419,9 @@ html.ed-noscroll,html.ed-noscroll body{overflow:hidden}
     <div class="msgs" id="labMsgs"></div>
     <div class="labbottom">
       <div><div class="lbl">Sketch</div><div id="labEditor"></div></div>
-      <div class="monitor"><div class="mon-head"><span>Serieller Monitor</span><button class="mini2" id="labClr">leeren</button></div><div class="mon" id="labMon"></div></div>
+      <div class="monitor"><div class="mon-head"><span>Serieller Monitor</span><button class="mini2" id="labClr">leeren</button></div><div class="mon" id="labMon"></div>
+        <form class="mon-in" id="labSerForm" autocomplete="off"><input id="labSerIn" placeholder="An den Arduino senden – Enter drückt „Senden“" enterkeyhint="send" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Text an den seriellen Port senden">
+        <select id="labEol" aria-label="Zeilenende"><option value="\n" selected>Neue Zeile</option><option value="">Kein Zeilenende</option><option value="\r">CR</option><option value="\r\n">CR + NL</option></select><button class="btn" type="submit">Senden</button></form></div>
     </div>
     <details class="card netpanel" id="netPanel" open>
       <summary>🌐 Netzwerk, WLAN &amp; Demo-Website</summary>
@@ -542,7 +553,7 @@ html.ed-noscroll,html.ed-noscroll body{overflow:hidden}
     <div class="ref" id="ref"></div>
   </section>
 
-  <p class="foot">Der Simulator versteht eine vereinfachte Teilmenge von Arduino-C++ (keine Klassen, keine Bibliotheken außer WiFi). Fertigen Code kannst du 1:1 in die Arduino IDE kopieren und auf echte Hardware laden.</p>
+  <p class="foot">Der Simulator versteht eine vereinfachte Teilmenge von Arduino-C++ (gängige Bibliotheken wie HX711, DHT, NeoPixel, TFT_eSPI, WiFi u. a. werden nachgebildet). Fertigen Code kannst du 1:1 in die Arduino IDE kopieren und auf echte Hardware laden.</p>
 </main>
 
 <script>
@@ -843,6 +854,9 @@ function simRuntime(){
     tr.warnings.forEach(w=>{warnSet.add(w);warnings.push({t:0,text:w});});
     const modes={}, out={}, calls={}, args={}, tones={}, servos={};
     let curLine='', serialOn=false, seed=12345, lineSec=-1, lineCnt=0;
+    let rx='', rxTimeout=1000;
+    // Arduino wartet bei readString/parseInt bis zu setTimeout() ms auf Zeichen – hier nur, wenn noch gar nichts angekommen ist
+    const rxWait=()=>{ tick(0.01); if(!rx.length){ t+=rxTimeout; if(t>=limit){t=limit;throw STOP;} } };
     const STOP={stop:true};
     const HANG={hang:true};
     const call=n=>{calls[n]=(calls[n]||0)+1;};
@@ -881,8 +895,14 @@ function simRuntime(){
       println(x,f){call('Serial.println'); needSerial(); addText(x===undefined?'':fmt(x,f)); pushLine(); tick(0.05);},
       printf(f,...a){call('Serial.printf'); needSerial(); addText(cprintf(f,a)); tick(0.05);},
       write(x){addText(typeof x==='number'?String.fromCharCode(x):String(x)); return 1;},
-      available(){tick(0.002);return 0;}, read(){return -1;}, flush(){}, end(){serialOn=false;},
-      setTimeout(){}, readString(){return '';}, parseInt(){return 0;}
+      available(){tick(0.002);return rx.length;}, read(){tick(0.002);if(!rx.length)return -1;const c=rx.charCodeAt(0);rx=rx.slice(1);return c;},
+      peek(){return rx.length?rx.charCodeAt(0):-1;}, flush(){}, end(){serialOn=false;},
+      setTimeout(ms){rxTimeout=Math.max(0,Number(ms)||0);},
+      readString(){rxWait();const r=rx;rx='';return r;},
+      readStringUntil(c){rxWait();c=typeof c==='number'?String.fromCharCode(c):String(c);const i=rx.indexOf(c);let r;if(i<0){r=rx;rx='';}else{r=rx.slice(0,i);rx=rx.slice(i+1);}return r;},
+      readBytes(buf,n){rxWait();const k=Math.min(n,rx.length);if(Array.isArray(buf))for(let i=0;i<k;i++)buf[i]=rx.charCodeAt(i);rx=rx.slice(k);return k;},
+      parseInt(){rxWait();const m=rx.match(/^[^\d-]*(-?\d+)/);if(!m){rx='';return 0;}rx=rx.slice(m[0].length);return parseInt(m[1],10);},
+      parseFloat(){rxWait();const m=rx.match(/^[^\d.-]*(-?\d*\.?\d+)/);if(!m){rx='';return 0;}rx=rx.slice(m[0].length);return parseFloat(m[1]);}
     };
     class Servo{
       attach(p){ this.p=pinNum(p); if(servos[this.p]==null) servos[this.p]=90; call('Servo.attach'); return 1; }
@@ -1381,6 +1401,7 @@ function simRuntime(){
     return {
       get t(){return t;}, get error(){return error;}, get done(){return done;}, get partial(){return curLine;},
       runUntil, events, lines, warnings, modes, out, calls, args, tones, servos, strips, tfts, net:api.__netIf||null,
+      api, serialIn(str){ rx+=String(str); if(rx.length>4096) rx=rx.slice(-4096); }, get rxLen(){return rx.length;},
       take(){ return {events:events.splice(0), lines:lines.splice(0), warnings:warnings.splice(0)}; }
     };
   }
@@ -2279,11 +2300,11 @@ function makeEditor(host,onChange,opts){
   host.classList.add('ed-host');
   host.innerHTML='<div class="ed-bar"><select class="ed-lib" aria-label="Bibliothek einfügen"><option value="">📚 Bibliothek einfügen …</option>'+
     ED_LIBS.map((l,i)=>'<option value="'+i+'">'+esc(l.n)+'</option>').join('')+'</select><span class="ed-sp"></span>'+
-    (opts.run?'<button type="button" class="btn ed-run">▶ Start</button>':'')+
+    (opts.verify?'<button type="button" class="btn ed-ver" title="Code prüfen (⌘ B)">✓ Prüfen</button>':'')+(opts.run?'<button type="button" class="btn ed-run">▶ Start</button>':'')+
     '<span class="ed-pos">Z 1 · S 1</span><button type="button" class="btn ed-keys" aria-label="Tastenkürzel" title="Tastenkürzel">⌨︎</button>'+
     '<button type="button" class="btn ed-fs" aria-label="Vollbild" title="Vollbild (⌘ ⇧ F)">⛶ Vollbild</button></div>'+
     '<div class="ed-help" hidden><b>Tastenkürzel</b> (⌘ = Cmd, auf Windows-Tastatur Strg)<br>'+
-    '<kbd>⌘</kbd>+<kbd>Enter</kbd> Sketch starten · <kbd>⌘</kbd>+<kbd>⇧</kbd>+<kbd>F</kbd> Vollbild · <kbd>Esc</kbd> Vollbild/Vorschläge schließen<br>'+
+    '<kbd>⌘</kbd>+<kbd>Enter</kbd> Sketch starten · <kbd>⌘</kbd>+<kbd>B</kbd> Code prüfen · <kbd>⌘</kbd>+<kbd>⇧</kbd>+<kbd>F</kbd> Vollbild · <kbd>Esc</kbd> Vollbild/Vorschläge schließen<br>'+
     '<kbd>⌘</kbd>+<kbd>/</kbd> Zeilen aus-/einkommentieren · <kbd>Tab</kbd> / <kbd>⇧</kbd>+<kbd>Tab</kbd> markierte Zeilen ein-/ausrücken<br>'+
     '<kbd>⌥</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> Zeile verschieben · <kbd>⌥</kbd>+<kbd>⇧</kbd>+<kbd>↓</kbd> Zeile duplizieren · <kbd>⌘</kbd>+<kbd>S</kbd> speichern (passiert auch automatisch)<br>'+
     'Vorschläge: <kbd>↑</kbd>/<kbd>↓</kbd> wählen, <kbd>Enter</kbd>/<kbd>Tab</kbd> übernehmen – oder mit der Maus anklicken.</div>'+
@@ -2404,6 +2425,7 @@ function makeEditor(host,onChange,opts){
     if(e.key==='Escape'&&host.classList.contains('full')){e.preventDefault();setFull(false);return;}
     const mod=e.metaKey||e.ctrlKey;
     if(mod&&e.key==='Enter'){e.preventDefault();if(opts.run){setFull(false);opts.run();}return;}
+    if(mod&&(e.key==='b'||e.key==='B')&&opts.verify){e.preventDefault();setFull(false);opts.verify();return;}
     if(mod&&e.shiftKey&&(e.key==='f'||e.key==='F')){e.preventDefault();setFull(!host.classList.contains('full'));return;}
     if(mod&&(e.key==='s'||e.key==='S')){e.preventDefault();onChange&&onChange(ta.value);posEl.textContent='✓ gespeichert';setTimeout(showPos,1200);return;}
     if(mod&&(e.key==='/'||e.code==='Slash'||e.key==='7'&&e.shiftKey)){e.preventDefault();
@@ -2460,6 +2482,7 @@ function makeEditor(host,onChange,opts){
     fsBtn.textContent=on?'✕ Schließen':'⛶ Vollbild'; acHide(); ta.focus(); render();
   }
   fsBtn.addEventListener('click',()=>setFull(!host.classList.contains('full')));
+  const verBtn=host.querySelector('.ed-ver'); if(verBtn) verBtn.addEventListener('click',()=>{ setFull(false); opts.verify(); });
   const runBtn=host.querySelector('.ed-run'); if(runBtn) runBtn.addEventListener('click',()=>{ setFull(false); opts.run(); });
   return {get:()=>ta.value,set:v=>{ta.value=v;ta.scrollTop=0;acHide();render();},full:setFull};
 }
@@ -3976,6 +3999,34 @@ function labStart(){
   Lab.running=true; Lab.w0=performance.now(); Lab.simT=0; audioInit(); setRunUI(true);
   Lab.raf=requestAnimationFrame(labFrame);
 }
+function lev(a,b){ a=a.toLowerCase(); b=b.toLowerCase(); const d=[...Array(b.length+1).keys()];
+  for(let i=1;i<=a.length;i++){ let p=d[0]; d[0]=i; for(let j=1;j<=b.length;j++){ const t=d[j]; d[j]=Math.min(d[j]+1,d[j-1]+1,p+(a[i-1]===b[j-1]?0:1)); p=t; } } return d[b.length]; }
+function labVerify(){
+  const d=cd, code=labEditor.get(); d.code=code; saveLab();
+  $('#labMsgs').innerHTML='';
+  let m;
+  try{ m=RT.makeMachine(RT.BOARDS[d.board],code,liveHW(d,lab.cur),{opsMax:5e6}); }
+  catch(e){ labMsg('err','Prüfen: Kompilierfehler\n'+e.message); return false; }
+  // Funktionen von Bibliotheks-Objekten prüfen (wie der echte Compiler: „has no member named …“)
+  const clean=code.replace(/\/\/.*$|\/\*[\s\S]*?\*\//gm,'').replace(/"(?:\\.|[^"\\\n])*"/g,'""');
+  const objs={Serial:m.api.Serial,WiFi:m.api.WiFi};
+  const declRe=/\b([A-Z]\w*)\s+\*?\s*([A-Za-z_]\w*)\s*(?=[;=(\[,])/g; let dm;
+  while((dm=declRe.exec(clean))){ const C=m.api[dm[1]]; if(typeof C==='function'&&C.prototype) objs[dm[2]]={__cls:dm[1],proto:C.prototype}; }
+  const errs=[]; const callRe=/\b([A-Za-z_]\w*)\s*(?:\.|->)\s*([A-Za-z_]\w*)\s*\(/g; let cm;
+  while((cm=callRe.exec(clean))){
+    const o=objs[cm[1]]; if(!o) continue;
+    const has=o.__cls?(cm[2] in o.proto):(cm[2] in o);
+    if(!has){ const ln=clean.slice(0,cm.index).split('\n').length, cls=o.__cls||cm[1];
+      const names=o.__cls?Object.getOwnPropertyNames(o.proto):Object.keys(o);
+      const near=names.find(n=>n.toLowerCase()===cm[2].toLowerCase())||names.filter(n=>n!=='constructor').sort((a,b)=>lev(a,cm[2])-lev(b,cm[2]))[0];
+      errs.push('Zeile '+ln+': „'+cls+'“ hat keine Funktion „'+cm[2]+'“'+(near&&lev(near,cm[2])<=3?' – meintest du „'+near+'“?':'')); }
+  }
+  if(errs.length){ labMsg('err','Prüfen: Kompilierfehler\n'+[...new Set(errs)].join('\n')); return false; }
+  const w=m.warnings.splice(0);
+  w.forEach(x=>labMsg('warn',x.text));
+  $('#labMsgs').insertAdjacentHTML('beforeend','<div class="msg ok">✔ Code geprüft – keine Fehler gefunden'+(w.length?' ('+w.length+' Hinweis'+(w.length>1?'e':'')+' oben)':'')+'. Board: '+esc(RT.BOARDS[d.board].name||d.board)+'</div>');
+  return true;
+}
 function labStop(){
   cancelAnimationFrame(Lab.raf); Lab.raf=0; Lab.running=false;
   Object.values(Lab.runs).forEach(r=>{ if(r.m){ r.m=null; if(r.status==='run') r.status='stop'; } });
@@ -4196,9 +4247,21 @@ $('#brQuick').onchange=e=>{ if(e.target.value){ brOpen(e.target.value); e.target
 $('#brReload').onclick=()=>brOpen(Net.br.url);
 brOpen('http://demo.iot/');
 /* ---------- events ---------- */
-const labEditor=makeEditor($('#labEditor'),v=>{ cd.code=v; saveLab(); },{run:()=>labStart()});
+const labEditor=makeEditor($('#labEditor'),v=>{ cd.code=v; saveLab(); },{run:()=>labStart(),verify:()=>labVerify()});
 labEditor.set(cd.code);
 $('#labRun').onclick=labStart;
+$('#labVerify').onclick=labVerify;
+$('#labSerForm').addEventListener('submit',e=>{
+  e.preventDefault(); const inp=$('#labSerIn'), eol=$('#labEol').value.replace(/\\n/g,'\n').replace(/\\r/g,'\r');
+  const txt=inp.value+eol, m=curM();
+  if(!m){ labMsg('warn','Der Sketch läuft nicht – erst ▶ Start drücken, dann senden.'); return; }
+  if(!txt){ return; }
+  m.serialIn(txt); inp.value='';
+  const mon=$('#labMon'); mon.insertAdjacentHTML('beforeend','<div class="sent"><span class="ts">gesendet → </span>'+(esc(txt.replace(/[\r\n]+$/,''))||'')+'<span class="eol">'+(/\r\n$/.test(txt)?' ↵ (CR+NL)':/\n$/.test(txt)?' ↵ Enter':/\r$/.test(txt)?' ↵ (CR)':'')+'</span>'+'</div>'); mon.scrollTop=mon.scrollHeight;
+  inp.focus();
+});
+$('#labEol').value=localStorage.getItem('uct-eol')??'\\n';
+$('#labEol').onchange=e=>{try{localStorage.setItem('uct-eol',e.target.value);}catch(_){}};
 $('#labStopBtn').onclick=labStop;
 $('#labClr').onclick=()=>{ $('#labMon').innerHTML=''; };
 $('#labSound').onclick=()=>{ lab.sound=!lab.sound; $('#labSound').textContent=lab.sound?'🔊 Ton an':'🔇 Ton aus'; if(lab.sound) audioInit(); else audioStopAll(); };
@@ -7773,7 +7836,7 @@ header .chip:before,header .chip:after{background:repeating-linear-gradient(90de
 </div>
 <script>
 (function(){
-  var APP_VERSION = '2.7.1';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
+  var APP_VERSION = '2.8.0';   // bei jeder Änderung erhöhen – und in version.json gleich setzen
   window.UCT_VERSION = APP_VERSION;
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register('sw.js').catch(function(){});
